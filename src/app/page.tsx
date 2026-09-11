@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { AuthHeaderActions } from "@/components/AuthHeaderActions";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { prisma } from "@/lib/prisma";
 
@@ -32,22 +31,6 @@ export default async function RecherchePage({
 
   return (
     <div>
-      {/* nav */}
-      <header className="flex items-center justify-between px-8 py-5 md:px-14">
-        <div className="flex items-center gap-2">
-          <span className="h-[30px] w-[30px] rounded-[50%_50%_50%_4px] bg-[var(--color-accent)]" />
-          <span className="font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--color-ink)]">
-            TheSpoon
-          </span>
-        </div>
-        <div className="hidden items-center gap-2 md:flex">
-          <AuthHeaderActions />
-          <span className="rounded-full bg-[var(--color-ink)] px-5 py-2.5 text-sm font-semibold text-[var(--color-cream)]">
-            Ajouter mon resto
-          </span>
-        </div>
-      </header>
-
       {/* hero */}
       <section className="relative mx-4 overflow-hidden rounded-[36px] bg-[var(--color-accent)] px-6 py-12 md:mx-6 md:px-16 md:py-16">
         <div className="pointer-events-none absolute -right-16 -top-44 h-[520px] w-[520px] rounded-full bg-[var(--color-accent-soft)] opacity-45" />
