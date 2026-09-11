@@ -14,5 +14,10 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true },
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
+  // BETTER_AUTH_URL reste l'URL de prod (même valeur partagée par tous les
+  // contextes Netlify, cf. README) — sans ça, better-auth rejette les
+  // requêtes venant des Deploy Previews et branch deploys ("Invalid origin"),
+  // dont l'origine ne correspond jamais à BETTER_AUTH_URL.
+  trustedOrigins: ["https://*--the-spoon-bootcamp.netlify.app"],
   plugins: [nextCookies()],
 });
