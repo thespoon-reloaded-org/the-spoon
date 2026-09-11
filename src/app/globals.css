@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  /*
+   * Identité visuelle TheSpoon — importée du design Claude Design
+   * (projet "Spoon reservation website design", TheSpoon Landing.dc.html).
+   * Ne pas redériver à la main : si le design change, ré-importer.
+   */
+  --color-ink: #1a1418;
+  --color-ink-muted: #8a7f85;
+  --color-ink-soft: #4a4045;
+  --color-cream: #fff9f4;
+  --color-page: #f2ede9;
+  --color-accent: #d81e4a;
+  --color-accent-hover: #a8143a;
+  --color-accent-soft: #ff5c7a;
+  --color-accent-tint: #fdeff3;
+  --color-yellow: #ffc145;
+  --color-line: #f0e7e4;
+  --color-line-strong: #e6dad6;
+
+  --font-display: "Bricolage Grotesque", sans-serif;
+  --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+@keyframes spoon-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}

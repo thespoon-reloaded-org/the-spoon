@@ -1,0 +1,36 @@
+// ============================================================================
+//  TheSpoon — modèle de données
+//
+//  Volontairement minimal. On ne modélise pas l'entreprise fictive au complet
+//  avant d'écrire du produit : chaque modèle arrive avec l'écran qui en a
+//  besoin, pas avant. Voir README.md.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Un restaurant partenaire, tel qu'affiché côté dîneur (recherche + fiche).
+/// Les champs de gestion interne (commission, contact, fiche technique...)
+/// arriveront avec l'espace restaurant et le BO admin.
+model Restaurant {
+  id            String   @id @default(cuid())
+  nom           String
+  ville         String
+  cuisine       String
+  adresse       String
+  description   String?
+  capacite      Int?
+  noteCuilleres Float?
+  nombreAvis    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([ville])
+  @@index([cuisine])
+}
