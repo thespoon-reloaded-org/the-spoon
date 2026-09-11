@@ -10,45 +10,97 @@ export default async function FicheRestaurantPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const restaurant = await prisma.restaurant.findUnique({ where: { id } });
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id },
+    include: { platsCuillere: { orderBy: { createdAt: "desc" } } },
+  });
 
   if (!restaurant) notFound();
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link href="/" className="text-sm text-[var(--color-ink-muted)] hover:underline">
-        ← Retour à la recherche
-      </Link>
+    <main>
+      {/* hero */}
+      <section className="relative mx-4 mt-4 overflow-hidden rounded-[36px] bg-[var(--color-accent)] px-6 py-10 md:mx-6 md:px-16 md:py-14">
+        <div className="pointer-events-none absolute -right-20 -top-52 h-[520px] w-[520px] rounded-full bg-[var(--color-accent-soft)] opacity-45" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-[140px] w-[280px] rounded-t-[280px] bg-[var(--color-yellow)] opacity-95" />
 
-      <h1 className="mt-4 text-2xl font-semibold">{restaurant.nom}</h1>
-      <p className="text-[var(--color-ink-muted)]">
-        {restaurant.cuisine} · {restaurant.ville}
-      </p>
+        <Link
+          href="/"
+          className="relative mb-6 inline-block text-sm font-medium text-[#ffe3e9] hover:underline"
+        >
+          ← Retour à la recherche
+        </Link>
 
-      <div className="mt-3">
-        <NoteCuilleres note={restaurant.noteCuilleres} nombreAvis={restaurant.nombreAvis} />
-      </div>
+        <div className="relative max-w-xl">
+          <div className="mb-5 flex flex-wrap gap-2">
+            <span className="rounded-full bg-[var(--color-yellow)] px-3.5 py-1.5 text-xs font-bold text-[var(--color-ink)]">
+              {restaurant.cuisine.toUpperCase()}
+            </span>
+            <span className="rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold text-[var(--color-cream)]">
+              {restaurant.ville}
+            </span>
+            {restaurant.horaires && (
+              <span className="rounded-full bg-white/20 px-3.5 py-1.5 text-xs font-semibold text-[var(--color-cream)]">
+                {restaurant.horaires}
+              </span>
+            )}
+          </div>
 
-      {restaurant.description && <p className="mt-6">{restaurant.description}</p>}
+          <h1 className="mb-4 font-[family-name:var(--font-display)] text-4xl font-extrabold leading-[0.95] tracking-tight text-[var(--color-cream)] md:text-6xl">
+            {restaurant.nom}
+          </h1>
 
-      <dl className="mt-6 space-y-1 text-sm text-[var(--color-ink-muted)]">
-        <div>
-          <dt className="inline font-medium text-[var(--color-ink)]">Adresse : </dt>
-          <dd className="inline">{restaurant.adresse}</dd>
+          <div className="flex flex-wrap items-center gap-3 text-[15px] text-[#ffe3e9]">
+            <NoteCuilleres note={restaurant.noteCuilleres} nombreAvis={restaurant.nombreAvis} />
+            <span className="opacity-45">|</span>
+            <span aria-label={`Adresse : ${restaurant.adresse}`}>{restaurant.adresse}</span>
+          </div>
         </div>
+      </section>
+
+      {/* corps */}
+      <section className="mx-4 mt-8 flex flex-col gap-10 px-2 pb-14 md:mx-6 md:px-4">
+        {restaurant.description && (
+          <p className="max-w-2xl text-[15px] leading-relaxed text-[var(--color-ink-soft)]">
+            {restaurant.description}
+          </p>
+        )}
+
         {restaurant.capacite && (
-          <div>
-            <dt className="inline font-medium text-[var(--color-ink)]">Capacité : </dt>
-            <dd className="inline">{restaurant.capacite} couverts</dd>
+          <dl className="inline-flex w-fit flex-col gap-1 rounded-[22px] border border-[var(--color-line)] bg-white px-6 py-4">
+            <dt className="font-mono text-[11px] tracking-wide text-[var(--color-ink-muted)]">
+              CAPACITÉ
+            </dt>
+            <dd className="font-[family-name:var(--font-display)] text-xl font-bold text-[var(--color-ink)]">
+              {restaurant.capacite} couverts
+            </dd>
+          </dl>
+        )}
+
+        {restaurant.platsCuillere.length > 0 && (
+          <div className="flex flex-col gap-5">
+            <h2 className="font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--color-ink)] md:text-3xl">
+              Les incontournables
+            </h2>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {restaurant.platsCuillere.map((plat) => (
+                <div
+                  key={plat.id}
+                  className="flex flex-col gap-2 rounded-[22px] border border-[var(--color-line)] bg-white p-5"
+                >
+                  <span className="text-2xl">🥣</span>
+                  <span className="font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-[var(--color-ink)]">
+                    {plat.nom}
+                  </span>
+                  {plat.description && (
+                    <span className="text-sm text-[var(--color-ink-muted)]">{plat.description}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
-        {restaurant.horaires && (
-          <div>
-            <dt className="inline font-medium text-[var(--color-ink)]">Horaires : </dt>
-            <dd className="inline">{restaurant.horaires}</dd>
-          </div>
-        )}
-      </dl>
+      </section>
 
       {/* La réservation arrive avec la story suivante (Réservation / booking). */}
     </main>

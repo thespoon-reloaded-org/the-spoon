@@ -24,8 +24,8 @@ model Restaurant {
   ville         String
   cuisine       String
   adresse       String
-  description   String?
   horaires      String?
+  description   String?
   capacite      Int?
   noteCuilleres Float?
   nombreAvis    Int      @default(0)
