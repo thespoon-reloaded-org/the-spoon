@@ -42,9 +42,13 @@ pnpm dev                # http://localhost:3100
   conflits. `/restaurants/[id]/reservations` liste les réservations d'un
   restaurant : c'est une vue de secours non protégée en attendant la vraie
   espace restaurant, pas un vrai back-office partenaire.
+- Gestion de ma réservation (`/mes-reservations`) : un dîneur connecté voit
+  ses réservations passées/à venir et peut annuler celles à venir
+  (`src/app/mes-reservations/`). Une réservation annulée reste visible avec
+  son statut, elle n'est pas supprimée.
 
 ## Ce qui n'existe pas encore
 
-Le reste du backlog Notion : gestion/annulation de sa réservation, auth
-restaurant partenaire / staff, espace restaurant (BO complet), BO admin,
-facturation, litiges, avis, ticketing, base documentaire.
+Le reste du backlog Notion : auth restaurant partenaire / staff, espace
+restaurant (BO complet), BO admin, facturation, litiges, avis, ticketing,
+base documentaire.
