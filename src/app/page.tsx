@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AuthHeaderActions } from "@/components/AuthHeaderActions";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { prisma } from "@/lib/prisma";
 
@@ -40,9 +41,7 @@ export default async function RecherchePage({
           </span>
         </div>
         <div className="hidden items-center gap-2 md:flex">
-          <span className="rounded-full border-[1.5px] border-[var(--color-ink)] px-5 py-2.5 text-sm font-semibold text-[var(--color-ink)]">
-            Connexion
-          </span>
+          <AuthHeaderActions />
           <span className="rounded-full bg-[var(--color-ink)] px-5 py-2.5 text-sm font-semibold text-[var(--color-cream)]">
             Ajouter mon resto
           </span>
