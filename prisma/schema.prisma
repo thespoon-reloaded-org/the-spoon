@@ -34,6 +34,7 @@ model Restaurant {
 
   platsCuillere PlatCuillere[]
   bookings      Booking[]
+  avis          Avis[]
 
   @@index([ville])
   @@index([cuisine])
@@ -79,6 +80,26 @@ model Booking {
   @@index([userId])
 }
 
+/// Un avis déposé par un dîneur après son passage dans un restaurant — un
+/// seul avis par (restaurant, dîneur), modifiable (voir `deposerAvis`, qui
+/// fait un upsert et recalcule `Restaurant.noteCuilleres`/`nombreAvis` à
+/// chaque dépôt). Pas de modération pour l'instant : décision volontairement
+/// pas prise ici, voir le ticket Notion "Modération des avis".
+model Avis {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  noteCuilleres Int
+  commentaire   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([restaurantId, userId])
+  @@index([restaurantId])
+}
+
 // ----------------------------------------------------------------------------
 //  Auth dîneur (better-auth). Restaurant partenaire et staff TheSpoon sont
 //  des stories séparées, pas encore démarrées — un seul modèle User pour
@@ -101,6 +122,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   bookings      Booking[]
+  avis          Avis[]
 
   @@unique([email])
   @@map("user")

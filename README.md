@@ -9,8 +9,8 @@ détaillée (facturation, commission, litiges) dont ce produit s'inspire.
 données n'est pas conçu à l'avance en un bloc — chaque table arrive avec
 l'écran qui en a besoin. `prisma/schema.prisma` ne contient aujourd'hui que
 `Restaurant`/`PlatCuillere` (recherche + fiche établissement), `Booking`
-(réservation) et les tables d'auth dîneur (`User`/`Session`/`Account`/
-`Verification`, générées par better-auth).
+(réservation), `Avis` (dépôt d'avis) et les tables d'auth dîneur
+(`User`/`Session`/`Account`/`Verification`, générées par better-auth).
 
 Identité visuelle non décidée : les couleurs dans `globals.css` sont un
 placeholder neutre, à ne pas confondre avec la charte Hymaïa (TheSpoon est sa
@@ -46,9 +46,19 @@ pnpm dev                # http://localhost:3100
   ses réservations passées/à venir et peut annuler celles à venir
   (`src/app/mes-reservations/`). Une réservation annulée reste visible avec
   son statut, elle n'est pas supprimée.
+- Dépôt d'avis (cuillères) : un dîneur connecté ayant une réservation
+  confirmée déjà passée dans un restaurant peut y déposer un avis (note de 1
+  à 5 cuillères + commentaire facultatif) ou modifier celui qu'il a déjà
+  laissé — un seul avis par (dîneur, restaurant)
+  (`src/components/AvisForm.tsx` + `deposerAvis` dans
+  `src/app/restaurants/[id]/actions.ts`). `Restaurant.noteCuilleres`/
+  `nombreAvis` sont recalculés à chaque dépôt. Pas de modération pour
+  l'instant (voir le ticket Notion "Modération des avis") ni de lien avec un
+  éventuel déréférencement — décisions volontairement laissées ouvertes sur
+  l'epic "Avis & notation".
 
 ## Ce qui n'existe pas encore
 
 Le reste du backlog Notion : auth restaurant partenaire / staff, espace
-restaurant (BO complet), BO admin, facturation, litiges, avis, ticketing,
-base documentaire.
+restaurant (BO complet), BO admin, facturation, litiges, modération des
+avis, ticketing, base documentaire.

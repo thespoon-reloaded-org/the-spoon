@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+import { AvisForm } from "@/components/AvisForm";
 import { BookingCard } from "@/components/BookingCard";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { auth } from "@/lib/auth";
@@ -17,12 +18,31 @@ export default async function FicheRestaurantPage({
   const [restaurant, session] = await Promise.all([
     prisma.restaurant.findUnique({
       where: { id },
-      include: { platsCuillere: { orderBy: { createdAt: "desc" } } },
+      include: {
+        platsCuillere: { orderBy: { createdAt: "desc" } },
+        avis: { include: { user: true }, orderBy: { createdAt: "desc" } },
+      },
     }),
     auth.api.getSession({ headers: await headers() }),
   ]);
 
   if (!restaurant) notFound();
+
+  // Réservé aux dîneurs déjà servis (réservation confirmée et passée) —
+  // cohérent avec la garde faite côté serveur dans `deposerAvis`.
+  const dejaServi = session
+    ? await prisma.booking.findFirst({
+        where: {
+          restaurantId: restaurant.id,
+          userId: session.user.id,
+          statut: "CONFIRMEE",
+          date: { lte: new Date() },
+        },
+        select: { id: true },
+      })
+    : null;
+
+  const avisExistant = session ? (restaurant.avis.find((a) => a.userId === session.user.id) ?? null) : null;
 
   return (
     <main>
@@ -108,12 +128,54 @@ export default async function FicheRestaurantPage({
           </div>
         )}
 
-        <div className="max-w-md">
-          <BookingCard
-            restaurantId={restaurant.id}
-            estConnecte={!!session}
-            jours={genererJoursReservables()}
-          />
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+          <div className="flex flex-col gap-5">
+            <h2 className="font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-[var(--color-ink)] md:text-3xl">
+              Avis
+            </h2>
+
+            <AvisForm
+              restaurantId={restaurant.id}
+              estConnecte={!!session}
+              peutDeposer={!!dejaServi}
+              avisExistant={
+                avisExistant
+                  ? { noteCuilleres: avisExistant.noteCuilleres, commentaire: avisExistant.commentaire }
+                  : null
+              }
+            />
+
+            {restaurant.avis.length === 0 ? (
+              <p className="text-sm text-[var(--color-ink-muted)]">Pas encore d&apos;avis.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {restaurant.avis.map((avis) => (
+                  <div
+                    key={avis.id}
+                    className="rounded-[22px] border border-[var(--color-line)] bg-white p-5"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-[var(--color-ink)]">{avis.user.name}</span>
+                      <span aria-label={`${avis.noteCuilleres} sur 5 cuillères`}>
+                        {"🥄".repeat(avis.noteCuilleres)}
+                      </span>
+                    </div>
+                    {avis.commentaire && (
+                      <p className="mt-2 text-sm text-[var(--color-ink-muted)]">{avis.commentaire}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="max-w-md">
+            <BookingCard
+              restaurantId={restaurant.id}
+              estConnecte={!!session}
+              jours={genererJoursReservables()}
+            />
+          </div>
         </div>
       </section>
     </main>
