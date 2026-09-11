@@ -42,6 +42,12 @@ export default async function FicheRestaurantPage({
             <dd className="inline">{restaurant.capacite} couverts</dd>
           </div>
         )}
+        {restaurant.horaires && (
+          <div>
+            <dt className="inline font-medium text-[var(--color-ink)]">Horaires : </dt>
+            <dd className="inline">{restaurant.horaires}</dd>
+          </div>
+        )}
       </dl>
 
       {/* La réservation arrive avec la story suivante (Réservation / booking). */}
