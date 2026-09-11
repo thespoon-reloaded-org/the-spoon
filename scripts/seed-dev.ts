@@ -15,6 +15,7 @@ const restaurants = [
     noteCuilleres: 4.3,
     nombreAvis: 128,
     plats: [{ nom: "Gratin dauphinois", description: "Crémeux, cuit trois heures." }],
+    contacts: [{ nom: "Antoine Dubreuil", email: "antoine@chez-antoine.example", role: "GERANT" as const }],
   },
   {
     nom: "Miso Bar",
@@ -27,6 +28,7 @@ const restaurants = [
     noteCuilleres: 4.7,
     nombreAvis: 64,
     plats: [{ nom: "Ramen tonkotsu", description: "Bouillon os de porc 18h, œuf mollet." }],
+    contacts: [{ nom: "Haruto Sato", email: "haruto@miso-bar.example", role: "GERANT" as const }],
   },
   {
     nom: "Le Petit Marché",
@@ -39,6 +41,7 @@ const restaurants = [
     noteCuilleres: null,
     nombreAvis: 0,
     plats: [{ nom: "Pot-au-feu", description: null }],
+    contacts: [{ nom: "Camille Roy", email: "camille@petit-marche.example", role: "CHEF_DE_SALLE" as const }],
   },
   {
     nom: "Trattoria Bellini",
@@ -78,16 +81,26 @@ const restaurants = [
   },
 ];
 
+/** L'organigramme TheSpoon — pas encore de connexion, juste l'identité (voir schema.prisma). */
+const staff = [
+  { nom: "Léa Fontaine", email: "lea.fontaine@thespoon.example", role: "Support restaurants" },
+  { nom: "Nadia Belkacem", email: "nadia.belkacem@thespoon.example", role: "Finance & facturation" },
+];
+
 async function run() {
+  await prisma.staff.deleteMany();
   await prisma.platCuillere.deleteMany();
   await prisma.restaurant.deleteMany();
 
-  for (const { plats, ...restaurant } of restaurants) {
+  for (const { plats, contacts, ...restaurant } of restaurants) {
     await prisma.restaurant.create({
-      data: { ...restaurant, platsCuillere: { create: plats } },
+      data: { ...restaurant, platsCuillere: { create: plats }, contacts: { create: contacts } },
     });
   }
-  console.log(`${restaurants.length} restaurants créés, avec leur plat à la cuillère.`);
+  await prisma.staff.createMany({ data: staff });
+
+  console.log(`${restaurants.length} restaurants créés, avec leur plat à la cuillère et leur contact.`);
+  console.log(`${staff.length} membres du staff créés.`);
 }
 
 run()

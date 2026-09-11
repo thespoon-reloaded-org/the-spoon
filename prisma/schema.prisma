@@ -35,6 +35,7 @@ model Restaurant {
   platsCuillere PlatCuillere[]
   bookings      Booking[]
   avis          Avis[]
+  contacts      RestaurantContact[]
 
   @@index([ville])
   @@index([cuisine])
@@ -52,6 +53,44 @@ model PlatCuillere {
   createdAt    DateTime   @default(now())
 
   @@index([restaurantId])
+}
+
+// ----------------------------------------------------------------------------
+//  Socle partenaires & staff. Identité seule, pas encore de connexion : "Auth
+//  restaurant partenaire" et "Auth staff TheSpoon & permissions" sont des
+//  stories séparées, pas encore démarrées.
+// ----------------------------------------------------------------------------
+
+/// Un gérant ou un chef de salle, côté restaurant partenaire.
+enum RoleContactRestaurant {
+  GERANT
+  CHEF_DE_SALLE
+}
+
+/// Le contact d'un restaurant partenaire — pas un dîneur. Rattaché à son
+/// établissement, c'est lui qui contestera une facture (voir "Contestations &
+/// litiges").
+model RestaurantContact {
+  id           String                @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  nom          String
+  email        String
+  role         RoleContactRestaurant
+  createdAt    DateTime              @default(now())
+
+  @@index([restaurantId])
+}
+
+/// L'organigramme interne TheSpoon. Pas de rôles détaillés ici (instructeur
+/// litiges, validateur avoirs...) — ça arrivera avec "Auth staff TheSpoon &
+/// permissions".
+model Staff {
+  id        String   @id @default(cuid())
+  nom       String
+  email     String   @unique
+  role      String?
+  createdAt DateTime @default(now())
 }
 
 /// Statut d'une réservation. Pas de distinction "honorée" / "no-show" ici —

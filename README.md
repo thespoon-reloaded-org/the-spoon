@@ -7,9 +7,13 @@ détaillée (facturation, commission, litiges) dont ce produit s'inspire.
 
 **Approche : produit et écrans d'abord, schéma ensuite.** Le modèle de
 données n'est pas conçu à l'avance en un bloc — chaque table arrive avec
-l'écran qui en a besoin. `prisma/schema.prisma` ne contient aujourd'hui que
+l'écran qui en a besoin. Exception assumée : `RestaurantContact` et `Staff`
+sont un socle posé en avance (story "Modèle de données" dédiée), sans écran
+ni connexion pour l'instant — juste l'identité, en préparation des auths
+restaurant partenaire et staff. `prisma/schema.prisma` contient aujourd'hui
 `Restaurant`/`PlatCuillere` (recherche + fiche établissement), `Booking`
-(réservation), `Avis` (dépôt d'avis) et les tables d'auth dîneur
+(réservation), `Avis` (dépôt d'avis), `RestaurantContact`/`Staff` (socle
+partenaires, sans auth) et les tables d'auth dîneur
 (`User`/`Session`/`Account`/`Verification`, générées par better-auth).
 
 Identité visuelle non décidée : les couleurs dans `globals.css` sont un
@@ -56,6 +60,10 @@ pnpm dev                # http://localhost:3100
   l'instant (voir le ticket Notion "Modération des avis") ni de lien avec un
   éventuel déréférencement — décisions volontairement laissées ouvertes sur
   l'epic "Avis & notation".
+- Socle partenaires & staff : tables `RestaurantContact` (gérant/chef de
+  salle d'un restaurant) et `Staff` (organigramme interne), pas encore de
+  connexion ni d'écran — préparent "Auth restaurant partenaire" et "Auth
+  staff TheSpoon & permissions". `pnpm seed:dev` en crée quelques-uns.
 
 ## Ce qui n'existe pas encore
 
