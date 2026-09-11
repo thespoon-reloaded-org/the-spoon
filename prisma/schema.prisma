@@ -53,18 +53,27 @@ model PlatCuillere {
   @@index([restaurantId])
 }
 
+/// Statut d'une réservation. Pas de distinction "honorée" / "no-show" ici —
+/// ce sera nécessaire pour la facturation (voir "Schéma réservation &
+/// facturation") mais n'est pas encore modélisé.
+enum StatutReservation {
+  CONFIRMEE
+  ANNULEE
+}
+
 /// Une réservation faite par un dîneur connecté sur la fiche établissement.
-/// Pas de gestion de disponibilité/capacité ni d'annulation ici — ce sont
-/// des stories séparées ("Gestion de ma réservation", espace restaurant).
+/// Pas de gestion de disponibilité/capacité ici — ce sera une story séparée
+/// (espace restaurant).
 model Booking {
-  id           String     @id @default(cuid())
+  id           String            @id @default(cuid())
   restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   date         DateTime
   couverts     Int
-  createdAt    DateTime   @default(now())
+  statut       StatutReservation @default(CONFIRMEE)
+  createdAt    DateTime          @default(now())
 
   @@index([restaurantId])
   @@index([userId])

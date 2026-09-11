@@ -37,6 +37,9 @@ export function AuthHeaderActions() {
 
   return (
     <div className="flex items-center gap-3">
+      <Link href="/mes-reservations" className="text-sm font-medium text-[var(--color-ink)] hover:underline">
+        Mes réservations
+      </Link>
       <span className="text-sm font-medium text-[var(--color-ink)]">
         Bonjour {session.user.name}
       </span>
