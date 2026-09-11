@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
 
+import { SiteHeader } from "@/components/SiteHeader";
+
 import "./globals.css";
 
 const bricolage = Bricolage_Grotesque({
@@ -23,7 +25,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className={`${bricolage.variable} ${jakarta.variable}`}>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <SiteHeader />
+        {children}
+      </body>
     </html>
   );
 }
