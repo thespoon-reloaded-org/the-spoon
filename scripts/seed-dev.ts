@@ -13,6 +13,7 @@ const restaurants = [
     capacite: 40,
     noteCuilleres: 4.3,
     nombreAvis: 128,
+    plats: [{ nom: "Gratin dauphinois", description: "Crémeux, cuit trois heures." }],
   },
   {
     nom: "Miso Bar",
@@ -23,6 +24,7 @@ const restaurants = [
     capacite: 24,
     noteCuilleres: 4.7,
     nombreAvis: 64,
+    plats: [{ nom: "Ramen tonkotsu", description: "Bouillon os de porc 18h, œuf mollet." }],
   },
   {
     nom: "Le Petit Marché",
@@ -33,6 +35,7 @@ const restaurants = [
     capacite: 30,
     noteCuilleres: null,
     nombreAvis: 0,
+    plats: [{ nom: "Pot-au-feu", description: null }],
   },
   {
     nom: "Trattoria Bellini",
@@ -43,6 +46,7 @@ const restaurants = [
     capacite: 45,
     noteCuilleres: 4.8,
     nombreAvis: 212,
+    plats: [{ nom: "Risotto aux cèpes", description: "Riz carnaroli, cèpes séchés, parmesan 24 mois." }],
   },
   {
     nom: "Racines Vertes",
@@ -53,6 +57,7 @@ const restaurants = [
     capacite: 28,
     noteCuilleres: 4.6,
     nombreAvis: 97,
+    plats: [{ nom: "Velouté de potimarron", description: "Noisettes torréfiées, huile de courge." }],
   },
   {
     nom: "Beyrouth Café",
@@ -63,18 +68,23 @@ const restaurants = [
     capacite: 36,
     noteCuilleres: 4.5,
     nombreAvis: 73,
+    plats: [{ nom: "Chorba libanaise", description: "Soupe de lentilles corail, citron confit." }],
   },
 ];
 
-async function main() {
+async function run() {
+  await prisma.platCuillere.deleteMany();
   await prisma.restaurant.deleteMany();
-  for (const restaurant of restaurants) {
-    await prisma.restaurant.create({ data: restaurant });
+
+  for (const { plats, ...restaurant } of restaurants) {
+    await prisma.restaurant.create({
+      data: { ...restaurant, platsCuillere: { create: plats } },
+    });
   }
-  console.log(`${restaurants.length} restaurants créés.`);
+  console.log(`${restaurants.length} restaurants créés, avec leur plat à la cuillère.`);
 }
 
-main()
+run()
   .catch((erreur) => {
     console.error(erreur);
     process.exit(1);

@@ -12,7 +12,7 @@ export default async function RecherchePage({
 }) {
   const { ville, cuisine } = await searchParams;
 
-  const [restaurants, cuisines] = await Promise.all([
+  const [restaurants, cuisines, platsCuillere] = await Promise.all([
     prisma.restaurant.findMany({
       where: {
         ville: ville ? { equals: ville, mode: "insensitive" } : undefined,
@@ -23,6 +23,10 @@ export default async function RecherchePage({
     prisma.restaurant
       .findMany({ distinct: ["cuisine"], select: { cuisine: true }, orderBy: { cuisine: "asc" } })
       .then((rows) => rows.map((r) => r.cuisine)),
+    prisma.platCuillere.findMany({
+      include: { restaurant: true },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   return (
@@ -111,6 +115,40 @@ export default async function RecherchePage({
           ))}
         </div>
       </div>
+
+      {/* plats à la cuillère */}
+      {platsCuillere.length > 0 && (
+        <section className="bg-[var(--color-accent-tint)] px-6 py-10 md:px-14">
+          <h2 className="font-[family-name:var(--font-display)] text-3xl font-extrabold tracking-tight text-[var(--color-ink)] md:text-4xl">
+            Ce soir, on mange à la cuillère
+          </h2>
+          <p className="mt-2 max-w-lg text-[var(--color-ink-soft)]">
+            TheSpoon, c&apos;est ça avant tout : des plats qui se mangent à la cuillère, chez nos
+            restaurants partenaires.
+          </p>
+
+          <div className="mt-8 flex gap-5 overflow-x-auto pb-2">
+            {platsCuillere.map((plat) => (
+              <Link
+                key={plat.id}
+                href={`/restaurants/${plat.restaurantId}`}
+                className="flex w-[260px] shrink-0 flex-col gap-3 rounded-[22px] bg-[var(--color-cream)] p-5"
+              >
+                <span className="text-3xl">🥣</span>
+                <span className="font-[family-name:var(--font-display)] text-lg font-bold leading-tight tracking-tight text-[var(--color-ink)]">
+                  {plat.nom}
+                </span>
+                {plat.description && (
+                  <span className="text-sm text-[var(--color-ink-muted)]">{plat.description}</span>
+                )}
+                <span className="mt-1 text-sm font-semibold text-[var(--color-accent)]">
+                  {plat.restaurant.nom} · {plat.restaurant.ville}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* filtres + grille */}
       <section className="px-6 py-10 md:px-14">
