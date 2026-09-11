@@ -33,6 +33,7 @@ model Restaurant {
   updatedAt     DateTime @updatedAt
 
   platsCuillere PlatCuillere[]
+  bookings      Booking[]
 
   @@index([ville])
   @@index([cuisine])
@@ -52,12 +53,32 @@ model PlatCuillere {
   @@index([restaurantId])
 }
 
+/// Une réservation faite par un dîneur connecté sur la fiche établissement.
+/// Pas de gestion de disponibilité/capacité ni d'annulation ici — ce sont
+/// des stories séparées ("Gestion de ma réservation", espace restaurant).
+model Booking {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         DateTime
+  couverts     Int
+  createdAt    DateTime   @default(now())
+
+  @@index([restaurantId])
+  @@index([userId])
+}
+
 // ----------------------------------------------------------------------------
 //  Auth dîneur (better-auth). Restaurant partenaire et staff TheSpoon sont
 //  des stories séparées, pas encore démarrées — un seul modèle User pour
 //  l'instant, pas de champ "rôle".
 //  Schéma généré par `npx @better-auth/cli generate`, ne pas modifier à la
 //  main : régénérer plutôt après un changement de config dans src/lib/auth.ts.
+//  Exception assumée : la relation `bookings` ci-dessous est ajoutée à la
+//  main, better-auth ne gère que les champs d'auth — à recontrôler si le
+//  schéma est régénéré.
 // ----------------------------------------------------------------------------
 
 model User {
@@ -70,6 +91,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  bookings      Booking[]
 
   @@unique([email])
   @@map("user")

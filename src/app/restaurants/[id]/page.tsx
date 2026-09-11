@@ -1,7 +1,11 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+import { BookingCard } from "@/components/BookingCard";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
+import { auth } from "@/lib/auth";
+import { genererJoursReservables } from "@/lib/creneaux";
 import { prisma } from "@/lib/prisma";
 
 export default async function FicheRestaurantPage({
@@ -10,10 +14,13 @@ export default async function FicheRestaurantPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id },
-    include: { platsCuillere: { orderBy: { createdAt: "desc" } } },
-  });
+  const [restaurant, session] = await Promise.all([
+    prisma.restaurant.findUnique({
+      where: { id },
+      include: { platsCuillere: { orderBy: { createdAt: "desc" } } },
+    }),
+    auth.api.getSession({ headers: await headers() }),
+  ]);
 
   if (!restaurant) notFound();
 
@@ -100,9 +107,15 @@ export default async function FicheRestaurantPage({
             </div>
           </div>
         )}
-      </section>
 
-      {/* La réservation arrive avec la story suivante (Réservation / booking). */}
+        <div className="max-w-md">
+          <BookingCard
+            restaurantId={restaurant.id}
+            estConnecte={!!session}
+            jours={genererJoursReservables()}
+          />
+        </div>
+      </section>
     </main>
   );
 }

@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+// TheSpoon n'opère qu'en France : on fixe le fuseau du process pour que les
+// dates de réservation (construites en heure locale, cf. src/lib/creneaux.ts)
+// ne dépendent pas du fuseau par défaut de l'infra de déploiement.
+process.env.TZ ??= "Europe/Paris";
+
 /**
  * Variables d'environnement, validées au démarrage — pour échouer tout de
  * suite en disant quoi corriger plutôt que de casser silencieusement plus
