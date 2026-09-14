@@ -106,9 +106,7 @@ model PlatCuillere {
 }
 
 // ----------------------------------------------------------------------------
-//  Socle partenaires & staff. "Auth staff TheSpoon & permissions" reste une
-//  story séparée, pas encore démarrée — Staff n'a donc encore que son
-//  identité.
+//  Socle partenaires & staff.
 // ----------------------------------------------------------------------------
 
 /// Un gérant ou un chef de salle, côté restaurant partenaire.
@@ -143,13 +141,19 @@ model RestaurantContact {
 
 /// L'organigramme interne TheSpoon. Pas de rôles détaillés ici (instructeur
 /// litiges, validateur avoirs...) — ça arrivera avec "Auth staff TheSpoon &
-/// permissions".
+/// permissions". `role` reste un texte libre affiché, pas un contrôle
+/// d'accès : la Console staff est lisible par tout le staff connecté.
 model Staff {
-  id        String   @id @default(cuid())
-  nom       String
-  email     String   @unique
-  role      String?
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  nom           String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  role          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  sessions      StaffSession[]
+  accounts      StaffAccount[]
 }
 
 // ----------------------------------------------------------------------------
@@ -196,6 +200,60 @@ model RestaurantContactAccount {
 }
 
 model RestaurantContactVerification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+// ----------------------------------------------------------------------------
+//  Auth staff TheSpoon (better-auth, troisième instance — voir `authAdmin`
+//  dans src/lib/auth.ts). Même mécanique que l'auth restaurant partenaire,
+//  table dédiée à `Staff` : les trois populations (dîneur, restaurant,
+//  staff) ne partagent ni table ni cookie de session.
+//  Schéma généré par `npx @better-auth/cli generate`, ne pas modifier à la
+//  main : régénérer plutôt après un changement de config dans src/lib/auth.ts.
+// ----------------------------------------------------------------------------
+
+model StaffSession {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      Staff    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+}
+
+model StaffAccount {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  Staff     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model StaffVerification {
   id         String   @id
   identifier String
   value      String
