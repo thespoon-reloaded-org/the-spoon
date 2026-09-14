@@ -2,19 +2,14 @@
 
 import { useActionState } from "react";
 
-import type { EtatPlat } from "@/app/restaurants/[id]/menu/actions";
+import type { EtatPlat } from "@/app/espace-restaurant/menu/actions";
+import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
 
 const CATEGORIES: { valeur: "ENTREE" | "PLAT" | "DESSERT"; libelle: string }[] = [
   { valeur: "ENTREE", libelle: "Entrée" },
   { valeur: "PLAT", libelle: "Plat" },
   { valeur: "DESSERT", libelle: "Dessert" },
 ];
-
-const CHAMP =
-  "rounded-[16px] border-[1.5px] border-[var(--color-line-strong)] px-4 py-3 text-sm text-[var(--color-ink)]";
-const LABEL = "font-mono text-[11px] font-semibold tracking-wide text-[var(--color-ink-muted)]";
-const BOUTON =
-  "rounded-full bg-[var(--color-accent)] px-7 py-4 text-center font-[family-name:var(--font-display)] text-[15px] font-bold text-[var(--color-cream)] disabled:opacity-60";
 
 const ETAT_INITIAL: EtatPlat = {};
 
@@ -39,12 +34,9 @@ export function PlatForm({
   const [etat, formAction, enCours] = useActionState(action, ETAT_INITIAL);
 
   return (
-    <form
-      action={formAction}
-      className="flex flex-col gap-5 rounded-[30px] border border-[var(--color-line)] bg-white p-7"
-    >
-      <div className="flex flex-col gap-2">
-        <span className={LABEL}>NOM DU PLAT</span>
+    <form action={formAction} className="flex flex-col gap-5">
+      <label className={LABEL_CHAMP}>
+        Nom du plat
         <input
           type="text"
           name="nom"
@@ -54,10 +46,10 @@ export function PlatForm({
           placeholder="Ex. Risotto aux cèpes"
           className={CHAMP}
         />
-      </div>
+      </label>
 
-      <div className="flex flex-col gap-2">
-        <span className={LABEL}>DESCRIPTION (INGRÉDIENTS, ETC.)</span>
+      <label className={LABEL_CHAMP}>
+        Description (ingrédients, etc.)
         <textarea
           name="description"
           rows={3}
@@ -66,11 +58,11 @@ export function PlatForm({
           placeholder="Riz carnaroli, cèpes séchés, parmesan 24 mois…"
           className={CHAMP}
         />
-      </div>
+      </label>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2">
-          <span className={LABEL}>CATÉGORIE</span>
+        <label className={LABEL_CHAMP}>
+          Catégorie
           <select name="categorie" defaultValue={plat?.categorie ?? "PLAT"} className={CHAMP}>
             {CATEGORIES.map((c) => (
               <option key={c.valeur} value={c.valeur}>
@@ -78,10 +70,10 @@ export function PlatForm({
               </option>
             ))}
           </select>
-        </div>
+        </label>
 
-        <div className="flex flex-col gap-2">
-          <span className={LABEL}>PRIX (€)</span>
+        <label className={LABEL_CHAMP}>
+          Prix (€)
           <input
             type="number"
             name="prixEuros"
@@ -92,11 +84,11 @@ export function PlatForm({
             placeholder="14.50"
             className={CHAMP}
           />
-        </div>
+        </label>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <span className={LABEL}>PHOTO</span>
+      <label className={LABEL_CHAMP}>
+        Photo
         {plat?.photoMisAJourLe && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -105,22 +97,18 @@ export function PlatForm({
             className="h-32 w-32 rounded-[16px] object-cover"
           />
         )}
-        <input
-          type="file"
-          name="photo"
-          accept="image/*"
-          className="text-sm text-[var(--color-ink)]"
-        />
-        <span className="text-xs text-[var(--color-ink-muted)]">
+        <input type="file" name="photo" accept="image/*" className="text-sm text-[var(--color-ink)]" />
+        <span className="text-xs font-normal text-[var(--color-ink-muted)]">
           {plat ? "Laisse vide pour garder la photo actuelle." : "Facultatif — JPG/PNG, 5 Mo max."}
         </span>
+      </label>
+
+      <div className="flex items-center gap-4">
+        <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
+          {enCours ? "Enregistrement…" : libelleSoumission}
+        </button>
+        {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
       </div>
-
-      {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
-
-      <button type="submit" disabled={enCours} className={BOUTON}>
-        {enCours ? "Enregistrement…" : libelleSoumission}
-      </button>
     </form>
   );
 }

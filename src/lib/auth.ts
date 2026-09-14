@@ -14,8 +14,7 @@ import { prisma } from "./prisma";
 const trustedOrigins = ["https://*--the-spoon-bootcamp.netlify.app"];
 
 /**
- * Auth dîneur. Staff TheSpoon reste une story séparée du backlog, pas
- * encore démarrée.
+ * Auth dîneur.
  */
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -57,5 +56,34 @@ export const authRestaurant = betterAuth({
   account: { modelName: "restaurantContactAccount" },
   verification: { modelName: "restaurantContactVerification" },
   advanced: { cookiePrefix: "restaurant-auth" },
+  plugins: [nextCookies()],
+});
+
+/**
+ * Auth staff TheSpoon — troisième instance better-auth, table `Staff` dédiée
+ * (organigramme interne), séparée des deux populations précédentes.
+ *
+ * Pas d'inscription libre non plus : un membre du staff est créé côté
+ * TheSpoon (aujourd'hui via `pnpm seed:dev`), jamais par lui-même.
+ *
+ * Pas de permissions par rôle pour l'instant : la Console staff (BO admin)
+ * est lisible par tout le staff connecté, `Staff.role` reste un texte libre
+ * affiché — voir "Auth staff TheSpoon & permissions" pour la suite.
+ */
+export const authAdmin = betterAuth({
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  emailAndPassword: { enabled: true, disableSignUp: true },
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.BETTER_AUTH_URL,
+  basePath: "/api/auth-admin",
+  trustedOrigins,
+  user: {
+    modelName: "staff",
+    fields: { name: "nom" },
+  },
+  session: { modelName: "staffSession" },
+  account: { modelName: "staffAccount" },
+  verification: { modelName: "staffVerification" },
+  advanced: { cookiePrefix: "admin-auth" },
   plugins: [nextCookies()],
 });

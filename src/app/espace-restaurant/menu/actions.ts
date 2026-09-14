@@ -2,7 +2,6 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { authRestaurant } from "@/lib/auth";
@@ -64,28 +63,21 @@ async function sauvegarderPhoto(platId: string, photo: File): Promise<void> {
   }
 }
 
-/** Vérifie que le contact connecté gère bien CE restaurant, sinon redirige. */
-async function garantirProprietaire(restaurantId: string) {
-  const session = await authRestaurant.api.getSession({ headers: await headers() });
-  if (!session) redirect("/connexion-restaurant");
-  if (session.user.restaurantId !== restaurantId) {
-    redirect(`/restaurants/${session.user.restaurantId}/menu`);
-  }
-  return session;
+function revaliderMenu(restaurantId: string) {
+  revalidatePath("/espace-restaurant/menu");
+  revalidatePath(`/restaurants/${restaurantId}`);
+  revalidatePath("/");
 }
 
 /**
- * Ajoute un plat à la carte du restaurant connecté. La photo (facultative)
- * part dans le même envoi que le texte — un seul formulaire, un seul geste —
- * d'où le relèvement de `experimental.serverActions.bodySizeLimit` dans
- * next.config.ts (le défaut de 1 Mo est trop juste pour une photo).
+ * Ajoute un plat à la carte du restaurant du contact connecté. La photo
+ * (facultative) part dans le même envoi que le texte — un seul formulaire,
+ * un seul geste — d'où le relèvement de `experimental.serverActions.bodySizeLimit`
+ * dans next.config.ts (le défaut de 1 Mo est trop juste pour une photo).
  */
-export async function creerPlat(
-  restaurantId: string,
-  _etatPrecedent: EtatPlat,
-  formData: FormData,
-): Promise<EtatPlat> {
-  await garantirProprietaire(restaurantId);
+export async function creerPlat(_etatPrecedent: EtatPlat, formData: FormData): Promise<EtatPlat> {
+  const session = await authRestaurant.api.getSession({ headers: await headers() });
+  if (!session) return { erreur: "Session expirée, reconnecte-toi." };
 
   const donnees = schemaPlat.safeParse({
     nom: formData.get("nom"),
@@ -105,7 +97,7 @@ export async function creerPlat(
 
   const plat = await prisma.platCuillere.create({
     data: {
-      restaurantId,
+      restaurantId: session.user.restaurantId,
       nom: donnees.data.nom,
       description: donnees.data.description,
       categorie: donnees.data.categorie,
@@ -117,22 +109,21 @@ export async function creerPlat(
     await sauvegarderPhoto(plat.id, photo);
   }
 
-  revalidatePath(`/restaurants/${restaurantId}/menu`);
-  revalidatePath(`/restaurants/${restaurantId}`);
-  redirect(`/restaurants/${restaurantId}/menu`);
+  revaliderMenu(session.user.restaurantId);
+  return {};
 }
 
-/** Modifie un plat existant (texte et/ou remplacement de la photo). */
+/** Modifie un plat existant (texte et/ou remplacement de la photo). Scopé à `session.user.restaurantId` — jamais un id passé par le client. */
 export async function modifierPlat(
-  restaurantId: string,
   platId: string,
   _etatPrecedent: EtatPlat,
   formData: FormData,
 ): Promise<EtatPlat> {
-  await garantirProprietaire(restaurantId);
+  const session = await authRestaurant.api.getSession({ headers: await headers() });
+  if (!session) return { erreur: "Session expirée, reconnecte-toi." };
 
   const plat = await prisma.platCuillere.findUnique({ where: { id: platId } });
-  if (!plat || plat.restaurantId !== restaurantId) {
+  if (!plat || plat.restaurantId !== session.user.restaurantId) {
     return { erreur: "Plat introuvable." };
   }
 
@@ -166,22 +157,21 @@ export async function modifierPlat(
     await sauvegarderPhoto(platId, photo);
   }
 
-  revalidatePath(`/restaurants/${restaurantId}/menu`);
-  revalidatePath(`/restaurants/${restaurantId}`);
-  redirect(`/restaurants/${restaurantId}/menu`);
+  revaliderMenu(session.user.restaurantId);
+  return {};
 }
 
-/** Supprime un plat de la carte (et sa photo si présente). */
+/** Supprime un plat de la carte (et sa photo si présente). Scopé à `session.user.restaurantId`. */
 export async function supprimerPlat(
-  restaurantId: string,
   platId: string,
   _etatPrecedent: EtatPlat,
   _formData: FormData,
 ): Promise<EtatPlat> {
-  await garantirProprietaire(restaurantId);
+  const session = await authRestaurant.api.getSession({ headers: await headers() });
+  if (!session) return { erreur: "Session expirée, reconnecte-toi." };
 
   const plat = await prisma.platCuillere.findUnique({ where: { id: platId } });
-  if (!plat || plat.restaurantId !== restaurantId) {
+  if (!plat || plat.restaurantId !== session.user.restaurantId) {
     return { erreur: "Plat introuvable." };
   }
 
@@ -194,7 +184,6 @@ export async function supprimerPlat(
       .catch((erreur) => console.error("Échec de la suppression de la photo du plat :", erreur));
   }
 
-  revalidatePath(`/restaurants/${restaurantId}/menu`);
-  revalidatePath(`/restaurants/${restaurantId}`);
+  revaliderMenu(session.user.restaurantId);
   return {};
 }
