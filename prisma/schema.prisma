@@ -43,6 +43,7 @@ model Restaurant {
   contacts           RestaurantContact[]
   horairesFermes     HoraireFermeture[]
   exceptionsHoraires ExceptionHoraire[]
+  journalAudit       JournalAuditRestaurant[]
 
   @@index([ville])
   @@index([cuisine])
@@ -170,6 +171,33 @@ model Staff {
   updatedAt     DateTime @updatedAt
   sessions      StaffSession[]
   accounts      StaffAccount[]
+  journalAudit  JournalAuditRestaurant[]
+}
+
+/// Action tracée dans le journal d'audit d'un restaurant partenaire.
+enum ActionAuditRestaurant {
+  CREATION
+  MODIFICATION
+}
+
+/// Trace d'une création ou modification d'un restaurant partenaire depuis la
+/// Console staff — critère d'acceptation du ticket Notion "Console staff :
+/// vue restaurants" ("toute modification est tracée"). `champsModifies` est
+/// `null` pour une création (tout est nouveau, rien à comparer) et liste pour
+/// une modification les champs qui ont effectivement changé, avec leur
+/// ancienne et nouvelle valeur — pas le formulaire complet, seulement le
+/// diff, pour rester lisible dans l'écran qui l'affiche.
+model JournalAuditRestaurant {
+  id             String                @id @default(cuid())
+  restaurantId   String
+  restaurant     Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  staffId        String
+  staff          Staff                 @relation(fields: [staffId], references: [id])
+  action         ActionAuditRestaurant
+  champsModifies Json?
+  createdAt      DateTime              @default(now())
+
+  @@index([restaurantId])
 }
 
 // ----------------------------------------------------------------------------

@@ -123,10 +123,11 @@ poussé à la main et jamais retrouvé côté base de déploiement.
 - Console staff / BO admin (`/admin`) : liste des restaurants partenaires
   avec recherche (nom/ville), fiche détail (infos, contacts, réservations
   récentes), création et modification d'un restaurant
-  (`src/app/admin/`). Pas de section factures (l'epic Facturation &
-  commission n'existe pas encore) ni de table d'audit trace des
-  modifications (le ticket Notion "Console staff : vue restaurants" en
-  parle, volontairement pas construite avant qu'un écran la lise).
+  (`src/app/admin/`). Toute création ou modification est tracée dans un
+  journal d'audit (`JournalAuditRestaurant` : qui, quand, quels champs ont
+  changé et leurs valeurs avant/après), affiché sur la fiche détail. Pas de
+  section factures : l'epic Facturation & commission n'existe pas encore,
+  l'afficher aurait été fictif.
 - Ma carte (`/espace-restaurant/menu`) : le contact restaurant connecté gère
   la carte de son établissement — ajoute, modifie, supprime un plat (nom,
   description/ingrédients, catégorie entrée/plat/dessert, prix, photo

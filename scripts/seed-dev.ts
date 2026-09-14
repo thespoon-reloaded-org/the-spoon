@@ -138,6 +138,7 @@ const staff = [
 ];
 
 async function run() {
+  await prisma.journalAuditRestaurant.deleteMany();
   await prisma.staff.deleteMany();
   await prisma.platCuillere.deleteMany();
   await prisma.restaurant.deleteMany();
