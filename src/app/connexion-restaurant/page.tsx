@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { authRestaurantClient } from "@/lib/auth-restaurant-client";
+import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
 
 /**
  * Connexion des contacts restaurant (gérant / chef de salle) — pas
@@ -22,7 +23,7 @@ export default function ConnexionRestaurantPage() {
   const [enCours, setEnCours] = useState(false);
 
   useEffect(() => {
-    if (session) router.replace(`/restaurants/${session.user.restaurantId}/reservations`);
+    if (session) router.replace("/espace-restaurant");
   }, [session, router]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -41,7 +42,7 @@ export default function ConnexionRestaurantPage() {
         return;
       }
 
-      router.push(`/restaurants/${data.user.restaurantId}/reservations`);
+      router.push("/espace-restaurant");
       router.refresh();
     } catch {
       setErreur("Impossible de contacter le serveur — vérifie ta connexion et réessaie.");
@@ -64,35 +65,31 @@ export default function ConnexionRestaurantPage() {
       </p>
 
       <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm font-medium text-[var(--color-ink)]">
+        <label className={LABEL_CHAMP}>
           Email
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded-xl border border-[var(--color-line)] px-3 py-2 outline-none"
+            className={CHAMP}
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-[var(--color-ink)]">
+        <label className={LABEL_CHAMP}>
           Mot de passe
           <input
             type="password"
             required
             value={motDePasse}
             onChange={(e) => setMotDePasse(e.target.value)}
-            className="rounded-xl border border-[var(--color-line)] px-3 py-2 outline-none"
+            className={CHAMP}
           />
         </label>
 
         {erreur && <p className="text-sm text-red-600">{erreur}</p>}
 
-        <button
-          type="submit"
-          disabled={enCours}
-          className="mt-2 rounded-full bg-[var(--color-ink)] px-7 py-3 font-[family-name:var(--font-display)] text-[15px] font-bold text-[var(--color-cream)] disabled:opacity-60"
-        >
+        <button type="submit" disabled={enCours} className={`mt-2 ${BOUTON_PRIMAIRE}`}>
           Se connecter
         </button>
       </form>

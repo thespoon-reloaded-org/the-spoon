@@ -67,17 +67,36 @@ poussé à la main et jamais retrouvé côté base de déploiement.
   entièrement séparée de celle des dîneurs (table, cookie et route API
   dédiés : `/api/auth-restaurant`). Pas d'inscription : les comptes sont
   créés côté TheSpoon (`pnpm seed:dev` en crée trois, voir plus bas — mot de
-  passe `password123`). Un contact connecté ne voit que les données de son
-  propre établissement : `/restaurants/[id]/reservations` vérifie que `id`
-  correspond à son restaurant et le renvoie vers le sien sinon.
-- Réservation : un dîneur connecté choisit convives/jour/créneau sur la fiche
-  établissement et confirme (`src/components/BookingCard.tsx` +
-  `src/app/restaurants/[id]/actions.ts`). Pas de moteur de disponibilité — un
-  créneau est valide s'il tombe dans les 5 prochains jours, sans vérifier les
-  conflits. `/restaurants/[id]/reservations` liste les réservations d'un
-  restaurant, réservé à son contact connecté — c'est une vue de secours en
-  attendant la vraie espace restaurant (tableau de bord complet), pas un
-  vrai back-office partenaire.
+  passe `password123`).
+- Réservation : un dîneur connecté choisit convives/jour/créneau (midi ou
+  soir, `CRENEAUX_MIDI`/`CRENEAUX_SOIR` dans `src/lib/creneaux.ts`) sur la
+  fiche établissement et confirme (`src/components/BookingCard.tsx` +
+  `src/app/restaurants/[id]/actions.ts`). Le créneau doit tomber dans les 5
+  prochains jours et ne pas être fermé côté restaurant (voir "Mes
+  disponibilités" ci-dessous), sans vérifier les conflits de capacité.
+- Espace restaurant (`/espace-restaurant`) : tableau de bord du contact
+  connecté, scopé à son seul établissement (`src/app/espace-restaurant/`).
+  Réservations reçues (à venir / passées) : pour un créneau confirmé déjà
+  passé, le restaurant le marque honoré ou no-show
+  (`marquerReservation` dans `src/app/espace-restaurant/reservations/actions.ts`)
+  — `Booking.signaleeLe` capture l'horodatage du signalement. C'est ce geste
+  qui débloquera la facturation (voir "Schéma réservation & facturation").
+  Ma fiche établissement : le restaurant tient à jour nom/ville/cuisine/
+  adresse/horaires/description/capacité, jusqu'ici alimentés uniquement par
+  le seed (`mettreAJourFiche` dans
+  `src/app/espace-restaurant/fiche/actions.ts`). Mes disponibilités : deux
+  plannings distincts, tous deux vérifiés par `creerReservation`
+  (`src/app/espace-restaurant/disponibilites/`) — l'horaire d'ouverture
+  classique, récurrent et non daté (`HoraireFermeture`, un jour de semaine ou
+  un créneau fermé toutes les semaines) et les exceptions ponctuelles sur une
+  date précise, via un calendrier mensuel (`ExceptionHoraire` : ouverture
+  *ou* fermeture — chaque créneau du jour sélectionné est pré-rempli depuis
+  le récurrent, et modifiable juste pour cette date, dans un sens ou l'autre).
+  Politique d'annulation : le restaurant définit
+  `Restaurant.delaiAnnulationHeures` sur la fiche établissement — le délai
+  minimal d'annulation côté dîneur et le motif de contestation
+  `annulation_tardive` ne l'exploitent pas encore, ce sont des stories
+  séparées du backlog.
 - Gestion de ma réservation (`/mes-reservations`) : un dîneur connecté voit
   ses réservations passées/à venir et peut annuler celles à venir
   (`src/app/mes-reservations/`). Une réservation annulée reste visible avec
