@@ -15,6 +15,24 @@ const STATUT_RESERVATION: Record<Booking["statut"], { label: string; classe: str
   NO_SHOW: { label: "No-show", classe: "text-[var(--color-accent)]" },
 };
 
+/** Libellé affiché pour chaque champ pouvant apparaître dans un diff du journal d'audit. */
+const LABEL_CHAMP: Record<string, string> = {
+  nom: "Nom",
+  ville: "Ville",
+  cuisine: "Cuisine",
+  adresse: "Adresse",
+  horaires: "Horaires",
+  description: "Description",
+  capacite: "Capacité",
+};
+
+type DiffChamp = { champ: string; avant: unknown; apres: unknown };
+
+function formatterValeur(valeur: unknown) {
+  if (valeur === null || valeur === undefined || valeur === "") return "—";
+  return String(valeur);
+}
+
 /**
  * Fiche détail d'un partenaire — infos, contacts, réservations récentes.
  * Pas de section factures : l'epic Facturation & commission n'existe pas
@@ -38,6 +56,11 @@ export default async function FicheRestaurantAdminPage({
           include: { user: true },
           orderBy: { date: "desc" },
           take: 10,
+        },
+        journalAudit: {
+          include: { staff: true },
+          orderBy: { createdAt: "desc" },
+          take: 20,
         },
       },
     }),
@@ -150,6 +173,52 @@ export default async function FicheRestaurantAdminPage({
                 <span className={`font-semibold ${STATUT_RESERVATION[reservation.statut].classe}`}>
                   {STATUT_RESERVATION[reservation.statut].label}
                 </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
+          Historique des modifications
+        </h2>
+        {restaurant.journalAudit.length === 0 ? (
+          <p className="mt-3 text-sm text-[var(--color-ink-muted)]">Aucune modification tracée.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {restaurant.journalAudit.map((entree) => (
+              <li key={entree.id} className={`p-4 text-sm ${CARTE}`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[var(--color-ink)]">
+                    {entree.action === "CREATION" ? "Création" : "Modification"} par{" "}
+                    {entree.staff.nom}
+                  </span>
+                  <span className="text-[var(--color-ink-muted)]">
+                    {entree.createdAt.toLocaleDateString("fr-FR", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}{" "}
+                    à{" "}
+                    {entree.createdAt.toLocaleTimeString("fr-FR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+                {Array.isArray(entree.champsModifies) && entree.champsModifies.length > 0 && (
+                  <ul className="mt-2 flex flex-col gap-1 text-[var(--color-ink-muted)]">
+                    {(entree.champsModifies as unknown as DiffChamp[]).map((diff) => (
+                      <li key={diff.champ}>
+                        <span className="font-medium text-[var(--color-ink)]">
+                          {LABEL_CHAMP[diff.champ] ?? diff.champ}
+                        </span>{" "}
+                        : {formatterValeur(diff.avant)} → {formatterValeur(diff.apres)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

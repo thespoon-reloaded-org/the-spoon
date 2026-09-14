@@ -26,6 +26,17 @@ const schemaRestaurant = z.object({
 
 export type EtatFormulaireRestaurant = { erreur?: string; ok?: boolean };
 
+/** Champs couverts par le formulaire, dans l'ordre où on veut les lire dans le journal d'audit. */
+const CHAMPS_SUIVIS = [
+  "nom",
+  "ville",
+  "cuisine",
+  "adresse",
+  "horaires",
+  "description",
+  "capacite",
+] as const;
+
 function lireDonneesFormulaire(formData: FormData) {
   const capaciteBrute = formData.get("capacite");
   return schemaRestaurant.safeParse({
@@ -59,6 +70,14 @@ export async function creerRestaurant(
 
   const restaurant = await prisma.restaurant.create({ data: donnees.data });
 
+  await prisma.journalAuditRestaurant.create({
+    data: {
+      restaurantId: restaurant.id,
+      staffId: session.user.id,
+      action: "CREATION",
+    },
+  });
+
   revalidatePath("/admin");
   redirect(`/admin/restaurants/${restaurant.id}`);
 }
@@ -66,6 +85,8 @@ export async function creerRestaurant(
 /**
  * Modifie un restaurant existant depuis la Console staff. Même logique que
  * `creerRestaurant` : session revérifiée, données revalidées côté serveur.
+ * Trace uniquement les champs qui ont effectivement changé (voir "Console
+ * staff : vue restaurants" sur Notion — "toute modification est tracée").
  */
 export async function modifierRestaurant(
   restaurantId: string,
@@ -80,10 +101,26 @@ export async function modifierRestaurant(
     return { erreur: donnees.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  try {
-    await prisma.restaurant.update({ where: { id: restaurantId }, data: donnees.data });
-  } catch {
+  const avant = await prisma.restaurant.findUnique({ where: { id: restaurantId } });
+  if (!avant) {
     return { erreur: "Restaurant introuvable." };
+  }
+
+  const champsModifies = CHAMPS_SUIVIS.filter(
+    (champ) => donnees.data[champ] !== avant[champ],
+  ).map((champ) => ({ champ, avant: avant[champ], apres: donnees.data[champ] }));
+
+  await prisma.restaurant.update({ where: { id: restaurantId }, data: donnees.data });
+
+  if (champsModifies.length > 0) {
+    await prisma.journalAuditRestaurant.create({
+      data: {
+        restaurantId,
+        staffId: session.user.id,
+        action: "MODIFICATION",
+        champsModifies,
+      },
+    });
   }
 
   revalidatePath("/admin");
