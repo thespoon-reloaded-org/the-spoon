@@ -5,6 +5,14 @@ import { nextCookies } from "better-auth/next-js";
 import { env } from "./env";
 import { prisma } from "./prisma";
 
+// BETTER_AUTH_URL reste l'URL de prod (même valeur partagée par tous les
+// contextes Netlify, cf. README) — sans ça, better-auth rejette les
+// requêtes venant des Deploy Previews et branch deploys ("Invalid origin"),
+// dont l'origine ne correspond jamais à BETTER_AUTH_URL. Partagé par les deux
+// instances ci-dessous : c'est une contrainte d'infra (le domaine Netlify),
+// pas une différence entre dîneurs et restaurants partenaires.
+const trustedOrigins = ["https://*--the-spoon-bootcamp.netlify.app"];
+
 /**
  * Auth dîneur. Staff TheSpoon reste une story séparée du backlog, pas
  * encore démarrée.
@@ -14,11 +22,7 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true },
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
-  // BETTER_AUTH_URL reste l'URL de prod (même valeur partagée par tous les
-  // contextes Netlify, cf. README) — sans ça, better-auth rejette les
-  // requêtes venant des Deploy Previews et branch deploys ("Invalid origin"),
-  // dont l'origine ne correspond jamais à BETTER_AUTH_URL.
-  trustedOrigins: ["https://*--the-spoon-bootcamp.netlify.app"],
+  trustedOrigins,
   plugins: [nextCookies()],
 });
 
@@ -41,7 +45,7 @@ export const authRestaurant = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
   basePath: "/api/auth-restaurant",
-  trustedOrigins: ["https://*--the-spoon-bootcamp.netlify.app"],
+  trustedOrigins,
   user: {
     modelName: "restaurantContact",
     fields: { name: "nom" },
