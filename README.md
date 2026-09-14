@@ -29,12 +29,31 @@ propre marque, pas une interface interne Hymaïa).
 nvm use
 pnpm install
 cp .env.example .env   # puis éditer DATABASE_URL, BETTER_AUTH_SECRET et BETTER_AUTH_URL
-pnpm db:push            # à relancer après chaque changement de prisma/schema.prisma
+pnpm db:migrate         # applique les migrations à la base locale
 pnpm seed:dev
 pnpm dev                # http://localhost:3100
 ```
 
 `BETTER_AUTH_SECRET` se génère avec `openssl rand -hex 32`.
+
+## Migrations de base de données
+
+Tout changement de `prisma/schema.prisma` passe par une migration versionnée
+et commitée dans `prisma/migrations/`, jamais par `db push` directement sur
+une base partagée — deux incidents de prod ont déjà été causés par un schéma
+poussé à la main et jamais retrouvé côté base de déploiement.
+
+- En local, après avoir modifié `prisma/schema.prisma` :
+  `pnpm db:migrate` (= `prisma migrate dev`) génère le fichier SQL de
+  migration, l'applique à votre base locale, et régénère le client Prisma.
+  Commitez le dossier créé dans `prisma/migrations/`.
+- En déploiement, `pnpm build` lance `prisma migrate deploy` avant `next
+  build` : les migrations en attente s'appliquent automatiquement, et le
+  build échoue si une migration ne passe pas — au lieu de laisser la prod
+  tourner avec un schéma différent de celui attendu par le code.
+- `prisma db push` reste légitime pour bricoler vite en local (un schéma
+  jetable, une expérimentation), mais ne doit jamais être utilisé contre la
+  base de production.
 
 ## Ce qui existe
 
