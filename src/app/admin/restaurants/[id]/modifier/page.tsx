@@ -12,11 +12,13 @@ export default async function ModifierRestaurantPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await authAdmin.api.getSession({ headers: await headers() });
-  if (!session) redirect("/connexion-admin");
-
   const { id } = await params;
-  const restaurant = await prisma.restaurant.findUnique({ where: { id } });
+
+  const [session, restaurant] = await Promise.all([
+    authAdmin.api.getSession({ headers: await headers() }),
+    prisma.restaurant.findUnique({ where: { id } }),
+  ]);
+  if (!session) redirect("/connexion-admin");
   if (!restaurant) notFound();
 
   return (

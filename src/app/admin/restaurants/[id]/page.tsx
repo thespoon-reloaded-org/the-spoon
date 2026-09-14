@@ -5,6 +5,15 @@ import Link from "next/link";
 import { authAdmin } from "@/lib/auth";
 import { BOUTON_SECONDAIRE, CARTE, EYEBROW } from "@/lib/ui";
 import { prisma } from "@/lib/prisma";
+import type { Booking } from "@/generated/prisma";
+
+/** Même mapping que src/app/espace-restaurant/reservations/page.tsx (STATUT). */
+const STATUT_RESERVATION: Record<Booking["statut"], { label: string; classe: string }> = {
+  CONFIRMEE: { label: "Confirmée", classe: "text-[var(--color-ink)]" },
+  ANNULEE: { label: "Annulée", classe: "text-red-600" },
+  HONOREE: { label: "Honorée", classe: "text-green-700" },
+  NO_SHOW: { label: "No-show", classe: "text-[var(--color-accent)]" },
+};
 
 /**
  * Fiche détail d'un partenaire — infos, contacts, réservations récentes.
@@ -17,22 +26,23 @@ export default async function FicheRestaurantAdminPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await authAdmin.api.getSession({ headers: await headers() });
-  if (!session) redirect("/connexion-admin");
-
   const { id } = await params;
 
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id },
-    include: {
-      contacts: { orderBy: { nom: "asc" } },
-      bookings: {
-        include: { user: true },
-        orderBy: { date: "desc" },
-        take: 10,
+  const [session, restaurant] = await Promise.all([
+    authAdmin.api.getSession({ headers: await headers() }),
+    prisma.restaurant.findUnique({
+      where: { id },
+      include: {
+        contacts: { orderBy: { nom: "asc" } },
+        bookings: {
+          include: { user: true },
+          orderBy: { date: "desc" },
+          take: 10,
+        },
       },
-    },
-  });
+    }),
+  ]);
+  if (!session) redirect("/connexion-admin");
   if (!restaurant) notFound();
 
   return (
@@ -137,14 +147,8 @@ export default async function FicheRestaurantAdminPage({
                 <span className="text-[var(--color-ink-muted)]">
                   {reservation.couverts} couvert{reservation.couverts > 1 ? "s" : ""}
                 </span>
-                <span
-                  className={
-                    reservation.statut === "ANNULEE"
-                      ? "font-semibold text-red-600"
-                      : "font-semibold text-[var(--color-ink)]"
-                  }
-                >
-                  {reservation.statut === "ANNULEE" ? "Annulée" : "Confirmée"}
+                <span className={`font-semibold ${STATUT_RESERVATION[reservation.statut].classe}`}>
+                  {STATUT_RESERVATION[reservation.statut].label}
                 </span>
               </li>
             ))}

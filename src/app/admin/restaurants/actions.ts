@@ -80,15 +80,11 @@ export async function modifierRestaurant(
     return { erreur: donnees.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id: restaurantId },
-    select: { id: true },
-  });
-  if (!restaurant) {
+  try {
+    await prisma.restaurant.update({ where: { id: restaurantId }, data: donnees.data });
+  } catch {
     return { erreur: "Restaurant introuvable." };
   }
-
-  await prisma.restaurant.update({ where: { id: restaurantId }, data: donnees.data });
 
   revalidatePath("/admin");
   revalidatePath(`/admin/restaurants/${restaurantId}`);
