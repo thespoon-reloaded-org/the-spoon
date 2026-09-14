@@ -21,3 +21,6 @@ src/generated/
 # sur Netlify, c'est Netlify Blobs qui prend le relais, rien à ignorer côté
 # déploiement.
 .local-blobs/
+
+# État local du CLI Netlify (`netlify link`) — propre à chaque poste.
+.netlify/
