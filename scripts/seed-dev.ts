@@ -1,6 +1,11 @@
 import "dotenv/config";
 
+import { hashPassword } from "better-auth/crypto";
+
 import { prisma } from "../src/lib/prisma";
+
+/** Mot de passe des contacts restaurant seedés — uniquement pour le dev local. */
+const MOT_DE_PASSE_CONTACT_DEV = "password123";
 
 /** Une poignée de vrais restaurants, pour avoir quelque chose à chercher en dev. */
 const restaurants = [
@@ -15,7 +20,9 @@ const restaurants = [
     noteCuilleres: 4.3,
     nombreAvis: 128,
     plats: [{ nom: "Gratin dauphinois", description: "Crémeux, cuit trois heures." }],
-    contacts: [{ nom: "Antoine Dubreuil", email: "antoine@chez-antoine.example", role: "GERANT" as const }],
+    contacts: [
+      { nom: "Antoine Dubreuil", email: "antoine@chez-antoine.example", role: "GERANT" as const },
+    ],
   },
   {
     nom: "Miso Bar",
@@ -41,7 +48,9 @@ const restaurants = [
     noteCuilleres: null,
     nombreAvis: 0,
     plats: [{ nom: "Pot-au-feu", description: null }],
-    contacts: [{ nom: "Camille Roy", email: "camille@petit-marche.example", role: "CHEF_DE_SALLE" as const }],
+    contacts: [
+      { nom: "Camille Roy", email: "camille@petit-marche.example", role: "CHEF_DE_SALLE" as const },
+    ],
   },
   {
     nom: "Trattoria Bellini",
@@ -53,7 +62,9 @@ const restaurants = [
     capacite: 45,
     noteCuilleres: 4.8,
     nombreAvis: 212,
-    plats: [{ nom: "Risotto aux cèpes", description: "Riz carnaroli, cèpes séchés, parmesan 24 mois." }],
+    plats: [
+      { nom: "Risotto aux cèpes", description: "Riz carnaroli, cèpes séchés, parmesan 24 mois." },
+    ],
   },
   {
     nom: "Racines Vertes",
@@ -65,7 +76,9 @@ const restaurants = [
     capacite: 28,
     noteCuilleres: 4.6,
     nombreAvis: 97,
-    plats: [{ nom: "Velouté de potimarron", description: "Noisettes torréfiées, huile de courge." }],
+    plats: [
+      { nom: "Velouté de potimarron", description: "Noisettes torréfiées, huile de courge." },
+    ],
   },
   {
     nom: "Beyrouth Café",
@@ -84,7 +97,11 @@ const restaurants = [
 /** L'organigramme TheSpoon — pas encore de connexion, juste l'identité (voir schema.prisma). */
 const staff = [
   { nom: "Léa Fontaine", email: "lea.fontaine@thespoon.example", role: "Support restaurants" },
-  { nom: "Nadia Belkacem", email: "nadia.belkacem@thespoon.example", role: "Finance & facturation" },
+  {
+    nom: "Nadia Belkacem",
+    email: "nadia.belkacem@thespoon.example",
+    role: "Finance & facturation",
+  },
 ];
 
 async function run() {
@@ -92,14 +109,39 @@ async function run() {
   await prisma.platCuillere.deleteMany();
   await prisma.restaurant.deleteMany();
 
+  const motDePasseHash = await hashPassword(MOT_DE_PASSE_CONTACT_DEV);
+  let nombreContacts = 0;
+
   for (const { plats, contacts, ...restaurant } of restaurants) {
-    await prisma.restaurant.create({
-      data: { ...restaurant, platsCuillere: { create: plats }, contacts: { create: contacts } },
+    const restaurantCree = await prisma.restaurant.create({
+      data: { ...restaurant, platsCuillere: { create: plats } },
     });
+
+    for (const contact of contacts ?? []) {
+      const contactCree = await prisma.restaurantContact.create({
+        data: { ...contact, restaurantId: restaurantCree.id },
+      });
+      // Compte de connexion du contact — même mécanique que l'auth dîneur
+      // (accountId = id du user, providerId "credential"), cf. authRestaurant
+      // dans src/lib/auth.ts.
+      await prisma.restaurantContactAccount.create({
+        data: {
+          id: contactCree.id,
+          accountId: contactCree.id,
+          providerId: "credential",
+          userId: contactCree.id,
+          password: motDePasseHash,
+        },
+      });
+      nombreContacts++;
+    }
   }
   await prisma.staff.createMany({ data: staff });
 
-  console.log(`${restaurants.length} restaurants créés, avec leur plat à la cuillère et leur contact.`);
+  console.log(`${restaurants.length} restaurants créés, avec leur plat à la cuillère.`);
+  console.log(
+    `${nombreContacts} contacts restaurant créés (mot de passe : "${MOT_DE_PASSE_CONTACT_DEV}"), connexion sur /connexion-restaurant.`,
+  );
   console.log(`${staff.length} membres du staff créés.`);
 }
 

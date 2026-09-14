@@ -56,9 +56,9 @@ model PlatCuillere {
 }
 
 // ----------------------------------------------------------------------------
-//  Socle partenaires & staff. Identité seule, pas encore de connexion : "Auth
-//  restaurant partenaire" et "Auth staff TheSpoon & permissions" sont des
-//  stories séparées, pas encore démarrées.
+//  Socle partenaires & staff. "Auth staff TheSpoon & permissions" reste une
+//  story séparée, pas encore démarrée — Staff n'a donc encore que son
+//  identité.
 // ----------------------------------------------------------------------------
 
 /// Un gérant ou un chef de salle, côté restaurant partenaire.
@@ -69,16 +69,25 @@ enum RoleContactRestaurant {
 
 /// Le contact d'un restaurant partenaire — pas un dîneur. Rattaché à son
 /// établissement, c'est lui qui contestera une facture (voir "Contestations &
-/// litiges").
+/// litiges"). Connexion via une instance better-auth séparée de celle des
+/// dîneurs (cf. `authRestaurant` dans src/lib/auth.ts) : même mécanique,
+/// table dédiée, cookie dédié — une population avec ses propres accès, pas un
+/// rôle de plus sur `User`.
 model RestaurantContact {
-  id           String                @id @default(cuid())
-  restaurantId String
-  restaurant   Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  nom          String
-  email        String
-  role         RoleContactRestaurant
-  createdAt    DateTime              @default(now())
+  id            String                @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  nom           String
+  email         String
+  emailVerified Boolean               @default(false)
+  image         String?
+  role          RoleContactRestaurant
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  sessions      RestaurantContactSession[]
+  accounts      RestaurantContactAccount[]
 
+  @@unique([email])
   @@index([restaurantId])
 }
 
@@ -91,6 +100,60 @@ model Staff {
   email     String   @unique
   role      String?
   createdAt DateTime @default(now())
+}
+
+// ----------------------------------------------------------------------------
+//  Auth restaurant partenaire (better-auth, deuxième instance — voir
+//  `authRestaurant` dans src/lib/auth.ts). Mêmes tables que l'auth dîneur
+//  (Session/Account/Verification), mais dédiées à `RestaurantContact` : les
+//  deux populations ne partagent ni table ni cookie de session.
+//  Schéma généré par `npx @better-auth/cli generate`, ne pas modifier à la
+//  main : régénérer plutôt après un changement de config dans src/lib/auth.ts.
+// ----------------------------------------------------------------------------
+
+model RestaurantContactSession {
+  id        String            @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      RestaurantContact @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+}
+
+model RestaurantContactAccount {
+  id                    String            @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  RestaurantContact @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([userId])
+}
+
+model RestaurantContactVerification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
 }
 
 /// Statut d'une réservation. Pas de distinction "honorée" / "no-show" ici —
