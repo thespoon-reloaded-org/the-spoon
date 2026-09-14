@@ -5,14 +5,9 @@ import { creerPlat } from "./actions";
 import { PlatForm } from "@/components/PlatForm";
 import { SupprimerPlatBouton } from "@/components/SupprimerPlatBouton";
 import { authRestaurant } from "@/lib/auth";
+import { LIBELLE_CATEGORIE } from "@/lib/plats";
 import { prisma } from "@/lib/prisma";
 import { BOUTON_SECONDAIRE, CARTE, EYEBROW } from "@/lib/ui";
-
-const LIBELLE_CATEGORIE: Record<"ENTREE" | "PLAT" | "DESSERT", string> = {
-  ENTREE: "Entrée",
-  PLAT: "Plat",
-  DESSERT: "Dessert",
-};
 
 /**
  * Écran "Ma carte" de l'espace restaurant — voir le ticket Notion "Mon menu

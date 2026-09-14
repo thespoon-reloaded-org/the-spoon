@@ -2,10 +2,9 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
-import { modifierPlat } from "../actions";
+import { modifierPlat, trouverPlatDuRestaurant } from "../actions";
 import { PlatForm } from "@/components/PlatForm";
 import { authRestaurant } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { CARTE, EYEBROW } from "@/lib/ui";
 
 export default async function ModifierPlatPage({
@@ -17,8 +16,8 @@ export default async function ModifierPlatPage({
   if (!session) return null; // garde déjà faite par le layout, satisfait TypeScript
 
   const { platId } = await params;
-  const plat = await prisma.platCuillere.findUnique({ where: { id: platId } });
-  if (!plat || plat.restaurantId !== session.user.restaurantId) notFound();
+  const plat = await trouverPlatDuRestaurant(platId, session.user.restaurantId);
+  if (!plat) notFound();
 
   return (
     <div className="flex flex-col gap-6">

@@ -13,12 +13,26 @@ interface StorePhotos {
 
 const DOSSIER_LOCAL = path.join(process.cwd(), ".local-blobs", "plats-photos");
 
-function cheminDonnees(key: string) {
+/**
+ * `key` est un id de plat (cuid), mais vient in fine d'un paramètre d'URL
+ * public (`/api/plats/[platId]/photo`) — jamais utilisé tel quel dans un
+ * chemin de fichier sans passer par ici. Un `key` contenant `/` ou `..`
+ * permettrait de sortir de `DOSSIER_LOCAL` (path.join ne fait aucun
+ * sandboxing) et de lire/écraser un fichier arbitraire sur le disque en dev.
+ */
+function cheminSecurise(key: string) {
+  if (!/^[a-z0-9]+$/i.test(key)) {
+    throw new Error(`Clé de photo invalide : ${key}`);
+  }
   return path.join(DOSSIER_LOCAL, key);
 }
 
+function cheminDonnees(key: string) {
+  return cheminSecurise(key);
+}
+
 function cheminMetadonnees(key: string) {
-  return path.join(DOSSIER_LOCAL, `${key}.json`);
+  return `${cheminSecurise(key)}.json`;
 }
 
 /**

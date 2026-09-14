@@ -3,24 +3,16 @@
 import { useActionState } from "react";
 
 import type { EtatPlat } from "@/app/espace-restaurant/menu/actions";
+import type { PlatCuillere } from "@/generated/prisma";
+import { CATEGORIES } from "@/lib/plats";
 import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
-
-const CATEGORIES: { valeur: "ENTREE" | "PLAT" | "DESSERT"; libelle: string }[] = [
-  { valeur: "ENTREE", libelle: "Entrée" },
-  { valeur: "PLAT", libelle: "Plat" },
-  { valeur: "DESSERT", libelle: "Dessert" },
-];
 
 const ETAT_INITIAL: EtatPlat = {};
 
-type PlatExistant = {
-  id: string;
-  nom: string;
-  description: string | null;
-  categorie: "ENTREE" | "PLAT" | "DESSERT";
-  prixCentimes: number;
-  photoMisAJourLe: Date | null;
-};
+type PlatExistant = Pick<
+  PlatCuillere,
+  "id" | "nom" | "description" | "categorie" | "prixCentimes" | "photoMisAJourLe"
+>;
 
 export function PlatForm({
   action,
@@ -103,11 +95,17 @@ export function PlatForm({
         </span>
       </label>
 
-      <div className="flex items-center gap-4">
-        <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
-          {enCours ? "Enregistrement…" : libelleSoumission}
-        </button>
-        {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-4">
+          <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
+            {enCours ? "Enregistrement…" : libelleSoumission}
+          </button>
+          {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+          {etat.ok && !etat.avertissement && (
+            <p className="text-sm text-green-700">Enregistré.</p>
+          )}
+        </div>
+        {etat.avertissement && <p className="text-sm text-amber-700">{etat.avertissement}</p>}
       </div>
     </form>
   );

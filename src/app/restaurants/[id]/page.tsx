@@ -7,13 +7,8 @@ import { BookingCard } from "@/components/BookingCard";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { auth } from "@/lib/auth";
 import { genererJoursReservables } from "@/lib/creneaux";
+import { LIBELLE_CATEGORIE } from "@/lib/plats";
 import { prisma } from "@/lib/prisma";
-
-const LIBELLE_CATEGORIE: Record<"ENTREE" | "PLAT" | "DESSERT", string> = {
-  ENTREE: "Entrée",
-  PLAT: "Plat",
-  DESSERT: "Dessert",
-};
 
 export default async function FicheRestaurantPage({
   params,
