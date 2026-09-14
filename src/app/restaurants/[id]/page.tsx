@@ -49,6 +49,17 @@ export default async function FicheRestaurantPage({
     <main>
       {/* hero */}
       <section className="relative mx-4 mt-4 overflow-hidden rounded-[36px] bg-[var(--color-accent)] px-6 py-10 md:mx-6 md:px-16 md:py-14">
+        {restaurant.photoMisAJourLe && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/restaurants/${restaurant.id}/photo?v=${restaurant.photoMisAJourLe.getTime()}`}
+              alt={restaurant.nom}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
+          </>
+        )}
         <div className="pointer-events-none absolute -right-20 -top-52 h-[520px] w-[520px] rounded-full bg-[var(--color-accent-soft)] opacity-45" />
         <div className="pointer-events-none absolute bottom-0 left-1/3 h-[140px] w-[280px] rounded-t-[280px] bg-[var(--color-yellow)] opacity-95" />
 

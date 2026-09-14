@@ -6,10 +6,9 @@ import { z } from "zod";
 
 import { authRestaurant } from "@/lib/auth";
 import { getPlatsPhotosStore } from "@/lib/plats-photos";
+import { validerImage } from "@/lib/photos";
 import { prisma } from "@/lib/prisma";
 import type { PlatCuillere } from "@/generated/prisma";
-
-const TAILLE_MAX_PHOTO = 5 * 1024 * 1024; // 5 Mo
 
 const schemaPlat = z.object({
   nom: z
@@ -39,12 +38,6 @@ function lirePhoto(formData: FormData): File | null {
   const photo = formData.get("photo");
   if (!(photo instanceof File) || photo.size === 0) return null;
   return photo;
-}
-
-function validerPhoto(photo: File): string | null {
-  if (!photo.type.startsWith("image/")) return "La photo doit être une image.";
-  if (photo.size > TAILLE_MAX_PHOTO) return "Photo trop lourde (5 Mo max).";
-  return null;
 }
 
 /**
@@ -102,7 +95,7 @@ export async function creerPlat(_etatPrecedent: EtatPlat, formData: FormData): P
 
   const photo = lirePhoto(formData);
   if (photo) {
-    const erreurPhoto = validerPhoto(photo);
+    const erreurPhoto = validerImage(photo);
     if (erreurPhoto) return { erreur: erreurPhoto };
   }
 
@@ -161,7 +154,7 @@ export async function modifierPlat(
 
   const photo = lirePhoto(formData);
   if (photo) {
-    const erreurPhoto = validerPhoto(photo);
+    const erreurPhoto = validerImage(photo);
     if (erreurPhoto) return { erreur: erreurPhoto };
   }
 

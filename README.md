@@ -82,9 +82,11 @@ poussé à la main et jamais retrouvé côté base de déploiement.
   — `Booking.signaleeLe` capture l'horodatage du signalement. C'est ce geste
   qui débloquera la facturation (voir "Schéma réservation & facturation").
   Ma fiche établissement : le restaurant tient à jour nom/ville/cuisine/
-  adresse/horaires/description/capacité, jusqu'ici alimentés uniquement par
-  le seed (`mettreAJourFiche` dans
-  `src/app/espace-restaurant/fiche/actions.ts`). Mes disponibilités : deux
+  adresse/horaires/description/capacité/photo, jusqu'ici alimentés
+  uniquement par le seed (`mettreAJourFiche` dans
+  `src/app/espace-restaurant/fiche/actions.ts`). La photo (facultative) suit
+  le même mécanisme que celles des plats — voir la story "Ma carte"
+  ci-dessous et `src/lib/photos.ts`. Mes disponibilités : deux
   plannings distincts, tous deux vérifiés par `creerReservation`
   (`src/app/espace-restaurant/disponibilites/`) — l'horaire d'ouverture
   classique, récurrent et non daté (`HoraireFermeture`, un jour de semaine ou
@@ -131,8 +133,10 @@ poussé à la main et jamais retrouvé côté base de déploiement.
   la carte de son établissement — ajoute, modifie, supprime un plat (nom,
   description/ingrédients, catégorie entrée/plat/dessert, prix, photo
   facultative), visible immédiatement sur la fiche publique et sur l'accueil
-  (`src/app/espace-restaurant/menu/`). Les photos sont stockées sur Netlify
-  Blobs (`src/lib/plats-photos.ts`, servies par `/api/plats/[platId]/photo`) —
+  (`src/app/espace-restaurant/menu/`). Les photos (plats et fiche
+  établissement) sont stockées sur Netlify Blobs (`src/lib/photos.ts`, un
+  store par type d'entité — `plats-photos.ts`/`restaurants-photos.ts` —
+  servis par `/api/plats/[platId]/photo` et `/api/restaurants/[id]/photo`) —
   sans configuration sur Netlify. En local (`pnpm dev`), pas de Netlify Blobs
   disponible : on écrit sur disque dans `.local-blobs/` (ignoré par git),
   même interface, transparent pour le reste du code.
