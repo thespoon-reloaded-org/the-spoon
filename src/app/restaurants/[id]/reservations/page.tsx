@@ -47,9 +47,17 @@ export default async function ReservationsRestaurantPage({
         </div>
       </div>
 
-      <h1 className="mt-6 font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
-        Réservations · {restaurant.nom}
-      </h1>
+      <div className="mt-6 flex items-center justify-between">
+        <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
+          Réservations · {restaurant.nom}
+        </h1>
+        <Link
+          href={`/restaurants/${id}/menu`}
+          className="rounded-full border-[1.5px] border-[var(--color-line-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]"
+        >
+          Mon menu
+        </Link>
+      </div>
 
       {restaurant.bookings.length === 0 ? (
         <p className="mt-6 text-sm text-[var(--color-ink-muted)]">

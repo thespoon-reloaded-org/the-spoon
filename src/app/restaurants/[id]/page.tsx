@@ -9,6 +9,12 @@ import { auth } from "@/lib/auth";
 import { genererJoursReservables } from "@/lib/creneaux";
 import { prisma } from "@/lib/prisma";
 
+const LIBELLE_CATEGORIE: Record<"ENTREE" | "PLAT" | "DESSERT", string> = {
+  ENTREE: "Entrée",
+  PLAT: "Plat",
+  DESSERT: "Dessert",
+};
+
 export default async function FicheRestaurantPage({
   params,
 }: {
@@ -115,13 +121,30 @@ export default async function FicheRestaurantPage({
                   key={plat.id}
                   className="flex flex-col gap-2 rounded-[22px] border border-[var(--color-line)] bg-white p-5"
                 >
-                  <span className="text-2xl">🥣</span>
-                  <span className="font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-[var(--color-ink)]">
-                    {plat.nom}
-                  </span>
+                  {plat.photoMisAJourLe ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/api/plats/${plat.id}/photo?v=${plat.photoMisAJourLe.getTime()}`}
+                      alt={plat.nom}
+                      className="h-32 w-full rounded-[16px] object-cover"
+                    />
+                  ) : (
+                    <span className="text-2xl">🥣</span>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-[var(--color-ink)]">
+                      {plat.nom}
+                    </span>
+                    <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-0.5 text-xs font-semibold text-[var(--color-ink)]">
+                      {LIBELLE_CATEGORIE[plat.categorie]}
+                    </span>
+                  </div>
                   {plat.description && (
                     <span className="text-sm text-[var(--color-ink-muted)]">{plat.description}</span>
                   )}
+                  <span className="text-sm font-semibold text-[var(--color-ink)]">
+                    {(plat.prixCentimes / 100).toFixed(2)} €
+                  </span>
                 </div>
               ))}
             </div>

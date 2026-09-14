@@ -95,6 +95,15 @@ poussé à la main et jamais retrouvé côté base de déploiement.
 - Socle staff : table `Staff` (organigramme interne), pas encore de
   connexion ni d'écran — prépare "Auth staff TheSpoon & permissions".
   `pnpm seed:dev` en crée quelques-uns.
+- Mon menu (`/restaurants/[id]/menu`) : le contact restaurant connecté gère
+  la carte de son établissement — ajoute, modifie, supprime un plat (nom,
+  description/ingrédients, catégorie entrée/plat/dessert, prix, photo
+  facultative), visible immédiatement sur la fiche publique
+  (`src/app/restaurants/[id]/menu/`). Les photos sont stockées sur Netlify
+  Blobs (`src/lib/plats-photos.ts`, servies par `/api/plats/[platId]/photo`) —
+  sans configuration sur Netlify. En local (`pnpm dev`), pas de Netlify Blobs
+  disponible : on écrit sur disque dans `.local-blobs/` (ignoré par git),
+  même interface, transparent pour le reste du code.
 
 ## Ce qui n'existe pas encore
 
