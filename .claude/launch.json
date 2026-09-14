@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "the-spoon-dev",
+      "runtimeExecutable": "/Users/elsamargier/.nvm/versions/node/v24.14.1/bin/node",
+      "runtimeArgs": [
+        "/Users/elsamargier/Desktop/Hymaia/Formation/Bootcamp/the-spoon_bootcamp/.claude/worktrees/espace-restaurant-tickets-29d379/node_modules/next/dist/bin/next",
+        "dev",
+        "--port",
+        "3102"
+      ],
+      "port": 3102
+    }
+  ]
+}

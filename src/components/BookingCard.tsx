@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { creerReservation, type EtatReservation } from "@/app/restaurants/[id]/actions";
-import { CRENEAUX_HORAIRES, TAILLES_TABLE, type JourReservable } from "@/lib/creneaux";
+import { CRENEAUX_MIDI, CRENEAUX_SOIR, TAILLES_TABLE, type JourReservable } from "@/lib/creneaux";
 
 const CHIP =
   "rounded-[13px] border-[1.5px] px-3 py-2.5 text-center text-sm font-semibold cursor-pointer select-none transition-colors";
@@ -26,8 +26,11 @@ export function BookingCard({
 }) {
   const [couverts, setCouverts] = useState<number>(TAILLES_TABLE[1].valeur);
   const [jourIso, setJourIso] = useState(jours[0]?.iso ?? "");
-  const [creneau, setCreneau] = useState<string>(CRENEAUX_HORAIRES[3]);
-  const [etat, action, enCours] = useActionState(creerReservation.bind(null, restaurantId), ETAT_INITIAL);
+  const [creneau, setCreneau] = useState<string>(CRENEAUX_SOIR[3]);
+  const [etat, action, enCours] = useActionState(
+    creerReservation.bind(null, restaurantId),
+    ETAT_INITIAL,
+  );
 
   if (etat.ok) {
     const jour = jours.find((j) => j.iso === jourIso);
@@ -49,7 +52,9 @@ export function BookingCard({
         <h2 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-[var(--color-ink)]">
           Réserver une table
         </h2>
-        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">Confirmation immédiate · sans frais</p>
+        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+          Confirmation immédiate · sans frais
+        </p>
       </div>
 
       <form action={action} className="flex flex-col gap-6">
@@ -88,27 +93,47 @@ export function BookingCard({
                 className={`flex-1 ${jourIso === j.iso ? CHIP_ACTIF : CHIP_INACTIF}`}
               >
                 <span className="block text-[10px] uppercase opacity-70">{j.jourSemaine}</span>
-                <span className="block font-[family-name:var(--font-display)] text-base">{j.numero}</span>
+                <span className="block font-[family-name:var(--font-display)] text-base">
+                  {j.numero}
+                </span>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           <span className="font-mono text-[11px] font-semibold tracking-wide text-[var(--color-ink-muted)]">
             CRÉNEAUX
           </span>
-          <div className="grid grid-cols-4 gap-2">
-            {CRENEAUX_HORAIRES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setCreneau(c)}
-                className={creneau === c ? CHIP_ACTIF : CHIP_INACTIF}
-              >
-                {c}
-              </button>
-            ))}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-[var(--color-ink-muted)]">Midi</span>
+            <div className="grid grid-cols-4 gap-2">
+              {CRENEAUX_MIDI.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCreneau(c)}
+                  className={creneau === c ? CHIP_ACTIF : CHIP_INACTIF}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-[var(--color-ink-muted)]">Soir</span>
+            <div className="grid grid-cols-4 gap-2">
+              {CRENEAUX_SOIR.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCreneau(c)}
+                  className={creneau === c ? CHIP_ACTIF : CHIP_INACTIF}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

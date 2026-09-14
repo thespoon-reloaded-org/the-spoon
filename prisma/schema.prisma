@@ -27,18 +27,68 @@ model Restaurant {
   horaires      String?
   description   String?
   capacite      Int?
+  /// Délai (en heures) avant le créneau au-delà duquel une annulation est
+  /// jugée tardive — `null` : pas de politique définie. Prérequis du délai
+  /// minimal d'annulation côté dîneur et du futur motif de contestation
+  /// `annulation_tardive`, ni l'un ni l'autre pas encore appliqués.
+  delaiAnnulationHeures Int?
   noteCuilleres Float?
   nombreAvis    Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  platsCuillere PlatCuillere[]
-  bookings      Booking[]
-  avis          Avis[]
-  contacts      RestaurantContact[]
+  platsCuillere      PlatCuillere[]
+  bookings           Booking[]
+  avis               Avis[]
+  contacts           RestaurantContact[]
+  horairesFermes     HoraireFermeture[]
+  exceptionsHoraires ExceptionHoraire[]
 
   @@index([ville])
   @@index([cuisine])
+}
+
+/// Le planning récurrent (non daté) du restaurant : un jour de semaine (ou un
+/// seul créneau de ce jour) fermé toutes les semaines — l'horaire d'ouverture
+/// classique. `jourSemaine` suit l'index ISO (0 = lundi … 6 = dimanche, voir
+/// `jourSemaineIso`), pas `Date.getDay()`. `creneau: null` ferme la journée
+/// entière. Vérifié à la création d'une réservation avec les exceptions
+/// ponctuelles ci-dessous (`ExceptionHoraire`), qui le recouvrent pour une
+/// date précise. Pas de contrainte d'unicité en base : une valeur nullable
+/// dans une clé composite ne garantit rien sous PostgreSQL, l'action serveur
+/// vérifie avant d'écrire.
+model HoraireFermeture {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  jourSemaine  Int
+  creneau      String?
+  createdAt    DateTime   @default(now())
+
+  @@index([restaurantId, jourSemaine])
+}
+
+/// Une exception ponctuelle sur une date précise (jour férié, congés,
+/// événement...), dans un sens ou dans l'autre : `ouvert: false` force la
+/// fermeture d'un créneau que le planning récurrent (`HoraireFermeture`)
+/// laisse ouvert (fermeture exceptionnelle), `ouvert: true` force
+/// l'ouverture d'un créneau qu'il ferme (ouverture exceptionnelle). L'écran
+/// pré-remplit chaque créneau depuis le récurrent — une exception ne
+/// représente que ce qui diffère de ce que dirait le planning par défaut. Un
+/// seul créneau par ligne (contrairement à `HoraireFermeture`, pas de
+/// `creneau: null` pour "journée entière") : "fermer/ouvrir toute la
+/// journée" applique l'exception aux `CRENEAUX_HORAIRES` un par un.
+model ExceptionHoraire {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  jour         String
+  creneau      String
+  ouvert       Boolean
+  createdAt    DateTime   @default(now())
+
+  @@unique([restaurantId, jour, creneau])
+  @@index([restaurantId, jour])
 }
 
 /// Un plat signature « à la cuillère » — le cœur du concept TheSpoon : des
@@ -156,12 +206,14 @@ model RestaurantContactVerification {
   @@index([identifier])
 }
 
-/// Statut d'une réservation. Pas de distinction "honorée" / "no-show" ici —
-/// ce sera nécessaire pour la facturation (voir "Schéma réservation &
-/// facturation") mais n'est pas encore modélisé.
+/// Statut d'une réservation. HONOREE/NO_SHOW sont posés par le restaurant
+/// (voir `signaleeLe` sur `Booking`) une fois le créneau passé — c'est ce qui
+/// débloque la facturation : sans couvert servi, rien à facturer.
 enum StatutReservation {
   CONFIRMEE
   ANNULEE
+  HONOREE
+  NO_SHOW
 }
 
 /// Une réservation faite par un dîneur connecté sur la fiche établissement.
@@ -176,6 +228,9 @@ model Booking {
   date         DateTime
   couverts     Int
   statut       StatutReservation @default(CONFIRMEE)
+  /// Horodatage auquel le restaurant a signalé honoré/no-show — un attribut
+  /// métier (utile pour la facturation), pas un simple `updatedAt` technique.
+  signaleeLe   DateTime?
   createdAt    DateTime          @default(now())
 
   @@index([restaurantId])
