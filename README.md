@@ -127,8 +127,17 @@ poussé à la main et jamais retrouvé côté base de déploiement.
   commission n'existe pas encore) ni de table d'audit trace des
   modifications (le ticket Notion "Console staff : vue restaurants" en
   parle, volontairement pas construite avant qu'un écran la lise).
+- Ma carte (`/espace-restaurant/menu`) : le contact restaurant connecté gère
+  la carte de son établissement — ajoute, modifie, supprime un plat (nom,
+  description/ingrédients, catégorie entrée/plat/dessert, prix, photo
+  facultative), visible immédiatement sur la fiche publique et sur l'accueil
+  (`src/app/espace-restaurant/menu/`). Les photos sont stockées sur Netlify
+  Blobs (`src/lib/plats-photos.ts`, servies par `/api/plats/[platId]/photo`) —
+  sans configuration sur Netlify. En local (`pnpm dev`), pas de Netlify Blobs
+  disponible : on écrit sur disque dans `.local-blobs/` (ignoré par git),
+  même interface, transparent pour le reste du code.
 
 ## Ce qui n'existe pas encore
 
-Le reste du backlog Notion : espace restaurant (BO complet), facturation,
-litiges, modération des avis, ticketing, base documentaire.
+Le reste du backlog Notion : facturation, litiges, modération des avis,
+ticketing, base documentaire.

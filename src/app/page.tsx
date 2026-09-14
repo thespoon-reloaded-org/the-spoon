@@ -116,7 +116,16 @@ export default async function RecherchePage({
                 href={`/restaurants/${plat.restaurantId}`}
                 className="flex w-[260px] shrink-0 flex-col gap-3 rounded-[22px] bg-[var(--color-cream)] p-5"
               >
-                <span className="text-3xl">🥣</span>
+                {plat.photoMisAJourLe ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/plats/${plat.id}/photo?v=${plat.photoMisAJourLe.getTime()}`}
+                    alt={plat.nom}
+                    className="h-32 w-full rounded-[16px] object-cover"
+                  />
+                ) : (
+                  <span className="text-3xl">🥣</span>
+                )}
                 <span className="font-[family-name:var(--font-display)] text-lg font-bold leading-tight tracking-tight text-[var(--color-ink)]">
                   {plat.nom}
                 </span>

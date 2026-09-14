@@ -93,16 +93,32 @@ model ExceptionHoraire {
 
 /// Un plat signature « à la cuillère » — le cœur du concept TheSpoon : des
 /// restaurants où on mange à la cuillère (soupes, plats mijotés, risottos...),
-/// pas juste une note en cuillères. Sert la mise en avant sur la landing.
+/// pas juste une note en cuillères. Sert la mise en avant sur la landing et,
+/// depuis l'écran "Mon menu" côté partenaire, la carte gérée par le
+/// restaurant lui-même (photo, description/ingrédients, catégorie, prix).
 model PlatCuillere {
-  id           String     @id @default(cuid())
-  nom          String
-  description  String?
-  restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
+  id              String       @id @default(cuid())
+  nom             String
+  description     String?
+  categorie       CategoriePlat @default(PLAT)
+  prixCentimes    Int          @default(0)
+  /// Horodatage de la dernière photo uploadée (stockée sur Netlify Blobs,
+  /// clé = id du plat). `null` = pas de photo, sert aussi de cache-bust pour
+  /// l'URL publique `/api/plats/[id]/photo`.
+  photoMisAJourLe DateTime?
+  restaurantId    String
+  restaurant      Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
 
   @@index([restaurantId])
+}
+
+/// Catégorie d'un plat sur la carte — le tag entrée / plat / dessert demandé
+/// par le restaurant pour organiser son menu.
+enum CategoriePlat {
+  ENTREE
+  PLAT
+  DESSERT
 }
 
 // ----------------------------------------------------------------------------

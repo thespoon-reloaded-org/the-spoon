@@ -19,7 +19,14 @@ const restaurants = [
     capacite: 40,
     noteCuilleres: 4.3,
     nombreAvis: 128,
-    plats: [{ nom: "Gratin dauphinois", description: "Crémeux, cuit trois heures." }],
+    plats: [
+      {
+        nom: "Gratin dauphinois",
+        description: "Crémeux, cuit trois heures.",
+        categorie: "PLAT" as const,
+        prixCentimes: 1650,
+      },
+    ],
     contacts: [
       { nom: "Antoine Dubreuil", email: "antoine@chez-antoine.example", role: "GERANT" as const },
     ],
@@ -34,7 +41,14 @@ const restaurants = [
     capacite: 24,
     noteCuilleres: 4.7,
     nombreAvis: 64,
-    plats: [{ nom: "Ramen tonkotsu", description: "Bouillon os de porc 18h, œuf mollet." }],
+    plats: [
+      {
+        nom: "Ramen tonkotsu",
+        description: "Bouillon os de porc 18h, œuf mollet.",
+        categorie: "PLAT" as const,
+        prixCentimes: 1450,
+      },
+    ],
     contacts: [{ nom: "Haruto Sato", email: "haruto@miso-bar.example", role: "GERANT" as const }],
   },
   {
@@ -47,7 +61,9 @@ const restaurants = [
     capacite: 30,
     noteCuilleres: null,
     nombreAvis: 0,
-    plats: [{ nom: "Pot-au-feu", description: null }],
+    plats: [
+      { nom: "Pot-au-feu", description: null, categorie: "PLAT" as const, prixCentimes: 1800 },
+    ],
     contacts: [
       { nom: "Camille Roy", email: "camille@petit-marche.example", role: "CHEF_DE_SALLE" as const },
     ],
@@ -63,7 +79,12 @@ const restaurants = [
     noteCuilleres: 4.8,
     nombreAvis: 212,
     plats: [
-      { nom: "Risotto aux cèpes", description: "Riz carnaroli, cèpes séchés, parmesan 24 mois." },
+      {
+        nom: "Risotto aux cèpes",
+        description: "Riz carnaroli, cèpes séchés, parmesan 24 mois.",
+        categorie: "PLAT" as const,
+        prixCentimes: 2200,
+      },
     ],
   },
   {
@@ -77,7 +98,12 @@ const restaurants = [
     noteCuilleres: 4.6,
     nombreAvis: 97,
     plats: [
-      { nom: "Velouté de potimarron", description: "Noisettes torréfiées, huile de courge." },
+      {
+        nom: "Velouté de potimarron",
+        description: "Noisettes torréfiées, huile de courge.",
+        categorie: "ENTREE" as const,
+        prixCentimes: 950,
+      },
     ],
   },
   {
@@ -90,7 +116,14 @@ const restaurants = [
     capacite: 36,
     noteCuilleres: 4.5,
     nombreAvis: 73,
-    plats: [{ nom: "Chorba libanaise", description: "Soupe de lentilles corail, citron confit." }],
+    plats: [
+      {
+        nom: "Chorba libanaise",
+        description: "Soupe de lentilles corail, citron confit.",
+        categorie: "ENTREE" as const,
+        prixCentimes: 850,
+      },
+    ],
   },
 ];
 
