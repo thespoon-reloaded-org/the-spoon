@@ -4,7 +4,7 @@ import { hashPassword } from "better-auth/crypto";
 
 import { prisma } from "../src/lib/prisma";
 
-/** Mot de passe des contacts restaurant seedés — uniquement pour le dev local. */
+/** Mot de passe des contacts restaurant et du staff seedés — uniquement pour le dev local. */
 const MOT_DE_PASSE_CONTACT_DEV = "password123";
 
 /** Une poignée de vrais restaurants, pour avoir quelque chose à chercher en dev. */
@@ -94,7 +94,7 @@ const restaurants = [
   },
 ];
 
-/** L'organigramme TheSpoon — pas encore de connexion, juste l'identité (voir schema.prisma). */
+/** L'organigramme TheSpoon — connexion sur /connexion-admin (voir schema.prisma). */
 const staff = [
   { nom: "Léa Fontaine", email: "lea.fontaine@thespoon.example", role: "Support restaurants" },
   {
@@ -136,13 +136,29 @@ async function run() {
       nombreContacts++;
     }
   }
-  await prisma.staff.createMany({ data: staff });
+  for (const membre of staff) {
+    const staffCree = await prisma.staff.create({ data: membre });
+    // Compte de connexion du membre du staff — même mécanique que les
+    // contacts restaurant (accountId = id du user, providerId "credential"),
+    // cf. authAdmin dans src/lib/auth.ts.
+    await prisma.staffAccount.create({
+      data: {
+        id: staffCree.id,
+        accountId: staffCree.id,
+        providerId: "credential",
+        userId: staffCree.id,
+        password: motDePasseHash,
+      },
+    });
+  }
 
   console.log(`${restaurants.length} restaurants créés, avec leur plat à la cuillère.`);
   console.log(
     `${nombreContacts} contacts restaurant créés (mot de passe : "${MOT_DE_PASSE_CONTACT_DEV}"), connexion sur /connexion-restaurant.`,
   );
-  console.log(`${staff.length} membres du staff créés.`);
+  console.log(
+    `${staff.length} membres du staff créés (mot de passe : "${MOT_DE_PASSE_CONTACT_DEV}"), connexion sur /connexion-admin.`,
+  );
 }
 
 run()

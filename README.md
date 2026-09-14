@@ -7,17 +7,17 @@ détaillée (facturation, commission, litiges) dont ce produit s'inspire.
 
 **Approche : produit et écrans d'abord, schéma ensuite.** Le modèle de
 données n'est pas conçu à l'avance en un bloc — chaque table arrive avec
-l'écran qui en a besoin. Exception assumée : `Staff` est un socle posé en
-avance (story "Modèle de données" dédiée), sans écran ni connexion pour
-l'instant — juste l'identité, en préparation de l'auth staff.
-`prisma/schema.prisma` contient aujourd'hui `Restaurant`/`PlatCuillere`
-(recherche + fiche établissement), `Booking` (réservation), `Avis` (dépôt
-d'avis), `Staff` (socle staff, sans auth), les tables d'auth dîneur
-(`User`/`Session`/`Account`/`Verification`, générées par better-auth) et les
-tables d'auth restaurant partenaire (`RestaurantContact` +
+l'écran qui en a besoin. `prisma/schema.prisma` contient aujourd'hui
+`Restaurant`/`PlatCuillere` (recherche + fiche établissement),
+`HoraireFermeture`/`ExceptionHoraire` (disponibilités), `Booking`
+(réservation), `Avis` (dépôt d'avis), `Staff` (organigramme interne) et,
+pour chacune des trois populations qui se connectent (dîneur, contact
+restaurant, staff), un jeu de tables d'auth dédié généré par better-auth
+(`User`/`Session`/`Account`/`Verification` ; `RestaurantContact` +
 `RestaurantContactSession`/`RestaurantContactAccount`/
-`RestaurantContactVerification`, même mécanique better-auth, tables
-séparées).
+`RestaurantContactVerification` ; `Staff` +
+`StaffSession`/`StaffAccount`/`StaffVerification`) — même mécanique, tables
+et cookies séparés par population.
 
 Identité visuelle non décidée : les couleurs dans `globals.css` sont un
 placeholder neutre, à ne pas confondre avec la charte Hymaïa (TheSpoon est sa
@@ -60,7 +60,7 @@ poussé à la main et jamais retrouvé côté base de déploiement.
 - Recherche de restaurants (`/`) et fiche établissement (`/restaurants/[id]`),
   branchées sur une vraie base PostgreSQL via Prisma.
 - Auth dîneur (`/connexion`) : inscription, connexion, session, déconnexion —
-  via better-auth. Staff TheSpoon reste à faire.
+  via better-auth.
 - Auth restaurant partenaire (`/connexion-restaurant`) : connexion, session,
   déconnexion pour le contact d'un restaurant (gérant/chef de salle) — via
   une deuxième instance better-auth (`authRestaurant` dans `src/lib/auth.ts`),
@@ -111,12 +111,24 @@ poussé à la main et jamais retrouvé côté base de déploiement.
   l'instant (voir le ticket Notion "Modération des avis") ni de lien avec un
   éventuel déréférencement — décisions volontairement laissées ouvertes sur
   l'epic "Avis & notation".
-- Socle staff : table `Staff` (organigramme interne), pas encore de
-  connexion ni d'écran — prépare "Auth staff TheSpoon & permissions".
-  `pnpm seed:dev` en crée quelques-uns.
+- Auth staff TheSpoon (`/connexion-admin`) : connexion, session, déconnexion
+  pour un membre du staff (table `Staff`) — via une troisième instance
+  better-auth (`authAdmin` dans `src/lib/auth.ts`), entièrement séparée des
+  deux précédentes (table, cookie et route API dédiés :
+  `/api/auth-admin`). Pas d'inscription : les comptes sont créés côté
+  TheSpoon (`pnpm seed:dev` en crée deux, voir plus bas — mot de passe
+  `password123`). Pas de permissions par rôle pour l'instant : tout le staff
+  connecté a le même accès (voir le ticket Notion "Auth staff TheSpoon &
+  permissions" pour la suite).
+- Console staff / BO admin (`/admin`) : liste des restaurants partenaires
+  avec recherche (nom/ville), fiche détail (infos, contacts, réservations
+  récentes), création et modification d'un restaurant
+  (`src/app/admin/`). Pas de section factures (l'epic Facturation &
+  commission n'existe pas encore) ni de table d'audit trace des
+  modifications (le ticket Notion "Console staff : vue restaurants" en
+  parle, volontairement pas construite avant qu'un écran la lise).
 
 ## Ce qui n'existe pas encore
 
-Le reste du backlog Notion : auth staff, espace restaurant (BO complet),
-BO admin, facturation, litiges, modération des avis, ticketing, base
-documentaire.
+Le reste du backlog Notion : espace restaurant (BO complet), facturation,
+litiges, modération des avis, ticketing, base documentaire.
