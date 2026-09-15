@@ -4,11 +4,50 @@ import path from "path";
 
 export const TAILLE_MAX_PHOTO = 5 * 1024 * 1024; // 5 Mo
 
+/**
+ * Types image acceptés — liste fermée, pas juste `image/*`. Exclut
+ * volontairement `image/svg+xml` : un SVG est un document XML qui peut
+ * embarquer du JavaScript, et ces photos sont servies telles quelles (même
+ * `Content-Type`) par des routes publiques sans authentification
+ * (`/api/plats/[platId]/photo`, `/api/restaurants/[id]/photo`) — accepter du
+ * SVG ouvrirait une XSS stockée sur ces URLs.
+ */
+const TYPES_IMAGE_ACCEPTES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
 /** Valide un fichier envoyé comme photo — utilisé pour les plats et pour la fiche établissement. */
 export function validerImage(photo: File): string | null {
-  if (!photo.type.startsWith("image/")) return "La photo doit être une image.";
+  if (!TYPES_IMAGE_ACCEPTES.has(photo.type)) return "La photo doit être une image (JPG, PNG, WEBP ou GIF).";
   if (photo.size > TAILLE_MAX_PHOTO) return "Photo trop lourde (5 Mo max).";
   return null;
+}
+
+/** Lit le fichier envoyé sous le nom `photo` dans un formulaire — utilisé pour les plats et la fiche établissement. */
+export function lirePhoto(formData: FormData): File | null {
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) return null;
+  return photo;
+}
+
+/**
+ * Envoie une photo sur un store (Netlify Blobs en prod, disque local en dev
+ * — voir `creerStorePhotos`). Si l'écriture échoue (disque plein,
+ * permissions, panne du store...), ne bloque pas l'enregistrement de
+ * l'entité pour autant — retourne un message à afficher à l'utilisateur au
+ * lieu de laisser croire que tout s'est bien passé.
+ */
+export async function sauvegarderPhotoEntite(
+  store: StorePhotos,
+  key: string,
+  photo: File,
+  messageEchec: string,
+): Promise<string | null> {
+  try {
+    await store.set(key, photo, { metadata: { contentType: photo.type } });
+    return null;
+  } catch (erreur) {
+    console.error(`Échec de l'upload d'une photo (clé ${key}) :`, erreur);
+    return messageEchec;
+  }
 }
 
 type ResultatPhoto = { data: Blob; metadata: { contentType?: string } } | null;
@@ -75,16 +114,23 @@ function creerStoreLocal(bucket: string): StorePhotos {
   };
 }
 
+const storesParBucket = new Map<string, StorePhotos>();
+
 /**
  * Store de photos pour un « bucket » donné (un par type d'entité — plats,
- * restaurants...). Sur Netlify (build/déploiement), `NETLIFY_BLOBS_CONTEXT`
- * est toujours présent et Netlify Blobs prend le relais automatiquement ;
- * sinon (`next dev` en local), on retombe sur un store disque — voir
+ * restaurants...), mémorisé — un seul store construit par bucket et par
+ * instance serveur, pas un par requête (`getStore`/le store disque local
+ * refont sans ça du travail — décodage du contexte Netlify, fermetures — à
+ * chaque appel). Sur Netlify (build/déploiement), `NETLIFY_BLOBS_CONTEXT` est
+ * toujours présent et Netlify Blobs prend le relais automatiquement ; sinon
+ * (`next dev` en local), on retombe sur un store disque — voir
  * `creerStoreLocal`.
  */
 export function creerStorePhotos(bucket: string): StorePhotos {
-  if (process.env.NETLIFY_BLOBS_CONTEXT) {
-    return getStore(bucket);
-  }
-  return creerStoreLocal(bucket);
+  const existant = storesParBucket.get(bucket);
+  if (existant) return existant;
+
+  const store = process.env.NETLIFY_BLOBS_CONTEXT ? getStore(bucket) : creerStoreLocal(bucket);
+  storesParBucket.set(bucket, store);
+  return store;
 }

@@ -73,7 +73,7 @@ export function FicheEtablissementForm({
               className="h-32 w-full rounded-xl object-cover"
             />
           )}
-          <input type="file" name="photo" accept="image/*" className="text-sm text-[var(--color-ink)]" />
+          <input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif" className="text-sm text-[var(--color-ink)]" />
           <span className="text-xs font-normal text-[var(--color-ink-muted)]">
             {fiche.photoMisAJourLe
               ? "Laisse vide pour garder la photo actuelle."

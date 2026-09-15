@@ -32,6 +32,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     headers: {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=31536000, immutable",
+      // Défense en profondeur : validerImage() (src/lib/photos.ts) refuse déjà
+      // les SVG à l'upload, mais cette route reste publique et non
+      // authentifiée — nosniff évite qu'un navigateur ne réinterprète le
+      // contenu comme un type plus dangereux que le Content-Type déclaré.
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
