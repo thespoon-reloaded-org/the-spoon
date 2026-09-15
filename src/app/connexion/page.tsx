@@ -132,6 +132,13 @@ export default function ConnexionPage() {
           {mode === "connexion" ? "Se connecter" : "Créer mon compte"}
         </button>
       </form>
+
+      <Link
+        href="/connexion-admin"
+        className="mt-8 block text-center text-xs text-[var(--color-ink-muted)] hover:underline"
+      >
+        Espace staff
+      </Link>
     </main>
   );
 }

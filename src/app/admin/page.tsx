@@ -48,6 +48,9 @@ export default async function ConsoleAdminPage({
         </div>
         <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-ink)]">
           <span>Bonjour {session.user.name}</span>
+          <Link href="/admin/factures" className={BOUTON_SECONDAIRE}>
+            Facturation
+          </Link>
           <DeconnexionAdminBouton />
         </div>
       </div>

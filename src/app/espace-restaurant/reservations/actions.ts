@@ -8,10 +8,16 @@ import { z } from "zod";
 import { authRestaurant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const schemaSignalement = z.object({
-  bookingId: z.string(),
-  statut: z.enum(["HONOREE", "NO_SHOW"]),
-});
+const schemaSignalement = z
+  .object({
+    bookingId: z.string(),
+    statut: z.enum(["HONOREE", "NO_SHOW"]),
+    couvertsServis: z.coerce.number().int().min(1).optional(),
+  })
+  .refine((donnees) => donnees.statut !== "HONOREE" || donnees.couvertsServis !== undefined, {
+    message: "Indique le nombre de couverts servis.",
+    path: ["couvertsServis"],
+  });
 
 export type EtatSignalement = { erreur?: string; ok?: boolean };
 
@@ -27,14 +33,22 @@ export async function marquerReservation(
   bookingId: string,
   statut: "HONOREE" | "NO_SHOW",
   _etatPrecedent: EtatSignalement,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<EtatSignalement> {
   const session = await authRestaurant.api.getSession({ headers: await headers() });
   if (!session) redirect("/connexion-restaurant");
 
-  const donnees = schemaSignalement.safeParse({ bookingId, statut });
+  const couvertsServisSaisis = formData.get("couvertsServis");
+  const donnees = schemaSignalement.safeParse({
+    bookingId,
+    statut,
+    // Un champ vidé renvoie "" (pas null) — sans ce garde, z.coerce.number()
+    // le convertirait en 0, qui échoue .min(1) avec le message générique de
+    // Zod au lieu du message dédié du .refine ci-dessus.
+    couvertsServis: couvertsServisSaisis === "" ? undefined : (couvertsServisSaisis ?? undefined),
+  });
   if (!donnees.success) {
-    return { erreur: "Réservation introuvable." };
+    return { erreur: donnees.error.issues[0]?.message ?? "Réservation introuvable." };
   }
 
   const reservation = await prisma.booking.findFirst({
@@ -50,13 +64,26 @@ export async function marquerReservation(
     return { erreur: "Ce créneau n'est pas encore passé." };
   }
 
+  let resultat: { count: number };
   try {
-    await prisma.booking.update({
-      where: { id: reservation.id },
-      data: { statut: donnees.data.statut, signaleeLe: new Date() },
+    // `updateMany` avec `statut: "CONFIRMEE"` dans le WHERE rend le
+    // check-then-act atomique : si deux signalements arrivent en même temps
+    // (double clic, retry réseau), un seul verra `count === 1` — l'autre
+    // trouve `count === 0` et sait qu'il a perdu la course, plutôt que
+    // d'écraser silencieusement le premier signalement.
+    resultat = await prisma.booking.updateMany({
+      where: { id: reservation.id, statut: "CONFIRMEE" },
+      data: {
+        statut: donnees.data.statut,
+        signaleeLe: new Date(),
+        couvertsServis: donnees.data.statut === "HONOREE" ? donnees.data.couvertsServis : null,
+      },
     });
   } catch {
     return { erreur: "Impossible d'enregistrer le signalement, réessaie." };
+  }
+  if (resultat.count === 0) {
+    return { erreur: "Cette réservation a déjà été traitée." };
   }
 
   revalidatePath("/espace-restaurant/reservations");
