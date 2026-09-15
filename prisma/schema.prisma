@@ -34,6 +34,10 @@ model Restaurant {
   delaiAnnulationHeures Int?
   noteCuilleres Float?
   nombreAvis    Int      @default(0)
+  /// Horodatage de la dernière photo uploadée (même mécanique que
+  /// `PlatCuillere.photoMisAJourLe` — voir src/lib/photos.ts). `null` = pas
+  /// de photo, sert aussi de cache-bust pour `/api/restaurants/[id]/photo`.
+  photoMisAJourLe DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

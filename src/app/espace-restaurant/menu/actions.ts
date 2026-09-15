@@ -6,10 +6,11 @@ import { z } from "zod";
 
 import { authRestaurant } from "@/lib/auth";
 import { getPlatsPhotosStore } from "@/lib/plats-photos";
+import { lirePhoto, sauvegarderPhotoEntite, validerImage } from "@/lib/photos";
 import { prisma } from "@/lib/prisma";
 import type { PlatCuillere } from "@/generated/prisma";
 
-const TAILLE_MAX_PHOTO = 5 * 1024 * 1024; // 5 Mo
+const MESSAGE_ECHEC_PHOTO = "Plat enregistré, mais la photo n'a pas pu être envoyée — réessaie plus tard.";
 
 const schemaPlat = z.object({
   nom: z
@@ -34,36 +35,6 @@ const schemaPlat = z.object({
 });
 
 export type EtatPlat = { erreur?: string; ok?: boolean; avertissement?: string };
-
-function lirePhoto(formData: FormData): File | null {
-  const photo = formData.get("photo");
-  if (!(photo instanceof File) || photo.size === 0) return null;
-  return photo;
-}
-
-function validerPhoto(photo: File): string | null {
-  if (!photo.type.startsWith("image/")) return "La photo doit être une image.";
-  if (photo.size > TAILLE_MAX_PHOTO) return "Photo trop lourde (5 Mo max).";
-  return null;
-}
-
-/**
- * Envoie la photo sur le store (Netlify Blobs en prod, disque local en dev —
- * voir `getPlatsPhotosStore`). Si l'écriture échoue (disque plein,
- * permissions, panne du store...), on ne bloque pas l'enregistrement du plat
- * pour autant (nom, description, catégorie, prix sont déjà en base) — mais on
- * le signale à l'appelant pour qu'il prévienne l'utilisateur au lieu de
- * laisser croire que tout s'est bien passé.
- */
-async function sauvegarderPhoto(platId: string, photo: File): Promise<string | null> {
-  try {
-    await getPlatsPhotosStore().set(platId, photo, { metadata: { contentType: photo.type } });
-    return null;
-  } catch (erreur) {
-    console.error("Échec de l'upload de la photo du plat (stockage indisponible) :", erreur);
-    return "Plat enregistré, mais la photo n'a pas pu être envoyée — réessaie plus tard.";
-  }
-}
 
 function revaliderMenu(restaurantId: string) {
   revalidatePath("/espace-restaurant/menu");
@@ -102,7 +73,7 @@ export async function creerPlat(_etatPrecedent: EtatPlat, formData: FormData): P
 
   const photo = lirePhoto(formData);
   if (photo) {
-    const erreurPhoto = validerPhoto(photo);
+    const erreurPhoto = validerImage(photo);
     if (erreurPhoto) return { erreur: erreurPhoto };
   }
 
@@ -122,7 +93,7 @@ export async function creerPlat(_etatPrecedent: EtatPlat, formData: FormData): P
 
   let avertissement: string | undefined;
   if (photo) {
-    const erreurPhoto = await sauvegarderPhoto(plat.id, photo);
+    const erreurPhoto = await sauvegarderPhotoEntite(getPlatsPhotosStore(), plat.id, photo, MESSAGE_ECHEC_PHOTO);
     if (erreurPhoto) {
       avertissement = erreurPhoto;
     } else {
@@ -161,7 +132,7 @@ export async function modifierPlat(
 
   const photo = lirePhoto(formData);
   if (photo) {
-    const erreurPhoto = validerPhoto(photo);
+    const erreurPhoto = validerImage(photo);
     if (erreurPhoto) return { erreur: erreurPhoto };
   }
 
@@ -170,7 +141,7 @@ export async function modifierPlat(
   // dans la même écriture, au lieu d'un second aller-retour.
   let avertissement: string | undefined;
   if (photo) {
-    const erreurPhoto = await sauvegarderPhoto(platId, photo);
+    const erreurPhoto = await sauvegarderPhotoEntite(getPlatsPhotosStore(), platId, photo, MESSAGE_ECHEC_PHOTO);
     if (erreurPhoto) avertissement = erreurPhoto;
   }
 
@@ -219,7 +190,7 @@ export async function supprimerPlat(
 
   if (plat.photoMisAJourLe) {
     // Best effort : le plat doit disparaître même si le stockage est
-    // indisponible (voir sauvegarderPhoto).
+    // indisponible (voir sauvegarderPhotoEntite dans src/lib/photos.ts).
     await getPlatsPhotosStore()
       .delete(platId)
       .catch((erreur) => console.error("Échec de la suppression de la photo du plat :", erreur));

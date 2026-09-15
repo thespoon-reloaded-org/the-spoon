@@ -185,9 +185,18 @@ export default async function RecherchePage({
               href={`/restaurants/${restaurant.id}`}
               className="overflow-hidden rounded-[26px] border border-[var(--color-line)] bg-white"
             >
-              <div className="relative flex h-[180px] items-center justify-center bg-[repeating-linear-gradient(135deg,#F7E6EA_0_12px,#F0D8DE_12px_24px)]">
-                <span className="font-mono text-[11px] text-[#b09aa1]">[ PHOTO ]</span>
-              </div>
+              {restaurant.photoMisAJourLe ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/restaurants/${restaurant.id}/photo?v=${restaurant.photoMisAJourLe.getTime()}`}
+                  alt={restaurant.nom}
+                  className="h-[180px] w-full object-cover"
+                />
+              ) : (
+                <div className="relative flex h-[180px] items-center justify-center bg-[repeating-linear-gradient(135deg,#F7E6EA_0_12px,#F0D8DE_12px_24px)]">
+                  <span className="font-mono text-[11px] text-[#b09aa1]">[ PHOTO ]</span>
+                </div>
+              )}
               <div className="flex flex-col gap-2.5 px-5 py-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-[var(--color-ink)]">

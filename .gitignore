@@ -17,6 +17,10 @@ tsconfig.tsbuildinfo
 # Client Prisma généré (recréé par `pnpm install`)
 src/generated/
 
-# Photos de plats en local (voir src/lib/plats-photos.ts) — sur Netlify,
-# c'est Netlify Blobs qui prend le relais, rien à ignorer côté déploiement.
+# Photos (plats, fiche établissement) en local (voir src/lib/photos.ts) —
+# sur Netlify, c'est Netlify Blobs qui prend le relais, rien à ignorer côté
+# déploiement.
 .local-blobs/
+
+# État local du CLI Netlify (`netlify link`) — propre à chaque poste.
+.netlify/

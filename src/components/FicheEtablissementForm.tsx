@@ -11,6 +11,7 @@ export function FicheEtablissementForm({
   fiche,
 }: {
   fiche: {
+    id: string;
     nom: string;
     ville: string;
     cuisine: string;
@@ -19,6 +20,7 @@ export function FicheEtablissementForm({
     description: string | null;
     capacite: number | null;
     delaiAnnulationHeures: number | null;
+    photoMisAJourLe: Date | null;
   };
 }) {
   const [etat, action, enCours] = useActionState(mettreAJourFiche, ETAT_INITIAL);
@@ -59,6 +61,24 @@ export function FicheEtablissementForm({
             defaultValue={fiche.adresse}
             className={CHAMP}
           />
+        </label>
+
+        <label className={LABEL_CHAMP}>
+          Photo
+          {fiche.photoMisAJourLe && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/restaurants/${fiche.id}/photo?v=${fiche.photoMisAJourLe.getTime()}`}
+              alt={`Photo de ${fiche.nom}`}
+              className="h-32 w-full rounded-xl object-cover"
+            />
+          )}
+          <input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif" className="text-sm text-[var(--color-ink)]" />
+          <span className="text-xs font-normal text-[var(--color-ink-muted)]">
+            {fiche.photoMisAJourLe
+              ? "Laisse vide pour garder la photo actuelle."
+              : "Facultatif — JPG/PNG, 5 Mo max."}
+          </span>
         </label>
       </div>
 
@@ -121,12 +141,17 @@ export function FicheEtablissementForm({
         </label>
       </div>
 
-      <div className="flex items-center gap-4">
-        <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
-          {enCours ? "Enregistrement…" : "Enregistrer"}
-        </button>
-        {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
-        {etat.ok && <p className="text-sm text-green-700">Fiche mise à jour.</p>}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-4">
+          <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
+            {enCours ? "Enregistrement…" : "Enregistrer"}
+          </button>
+          {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+          {etat.ok && !etat.avertissement && (
+            <p className="text-sm text-green-700">Fiche mise à jour.</p>
+          )}
+        </div>
+        {etat.avertissement && <p className="text-sm text-amber-700">{etat.avertissement}</p>}
       </div>
     </form>
   );

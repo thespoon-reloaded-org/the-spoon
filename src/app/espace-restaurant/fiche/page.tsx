@@ -17,6 +17,7 @@ export default async function FicheEtablissementPage() {
   const restaurant = await prisma.restaurant.findUnique({
     where: { id: session.user.restaurantId },
     select: {
+      id: true,
       nom: true,
       ville: true,
       cuisine: true,
@@ -25,6 +26,7 @@ export default async function FicheEtablissementPage() {
       description: true,
       capacite: true,
       delaiAnnulationHeures: true,
+      photoMisAJourLe: true,
     },
   });
   if (!restaurant) notFound();
