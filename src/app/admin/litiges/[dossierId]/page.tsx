@@ -1,9 +1,11 @@
+import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
 import { DemanderComplementForm } from "@/components/DemanderComplementForm";
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { FactureDocument } from "@/components/FactureDocument";
+import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { PrendreEnChargeBouton } from "@/components/PrendreEnChargeBouton";
 import { authAdmin } from "@/lib/auth";
 import {
@@ -14,7 +16,22 @@ import {
 } from "@/lib/contestation";
 import { formaterDateReservation, formaterMontant, joursRestantsContestation } from "@/lib/facturation";
 import { prisma } from "@/lib/prisma";
-import { CARTE, EYEBROW } from "@/lib/ui";
+import {
+  CARTE,
+  EYEBROW,
+  TITRE_SECTION,
+  pastilleEtat,
+  type EtatPastille,
+} from "@/lib/ui";
+import type { StatutDossier } from "@/generated/prisma";
+
+export const metadata = { title: "Instruction d'un dossier" };
+
+/** Même code couleur que le récapitulatif côté restaurant. */
+const ETAT_STATUT: Record<StatutDossier, EtatPastille> = {
+  EN_ATTENTE_INSTRUCTION: "attention",
+  CREDITE_OFFICE: "succes",
+};
 
 /**
  * "Instruction d'un dossier" — l'écran de travail de l'instructeur : le
@@ -23,6 +40,9 @@ import { CARTE, EYEBROW } from "@/lib/ui";
  * jointes, et l'historique du partenaire. Demander un complément ne clôture
  * pas le dossier — la décision elle-même est "Décision & émission d'avoir",
  * pas encore construite.
+ *
+ * La garde d'accès est faite une fois dans le layout parent ; la session sert
+ * seulement à savoir si l'instructeur du dossier est bien la personne connectée.
  */
 export default async function InstructionDossierPage({
   params,
@@ -30,7 +50,7 @@ export default async function InstructionDossierPage({
   params: Promise<{ dossierId: string }>;
 }) {
   const session = await authAdmin.api.getSession({ headers: await headers() });
-  if (!session) redirect("/connexion-admin");
+  if (!session) return null; // garde déjà faite par le layout, satisfait TypeScript
 
   const { dossierId } = await params;
 
@@ -61,145 +81,174 @@ export default async function InstructionDossierPage({
   const peutDemanderComplement = dossier.instructeurId === session.user.id;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/admin/litiges" className="text-sm text-[var(--color-ink-muted)] hover:underline">
+    <>
+      <Link
+        href="/admin/litiges"
+        className="mb-4 inline-block text-sm font-semibold text-[var(--color-staff)] hover:underline"
+      >
         ← File des litiges
       </Link>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className={EYEBROW}>{dossier.facture.restaurant.nom}</p>
-          <h1 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
-            {formaterMontant(dossier.montantContesteCentimes)} contestés
-          </h1>
-        </div>
-        <span className="rounded-full border-[1.5px] border-[var(--color-line-strong)] px-3 py-1 text-xs font-semibold text-[var(--color-ink)]">
-          {LABELS_STATUT_DOSSIER[dossier.statut]}
-        </span>
-      </div>
-
-      <div className={`mt-6 ${CARTE} flex flex-col gap-4`}>
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--color-ink-muted)]">
-          <span>
-            Déposé {formaterAnciennete(dossier.createdAt)} par {dossier.restaurantContact.nom} (
-            {dossier.restaurantContact.email})
-          </span>
-          {dossier.instructeur ? (
-            <span className="font-semibold text-[var(--color-ink)]">
-              Pris en charge par {dossier.instructeur.nom}
+      <EnteteEspace
+        titre={`${formaterMontant(dossier.montantContesteCentimes)} contestés`}
+        description={`${dossier.facture.restaurant.nom} · déposé ${formaterAnciennete(
+          dossier.createdAt,
+        )} par ${dossier.restaurantContact.nom} (${dossier.restaurantContact.email})`}
+        actions={
+          <>
+            <span className={pastilleEtat(ETAT_STATUT[dossier.statut])}>
+              {LABELS_STATUT_DOSSIER[dossier.statut]}
             </span>
-          ) : (
-            <PrendreEnChargeBouton dossierId={dossier.id} />
-          )}
-        </div>
+            {dossier.instructeur ? (
+              <span className={pastilleEtat("neutre")}>
+                Instruit par {dossier.instructeur.nom}
+              </span>
+            ) : (
+              <PrendreEnChargeBouton dossierId={dossier.id} />
+            )}
+          </>
+        }
+      />
 
-        <div className="flex flex-col gap-3">
-          {dossier.lignes.map((ligne) => (
-            <div
-              key={ligne.id}
-              className="rounded-xl border-[1.5px] border-[var(--color-line-strong)] p-4 text-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-semibold text-[var(--color-ink)]">
-                  {formaterDateReservation(ligne.ligneFacture.booking.date, { avecHeure: false })} —{" "}
-                  {LABELS_MOTIF_CONTESTATION[ligne.motif]}
-                </span>
-                <span className="font-semibold text-[var(--color-ink)]">
-                  {formaterMontant(ligne.ligneFacture.montantCentimes)}
-                </span>
+      {dossier.complementDemandeLe && (
+        <div className="mb-6 max-w-3xl">
+          <MessageFormulaire type="avertissement">
+            <span>
+              <strong className="font-semibold">
+                Complément demandé {formaterAnciennete(dossier.complementDemandeLe)}
+              </strong>{" "}
+              — {dossier.complementDemandeMessage}
+            </span>
+          </MessageFormulaire>
+        </div>
+      )}
+
+      <section className="max-w-3xl">
+        <h2 className={`${TITRE_SECTION} mb-4`}>
+          Lignes contestées{" "}
+          <span className="font-body text-base font-medium text-[var(--color-ink-muted)]">
+            · {dossier.lignes.length}
+          </span>
+        </h2>
+
+        <ul className="flex flex-col gap-3">
+          {dossier.lignes.map((ligne) => {
+            const booking = ligne.ligneFacture.booking;
+            const servis = booking.couvertsServis ?? booking.couverts;
+            return (
+              <li
+                key={ligne.id}
+                className="rounded-2xl border border-[var(--color-line-strong)] bg-white p-5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-[var(--color-ink)]">
+                    {formaterDateReservation(booking.date, { avecHeure: false })}
+                  </span>
+                  <span className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
+                    {formaterMontant(ligne.ligneFacture.montantCentimes)}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className={pastilleEtat("marque")}>
+                    {LABELS_MOTIF_CONTESTATION[ligne.motif]}
+                  </span>
+                  <span className={pastilleEtat("neutre")}>
+                    {servis} couvert{servis > 1 ? "s" : ""} servis sur {booking.couverts} réservé
+                    {booking.couverts > 1 ? "s" : ""}
+                  </span>
+                  {booking.signaleeLe && (
+                    <span className={pastilleEtat("neutre")}>
+                      {formaterDelaiSignalement(booking.date, booking.signaleeLe)}
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        {(dossier.commentaire || dossier.piecesJointes.length > 0) && (
+          <div className={`${CARTE} mt-4 flex flex-col gap-5`}>
+            {dossier.commentaire && (
+              <div>
+                <p className={EYEBROW}>Commentaire du restaurant</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-[var(--color-ink)]">
+                  {dossier.commentaire}
+                </p>
               </div>
-              <p className="mt-1 text-[var(--color-ink-muted)]">
-                {ligne.ligneFacture.booking.couvertsServis ?? ligne.ligneFacture.booking.couverts} couvert
-                {(ligne.ligneFacture.booking.couvertsServis ?? ligne.ligneFacture.booking.couverts) > 1
-                  ? "s"
-                  : ""}{" "}
-                servis sur {ligne.ligneFacture.booking.couverts} réservé
-                {ligne.ligneFacture.booking.couverts > 1 ? "s" : ""}
-                {ligne.ligneFacture.booking.signaleeLe && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    {formaterDelaiSignalement(
-                      ligne.ligneFacture.booking.date,
-                      ligne.ligneFacture.booking.signaleeLe,
-                    )}
-                  </>
-                )}
-              </p>
-            </div>
-          ))}
-        </div>
+            )}
 
-        {dossier.commentaire && (
-          <div>
-            <p className={EYEBROW}>Commentaire du restaurant</p>
-            <p className="mt-1 text-sm text-[var(--color-ink)]">{dossier.commentaire}</p>
+            {dossier.piecesJointes.length > 0 && (
+              <div>
+                <p className={EYEBROW}>Pièces jointes</p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {dossier.piecesJointes.map((piece) => (
+                    <li key={piece.id}>
+                      <a
+                        href={`/api/dossiers/${dossier.id}/pieces-jointes/${piece.id}`}
+                        className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--color-line-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)]"
+                      >
+                        {piece.nomOriginal}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
-
-        {dossier.piecesJointes.length > 0 && (
-          <div>
-            <p className={EYEBROW}>Pièces jointes</p>
-            <ul className="mt-1 flex flex-col gap-1">
-              {dossier.piecesJointes.map((piece) => (
-                <li key={piece.id}>
-                  <a
-                    href={`/api/dossiers/${dossier.id}/pieces-jointes/${piece.id}`}
-                    className="text-sm text-[var(--color-ink)] underline hover:no-underline"
-                  >
-                    {piece.nomOriginal}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {dossier.complementDemandeLe && (
-          <div className="rounded-xl border-[1.5px] border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            <p className="font-semibold">Complément demandé {formaterAnciennete(dossier.complementDemandeLe)}</p>
-            <p className="mt-1">{dossier.complementDemandeMessage}</p>
-          </div>
-        )}
-      </div>
+      </section>
 
       {peutDemanderComplement && (
-        <div className={`mt-6 ${CARTE}`}>
-          <DemanderComplementForm dossierId={dossier.id} />
-        </div>
+        <section className="mt-10 max-w-3xl">
+          <h2 className={`${TITRE_SECTION} mb-4`}>Demander un complément</h2>
+          <div className={CARTE}>
+            <DemanderComplementForm dossierId={dossier.id} />
+          </div>
+        </section>
       )}
 
-      <div className="mt-6">
-        <p className={EYEBROW}>Facture</p>
-        <div className="mt-2">
-          <FactureDocument
-            facture={dossier.facture}
-            joursRestants={joursRestantsContestation(dossier.facture.genereeLe)}
-          />
-        </div>
-      </div>
+      <section className="mt-10">
+        <h2 className={`${TITRE_SECTION} mb-4`}>La facture contestée</h2>
+        <FactureDocument
+          facture={dossier.facture}
+          joursRestants={joursRestantsContestation(dossier.facture.genereeLe)}
+        />
+      </section>
 
       {autresDossiers.length > 0 && (
-        <div className="mt-6">
-          <p className={EYEBROW}>Historique du partenaire</p>
-          <div className="mt-2 flex flex-col gap-2">
+        <section className="mt-10 max-w-3xl">
+          <h2 className={`${TITRE_SECTION} mb-4`}>
+            Historique du partenaire{" "}
+            <span className="font-body text-base font-medium text-[var(--color-ink-muted)]">
+              · {autresDossiers.length} autre{autresDossiers.length > 1 ? "s" : ""} dossier
+              {autresDossiers.length > 1 ? "s" : ""}
+            </span>
+          </h2>
+          <ul className="flex flex-col gap-2">
             {autresDossiers.map((autre) => (
-              <Link
-                key={autre.id}
-                href={`/admin/litiges/${autre.id}`}
-                className={`${CARTE} flex items-center justify-between text-sm transition-colors hover:border-[var(--color-ink)]`}
-              >
-                <span className="text-[var(--color-ink-muted)]">
-                  {formaterAnciennete(autre.createdAt)} · {LABELS_STATUT_DOSSIER[autre.statut]}
-                </span>
-                <span className="font-semibold text-[var(--color-ink)]">
-                  {formaterMontant(autre.montantContesteCentimes)}
-                </span>
-              </Link>
+              <li key={autre.id}>
+                <Link
+                  href={`/admin/litiges/${autre.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-line-strong)] bg-white px-5 py-3.5 text-sm transition-colors hover:border-[var(--color-staff)]"
+                >
+                  <span className="text-[var(--color-ink-muted)]">
+                    Déposé {formaterAnciennete(autre.createdAt)}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className={pastilleEtat(ETAT_STATUT[autre.statut])}>
+                      {LABELS_STATUT_DOSSIER[autre.statut]}
+                    </span>
+                    <span className="font-semibold text-[var(--color-ink)]">
+                      {formaterMontant(autre.montantContesteCentimes)}
+                    </span>
+                  </span>
+                </Link>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
-    </main>
+    </>
   );
 }

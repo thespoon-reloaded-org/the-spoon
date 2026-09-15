@@ -211,6 +211,16 @@ export function IconeLitige(p: ProprietesIcone) {
   );
 }
 
+export function IconeReglages(p: ProprietesIcone) {
+  return (
+    <Svg {...p}>
+      <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+      <circle cx="16" cy="7" r="2.2" />
+      <circle cx="10" cy="17" r="2.2" />
+    </Svg>
+  );
+}
+
 export function IconeValide(p: ProprietesIcone) {
   return (
     <Svg {...p}>
@@ -239,6 +249,7 @@ export const ICONES = {
   cuillere: IconeCuillere,
   utilisateur: IconeUtilisateur,
   litige: IconeLitige,
+  reglages: IconeReglages,
 } as const;
 
 export type CleIcone = keyof typeof ICONES;
