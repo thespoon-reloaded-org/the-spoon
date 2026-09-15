@@ -15,7 +15,13 @@ const BOUTON_NO_SHOW =
 const ETAT_INITIAL: EtatSignalement = {};
 
 /** Boutons "Honorée" / "No-show" pour un créneau CONFIRMEE déjà passé. */
-export function SignalerReservationBoutons({ bookingId }: { bookingId: string }) {
+export function SignalerReservationBoutons({
+  bookingId,
+  couvertsPrevus,
+}: {
+  bookingId: string;
+  couvertsPrevus: number;
+}) {
   const [etatHonoree, actionHonoree, honoreeEnCours] = useActionState(
     marquerReservation.bind(null, bookingId, "HONOREE"),
     ETAT_INITIAL,
@@ -30,8 +36,19 @@ export function SignalerReservationBoutons({ bookingId }: { bookingId: string })
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="flex gap-2">
-        <form action={actionHonoree}>
+      <div className="flex items-center gap-2">
+        <form action={actionHonoree} className="flex items-center gap-2">
+          <label className="flex items-center gap-1 text-xs text-[var(--color-ink-muted)]">
+            Couverts servis
+            <input
+              type="number"
+              name="couvertsServis"
+              defaultValue={couvertsPrevus}
+              min={1}
+              disabled={enCours}
+              className="w-14 rounded-md border border-[var(--color-line-strong)] px-2 py-1 text-sm text-[var(--color-ink)]"
+            />
+          </label>
           <button type="submit" disabled={enCours} className={BOUTON_HONOREE}>
             Honorée
           </button>

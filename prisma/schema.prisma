@@ -44,6 +44,7 @@ model Restaurant {
   horairesFermes     HoraireFermeture[]
   exceptionsHoraires ExceptionHoraire[]
   journalAudit       JournalAuditRestaurant[]
+  factures           Facture[]
 
   @@index([ville])
   @@index([cuisine])
@@ -330,13 +331,54 @@ model Booking {
   date         DateTime
   couverts     Int
   statut       StatutReservation @default(CONFIRMEE)
+  /// Nombre de couverts réellement servis, renseigné uniquement au passage en
+  /// HONOREE — peut différer de `couverts` (le nombre réservé). C'est ce
+  /// nombre qui sert de base à la commission facturée (epic Facturation).
+  couvertsServis Int?
   /// Horodatage auquel le restaurant a signalé honoré/no-show — un attribut
   /// métier (utile pour la facturation), pas un simple `updatedAt` technique.
   signaleeLe   DateTime?
   createdAt    DateTime          @default(now())
+  ligneFacture LigneFacture?
 
   @@index([restaurantId])
   @@index([userId])
+}
+
+/// Une facture mensuelle de commission pour un restaurant — une par
+/// (restaurant, mois), jamais recréée : voir `@@unique` ci-dessous, qui rend
+/// la génération idempotente si le traitement mensuel est relancé.
+model Facture {
+  id                   String         @id @default(cuid())
+  restaurantId         String
+  restaurant           Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  /// Premier jour du mois facturé (UTC minuit) — pas la date de génération.
+  mois                 DateTime
+  /// Toujours la somme de `lignes.montantCentimes`, jamais saisi.
+  montantTotalCentimes Int
+  genereeLe            DateTime       @default(now())
+  lignes               LigneFacture[]
+
+  @@unique([restaurantId, mois])
+  @@index([restaurantId])
+}
+
+/// Une ligne de facture = une réservation honorée facturée. `bookingId` est
+/// unique : une réservation ne peut être facturée qu'une seule fois, quel que
+/// soit le nombre de fois où le traitement mensuel est relancé.
+model LigneFacture {
+  id               String   @id @default(cuid())
+  factureId        String
+  facture          Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  bookingId        String   @unique
+  booking          Booking  @relation(fields: [bookingId], references: [id])
+  /// Couverts pris en compte pour le calcul : `couvertsServis`, ou `couverts`
+  /// (réservé) en repli si le signalement ne l'a pas renseigné.
+  couvertsFactures Int
+  montantCentimes  Int
+  createdAt        DateTime @default(now())
+
+  @@index([factureId])
 }
 
 /// Un avis déposé par un dîneur après son passage dans un restaurant — un

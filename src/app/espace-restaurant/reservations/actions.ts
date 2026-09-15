@@ -8,10 +8,16 @@ import { z } from "zod";
 import { authRestaurant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const schemaSignalement = z.object({
-  bookingId: z.string(),
-  statut: z.enum(["HONOREE", "NO_SHOW"]),
-});
+const schemaSignalement = z
+  .object({
+    bookingId: z.string(),
+    statut: z.enum(["HONOREE", "NO_SHOW"]),
+    couvertsServis: z.coerce.number().int().min(1).optional(),
+  })
+  .refine((donnees) => donnees.statut !== "HONOREE" || donnees.couvertsServis !== undefined, {
+    message: "Indique le nombre de couverts servis.",
+    path: ["couvertsServis"],
+  });
 
 export type EtatSignalement = { erreur?: string; ok?: boolean };
 
@@ -27,14 +33,18 @@ export async function marquerReservation(
   bookingId: string,
   statut: "HONOREE" | "NO_SHOW",
   _etatPrecedent: EtatSignalement,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<EtatSignalement> {
   const session = await authRestaurant.api.getSession({ headers: await headers() });
   if (!session) redirect("/connexion-restaurant");
 
-  const donnees = schemaSignalement.safeParse({ bookingId, statut });
+  const donnees = schemaSignalement.safeParse({
+    bookingId,
+    statut,
+    couvertsServis: formData.get("couvertsServis") ?? undefined,
+  });
   if (!donnees.success) {
-    return { erreur: "Réservation introuvable." };
+    return { erreur: donnees.error.issues[0]?.message ?? "Réservation introuvable." };
   }
 
   const reservation = await prisma.booking.findFirst({
@@ -53,7 +63,11 @@ export async function marquerReservation(
   try {
     await prisma.booking.update({
       where: { id: reservation.id },
-      data: { statut: donnees.data.statut, signaleeLe: new Date() },
+      data: {
+        statut: donnees.data.statut,
+        signaleeLe: new Date(),
+        couvertsServis: donnees.data.statut === "HONOREE" ? donnees.data.couvertsServis : null,
+      },
     });
   } catch {
     return { erreur: "Impossible d'enregistrer le signalement, réessaie." };

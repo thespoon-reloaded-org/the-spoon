@@ -42,7 +42,7 @@ function ligneReservation(reservation: ReservationAvecClient, estPassee: boolean
         </p>
       </div>
       {aSignaler ? (
-        <SignalerReservationBoutons bookingId={reservation.id} />
+        <SignalerReservationBoutons bookingId={reservation.id} couvertsPrevus={reservation.couverts} />
       ) : (
         <span className={`text-sm font-semibold ${statut.classe}`}>{statut.label}</span>
       )}

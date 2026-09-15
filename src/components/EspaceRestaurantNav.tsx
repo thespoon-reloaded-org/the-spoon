@@ -8,6 +8,7 @@ const ONGLETS = [
   { href: "/espace-restaurant/fiche", label: "Ma fiche établissement" },
   { href: "/espace-restaurant/disponibilites", label: "Mes disponibilités" },
   { href: "/espace-restaurant/menu", label: "Ma carte" },
+  { href: "/espace-restaurant/factures", label: "Mes factures" },
 ] as const;
 
 const ONGLET_INACTIF =
