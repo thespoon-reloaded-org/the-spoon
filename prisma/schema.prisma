@@ -167,17 +167,18 @@ model RestaurantContact {
 /// permissions". `role` reste un texte libre affiché, pas un contrôle
 /// d'accès : la Console staff est lisible par tout le staff connecté.
 model Staff {
-  id            String                   @id @default(cuid())
-  nom           String
-  email         String                   @unique
-  emailVerified Boolean                  @default(false)
-  image         String?
-  role          String?
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-  sessions      StaffSession[]
-  accounts      StaffAccount[]
-  journalAudit  JournalAuditRestaurant[]
+  id                String                   @id @default(cuid())
+  nom               String
+  email             String                   @unique
+  emailVerified     Boolean                  @default(false)
+  image             String?
+  role              String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  sessions          StaffSession[]
+  accounts          StaffAccount[]
+  journalAudit      JournalAuditRestaurant[]
+  dossiersInstruits Dossier[]
 }
 
 /// Action tracée dans le journal d'audit d'un restaurant partenaire.
@@ -408,9 +409,10 @@ enum MotifContestation {
 /// crédit d'office" sont modélisés — la décision d'instruction manuelle
 /// (accordé/partiel/refusé/escaladé, avec émission d'un Avoir) appartient à
 /// "Décision & émission d'avoir", un ticket bloqué par "Instruction d'un
-/// dossier" lui-même bloqué par "Console staff : vue restaurants" (Backlog).
-/// Un dossier EN_ATTENTE_INSTRUCTION reste donc sans suite outillée pour
-/// l'instant : attendu, pas un oubli.
+/// dossier" lui-même bloqué par "File des litiges à instruire" (fait — voir
+/// `instructeurId`/`priseEnChargeLe` ci-dessous). Un dossier
+/// EN_ATTENTE_INSTRUCTION reste donc sans suite outillée pour l'instant,
+/// prise en charge mise à part : attendu, pas un oubli.
 enum StatutDossier {
   EN_ATTENTE_INSTRUCTION
   CREDITE_OFFICE
@@ -424,24 +426,43 @@ enum StatutDossier {
 /// d'ajout/retrait de ligne après coup dans ce lot, donc pas de recalcul
 /// différé à prévoir.
 model Dossier {
-  id                      String               @id @default(cuid())
-  factureId               String
-  facture                 Facture              @relation(fields: [factureId], references: [id], onDelete: Cascade)
-  restaurantContactId     String
-  restaurantContact       RestaurantContact    @relation(fields: [restaurantContactId], references: [id])
-  commentaire             String?
-  montantContesteCentimes Int
+  id                       String               @id @default(cuid())
+  factureId                String
+  facture                  Facture              @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  restaurantContactId      String
+  restaurantContact        RestaurantContact    @relation(fields: [restaurantContactId], references: [id])
+  commentaire              String?
+  montantContesteCentimes  Int
   /// Copié depuis ConfigContestation.seuilCreditOfficeCentimes au moment de
   /// la création : changer le seuil plus tard ne réécrit jamais l'historique
   /// des dossiers déjà déposés.
-  seuilAppliqueCentimes   Int
-  statut                  StatutDossier        @default(EN_ATTENTE_INSTRUCTION)
-  lignes                  LigneContestee[]
-  piecesJointes           PieceJointeDossier[]
-  createdAt               DateTime             @default(now())
+  seuilAppliqueCentimes    Int
+  statut                   StatutDossier        @default(EN_ATTENTE_INSTRUCTION)
+  /// Staff qui a pris en charge le dossier depuis la file d'instruction
+  /// ("File des litiges à instruire") — `null` tant que personne ne l'a pris.
+  /// Pas de rôle "instructeur" dédié : n'importe quel membre du staff connecté
+  /// peut prendre en charge, même mécanique que le reste de la Console staff.
+  instructeurId            String?
+  instructeur              Staff?               @relation(fields: [instructeurId], references: [id])
+  /// Horodatage de la prise en charge, distinct de `createdAt` — le dossier
+  /// reste EN_ATTENTE_INSTRUCTION et visible dans la file une fois pris (la
+  /// décision qui le fera sortir de la file est "Décision & émission d'avoir",
+  /// pas encore construite), seul l'affichage change (qui l'a pris).
+  priseEnChargeLe          DateTime?
+  /// Dernière demande de complément de l'instructeur au restaurant
+  /// ("Instruction d'un dossier") — ne clôture pas le dossier, `null` tant
+  /// que rien n'a été demandé. Un seul emplacement (pas un historique) : la
+  /// trace complète de chaque demande appartient au "Journal d'événements du
+  /// dossier", pas encore construit.
+  complementDemandeLe      DateTime?
+  complementDemandeMessage String?
+  lignes                   LigneContestee[]
+  piecesJointes            PieceJointeDossier[]
+  createdAt                DateTime             @default(now())
 
   @@index([factureId])
   @@index([restaurantContactId])
+  @@index([instructeurId])
 }
 
 /// Une LigneFacture contestée dans un dossier, avec son motif. `ligneFactureId`

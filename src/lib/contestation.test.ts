@@ -9,6 +9,10 @@ import {
   creerDossierContestation,
   decisionStatutDossier,
   delaiContestationExpire,
+  demanderComplementDossier,
+  formaterAnciennete,
+  formaterDelaiSignalement,
+  prendreEnChargeDossier,
 } from "./contestation";
 import { prisma } from "./prisma";
 
@@ -45,6 +49,43 @@ describe("delaiContestationExpire", () => {
   test("expiré au-delà de 30 jours", () => {
     const maintenant = new Date("2026-07-15T00:00:00Z");
     expect(delaiContestationExpire(new Date("2026-06-01T00:00:00Z"), maintenant)).toBe(true);
+  });
+});
+
+describe("formaterAnciennete", () => {
+  test("aujourd'hui pour un dépôt du jour même", () => {
+    const maintenant = new Date("2026-06-15T18:00:00Z");
+    expect(formaterAnciennete(new Date("2026-06-15T09:00:00Z"), maintenant)).toBe("aujourd'hui");
+  });
+
+  test("singulier à 1 jour", () => {
+    const maintenant = new Date("2026-06-16T09:00:00Z");
+    expect(formaterAnciennete(new Date("2026-06-15T09:00:00Z"), maintenant)).toBe("il y a 1 jour");
+  });
+
+  test("pluriel au-delà de 1 jour", () => {
+    const maintenant = new Date("2026-06-20T09:00:00Z");
+    expect(formaterAnciennete(new Date("2026-06-15T09:00:00Z"), maintenant)).toBe("il y a 5 jours");
+  });
+});
+
+describe("formaterDelaiSignalement", () => {
+  test("signalé le jour même", () => {
+    const dateService = new Date("2026-06-15T20:00:00Z");
+    const signaleeLe = new Date("2026-06-15T22:30:00Z");
+    expect(formaterDelaiSignalement(dateService, signaleeLe)).toBe("signalé le jour même");
+  });
+
+  test("signalé après le service, singulier à 1 jour", () => {
+    const dateService = new Date("2026-06-15T20:00:00Z");
+    const signaleeLe = new Date("2026-06-16T20:00:00Z");
+    expect(formaterDelaiSignalement(dateService, signaleeLe)).toBe("signalé 1 jour après le service");
+  });
+
+  test("signalé après le service, pluriel", () => {
+    const dateService = new Date("2026-06-15T20:00:00Z");
+    const signaleeLe = new Date("2026-06-20T20:00:00Z");
+    expect(formaterDelaiSignalement(dateService, signaleeLe)).toBe("signalé 5 jours après le service");
   });
 });
 
@@ -237,5 +278,201 @@ describe("creerDossierContestation", () => {
       where: { id: "singleton" },
       data: { seuilCreditOfficeCentimes: 1000 },
     });
+  });
+});
+
+/**
+ * Preuve de la prise en charge d'un dossier ("File des litiges à
+ * instruire") — nécessite une vraie base Postgres, comme les describe
+ * ci-dessus.
+ */
+describe("prendreEnChargeDossier", () => {
+  let restaurantId: string;
+  let restaurantContactId: string;
+  let staffAId: string;
+  let staffBId: string;
+  const userId = randomUUID();
+
+  beforeAll(async () => {
+    const restaurant = await prisma.restaurant.create({
+      data: { nom: "Test prise en charge", ville: "Lyon", cuisine: "Test", adresse: "1 rue du Test" },
+    });
+    restaurantId = restaurant.id;
+
+    const contact = await prisma.restaurantContact.create({
+      data: {
+        restaurantId,
+        nom: "Contact test",
+        email: `${randomUUID()}@test.example`,
+        role: "GERANT",
+      },
+    });
+    restaurantContactId = contact.id;
+
+    await prisma.user.create({
+      data: { id: userId, name: "Dîneur test", email: `${userId}@test.example` },
+    });
+
+    const staffA = await prisma.staff.create({ data: { nom: "Staff A", email: `${randomUUID()}@test.example` } });
+    staffAId = staffA.id;
+    const staffB = await prisma.staff.create({ data: { nom: "Staff B", email: `${randomUUID()}@test.example` } });
+    staffBId = staffB.id;
+  });
+
+  afterAll(async () => {
+    await prisma.dossier.deleteMany({ where: { factureId: { in: await facturesDeTest() } } });
+    await prisma.facture.deleteMany({ where: { restaurantId } });
+    await prisma.restaurantContact.delete({ where: { id: restaurantContactId } });
+    await prisma.user.delete({ where: { id: userId } });
+    await prisma.restaurant.delete({ where: { id: restaurantId } });
+    await prisma.staff.deleteMany({ where: { id: { in: [staffAId, staffBId] } } });
+  });
+
+  async function facturesDeTest(): Promise<string[]> {
+    const factures = await prisma.facture.findMany({ where: { restaurantId }, select: { id: true } });
+    return factures.map((f) => f.id);
+  }
+
+  async function creerDossierEnAttente(montantCentimes: number) {
+    const facture = await prisma.facture.create({
+      data: { restaurantId, mois: new Date(), montantTotalCentimes: montantCentimes },
+    });
+    return prisma.dossier.create({
+      data: {
+        factureId: facture.id,
+        restaurantContactId,
+        montantContesteCentimes: montantCentimes,
+        seuilAppliqueCentimes: 1000,
+        statut: "EN_ATTENTE_INSTRUCTION",
+      },
+    });
+  }
+
+  test("assigne l'instructeur et horodate la prise en charge", async () => {
+    const dossier = await creerDossierEnAttente(1500);
+
+    const resultat = await prendreEnChargeDossier(dossier.id, staffAId);
+    expect(resultat.ok).toBe(true);
+
+    const dossierRelu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    expect(dossierRelu.instructeurId).toBe(staffAId);
+    expect(dossierRelu.priseEnChargeLe).not.toBeNull();
+    expect(dossierRelu.statut).toBe("EN_ATTENTE_INSTRUCTION"); // la prise en charge ne tranche pas le dossier
+  });
+
+  test("un dossier déjà pris en charge ne peut pas être repris", async () => {
+    const dossier = await creerDossierEnAttente(1500);
+    await prendreEnChargeDossier(dossier.id, staffAId);
+
+    const resultat = await prendreEnChargeDossier(dossier.id, staffBId);
+    expect(resultat.ok).toBe(false);
+    if (resultat.ok) return;
+    expect(resultat.erreur).toMatch(/déjà été pris/);
+
+    const dossierRelu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    expect(dossierRelu.instructeurId).toBe(staffAId); // le premier reste assigné
+  });
+
+  test("une seule des deux prises en charge simultanées passe", async () => {
+    const dossier = await creerDossierEnAttente(1500);
+
+    const [resultatA, resultatB] = await Promise.all([
+      prendreEnChargeDossier(dossier.id, staffAId),
+      prendreEnChargeDossier(dossier.id, staffBId),
+    ]);
+    const reussites = [resultatA, resultatB].filter((r) => r.ok);
+    expect(reussites).toHaveLength(1);
+
+    const dossierRelu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    expect([staffAId, staffBId]).toContain(dossierRelu.instructeurId);
+  });
+});
+
+/**
+ * Preuve de la demande de complément d'un dossier ("Instruction d'un
+ * dossier") — nécessite une vraie base Postgres, comme les describe
+ * ci-dessus.
+ */
+describe("demanderComplementDossier", () => {
+  let restaurantId: string;
+  let restaurantContactId: string;
+  let staffAId: string;
+  let staffBId: string;
+
+  beforeAll(async () => {
+    const restaurant = await prisma.restaurant.create({
+      data: { nom: "Test complément", ville: "Lyon", cuisine: "Test", adresse: "1 rue du Test" },
+    });
+    restaurantId = restaurant.id;
+
+    const contact = await prisma.restaurantContact.create({
+      data: {
+        restaurantId,
+        nom: "Contact test",
+        email: `${randomUUID()}@test.example`,
+        role: "GERANT",
+      },
+    });
+    restaurantContactId = contact.id;
+
+    const staffA = await prisma.staff.create({ data: { nom: "Staff A", email: `${randomUUID()}@test.example` } });
+    staffAId = staffA.id;
+    const staffB = await prisma.staff.create({ data: { nom: "Staff B", email: `${randomUUID()}@test.example` } });
+    staffBId = staffB.id;
+  });
+
+  afterAll(async () => {
+    await prisma.dossier.deleteMany({ where: { restaurantContactId } });
+    await prisma.facture.deleteMany({ where: { restaurantId } });
+    await prisma.restaurantContact.delete({ where: { id: restaurantContactId } });
+    await prisma.restaurant.delete({ where: { id: restaurantId } });
+    await prisma.staff.deleteMany({ where: { id: { in: [staffAId, staffBId] } } });
+  });
+
+  async function creerDossierEnAttente() {
+    const facture = await prisma.facture.create({
+      data: { restaurantId, mois: new Date(), montantTotalCentimes: 1500 },
+    });
+    return prisma.dossier.create({
+      data: {
+        factureId: facture.id,
+        restaurantContactId,
+        montantContesteCentimes: 1500,
+        seuilAppliqueCentimes: 1000,
+        statut: "EN_ATTENTE_INSTRUCTION",
+      },
+    });
+  }
+
+  test("enregistre le message et l'horodatage sans clôturer le dossier", async () => {
+    const dossier = await creerDossierEnAttente();
+    await prendreEnChargeDossier(dossier.id, staffAId);
+
+    const resultat = await demanderComplementDossier(dossier.id, staffAId, "Merci de préciser l'heure exacte.");
+    expect(resultat.ok).toBe(true);
+
+    const dossierRelu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    expect(dossierRelu.complementDemandeMessage).toBe("Merci de préciser l'heure exacte.");
+    expect(dossierRelu.complementDemandeLe).not.toBeNull();
+    expect(dossierRelu.statut).toBe("EN_ATTENTE_INSTRUCTION");
+  });
+
+  test("refuse un dossier non pris en charge", async () => {
+    const dossier = await creerDossierEnAttente();
+
+    const resultat = await demanderComplementDossier(dossier.id, staffAId, "Complément");
+    expect(resultat.ok).toBe(false);
+    if (resultat.ok) return;
+    expect(resultat.erreur).toMatch(/instructeur assigné/);
+  });
+
+  test("refuse un membre du staff non assigné à ce dossier", async () => {
+    const dossier = await creerDossierEnAttente();
+    await prendreEnChargeDossier(dossier.id, staffAId);
+
+    const resultat = await demanderComplementDossier(dossier.id, staffBId, "Complément");
+    expect(resultat.ok).toBe(false);
+    if (resultat.ok) return;
+    expect(resultat.erreur).toMatch(/instructeur assigné/);
   });
 });

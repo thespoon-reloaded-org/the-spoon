@@ -54,6 +54,9 @@ export default async function ConsoleAdminPage({
           <Link href="/admin/contestation" className={BOUTON_SECONDAIRE}>
             Contestations
           </Link>
+          <Link href="/admin/litiges" className={BOUTON_SECONDAIRE}>
+            Litiges
+          </Link>
           <DeconnexionAdminBouton />
         </div>
       </div>

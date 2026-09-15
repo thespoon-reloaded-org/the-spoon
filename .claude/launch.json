@@ -5,12 +5,12 @@
       "name": "the-spoon-dev",
       "runtimeExecutable": "/opt/homebrew/bin/node",
       "runtimeArgs": [
-        "/Users/elsamargier/Desktop/Hymaia/Formation/Bootcamp/the-spoon_bootcamp/.claude/worktrees/prochain-ticket-df2e49/node_modules/next/dist/bin/next",
+        "/Users/elsamargier/Desktop/Hymaia/Formation/Bootcamp/the-spoon_bootcamp/.claude/worktrees/espace-restaurant-tickets-29d379/node_modules/next/dist/bin/next",
         "dev",
         "--port",
-        "3105"
+        "3102"
       ],
-      "port": 3105
+      "port": 3102
     }
   ]
 }
