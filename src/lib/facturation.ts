@@ -52,6 +52,18 @@ export function formaterMoisFacture(mois: Date): string {
   return mois.toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
+/**
+ * Date (et heure, optionnelle) d'une réservation facturée — même format
+ * partout où une ligne de facture est listée (facture, dépôt de
+ * contestation, récapitulatif de dossier), pour ne pas le retaper à chaque
+ * écran.
+ */
+export function formaterDateReservation(date: Date, { avecHeure = true }: { avecHeure?: boolean } = {}): string {
+  const jour = date.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+  if (!avecHeure) return jour;
+  return `${jour} à ${date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 export type ResultatGenerationFactures = {
   facturesCreees: number;
   lignesAjoutees: number;

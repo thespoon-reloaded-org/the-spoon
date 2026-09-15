@@ -1,9 +1,11 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { FactureDocument } from "@/components/FactureDocument";
 import { authRestaurant } from "@/lib/auth";
 import { joursRestantsContestation } from "@/lib/facturation";
+import { BOUTON_PRIMAIRE } from "@/lib/ui";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -27,11 +29,27 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
   });
   if (!facture) notFound();
 
+  const joursRestants = joursRestantsContestation(facture.genereeLe);
+
   return (
-    <FactureDocument
-      facture={facture}
-      joursRestants={joursRestantsContestation(facture.genereeLe)}
-      retour={{ href: "/espace-restaurant/factures", label: "Mes factures" }}
-    />
+    <div className="flex flex-col items-start gap-4 md:flex-row">
+      <div className="min-w-0 flex-1">
+        <FactureDocument
+          facture={facture}
+          joursRestants={joursRestants}
+          retour={{ href: "/espace-restaurant/factures", label: "Mes factures" }}
+        />
+      </div>
+      {joursRestants > 0 && (
+        <div className="w-full shrink-0 md:mt-16 md:w-auto">
+          <Link
+            href={`/espace-restaurant/factures/${facture.id}/contester`}
+            className={`${BOUTON_PRIMAIRE} block text-center`}
+          >
+            Contester cette facture
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
