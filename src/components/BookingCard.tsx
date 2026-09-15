@@ -4,12 +4,20 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { creerReservation, type EtatReservation } from "@/app/restaurants/[id]/actions";
-import { CRENEAUX_MIDI, CRENEAUX_SOIR, TAILLES_TABLE, type JourReservable } from "@/lib/creneaux";
+import {
+  CRENEAUX_MIDI,
+  CRENEAUX_SOIR,
+  TAILLES_TABLE,
+  cleCreneau,
+  construireDateCreneau,
+  type JourReservable,
+} from "@/lib/creneaux";
 
 const CHIP =
-  "rounded-[13px] border-[1.5px] px-3 py-2.5 text-center text-sm font-semibold cursor-pointer select-none transition-colors";
-const CHIP_INACTIF = `${CHIP} border-[var(--color-line-strong)] text-[var(--color-ink)]`;
-const CHIP_ACTIF = `${CHIP} border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-cream)]`;
+  "rounded-[13px] border-[1.5px] px-3 py-2.5 text-center text-sm font-semibold select-none transition-colors";
+const CHIP_INACTIF = `${CHIP} cursor-pointer border-[var(--color-line-strong)] text-[var(--color-ink)]`;
+const CHIP_ACTIF = `${CHIP} cursor-pointer border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-cream)]`;
+const CHIP_COMPLET = `${CHIP} cursor-not-allowed border-[var(--color-line)] text-[var(--color-ink-muted)] opacity-50 line-through`;
 const BOUTON_CONFIRMER =
   "rounded-full bg-[var(--color-accent)] px-7 py-4 text-center font-[family-name:var(--font-display)] text-[15px] font-bold text-[var(--color-cream)] disabled:opacity-60";
 
@@ -19,10 +27,15 @@ export function BookingCard({
   restaurantId,
   estConnecte,
   jours,
+  occupation,
+  capacite,
 }: {
   restaurantId: string;
   estConnecte: boolean;
   jours: JourReservable[];
+  /** Couverts déjà confirmés par créneau, clé `cleCreneau` — voir `src/lib/reservation.ts`. */
+  occupation: Record<string, number>;
+  capacite: number;
 }) {
   const [couverts, setCouverts] = useState<number>(TAILLES_TABLE[1].valeur);
   const [jourIso, setJourIso] = useState(jours[0]?.iso ?? "");
@@ -31,6 +44,16 @@ export function BookingCard({
     creerReservation.bind(null, restaurantId),
     ETAT_INITIAL,
   );
+
+  // Place restante sur un créneau donné — un créneau complet ne doit jamais
+  // être proposé au dîneur (plutôt que proposé puis refusé à la soumission).
+  function placesRestantes(jour: string, c: string): number {
+    const date = construireDateCreneau(jour, c);
+    if (!date) return 0;
+    return capacite - (occupation[cleCreneau(date)] ?? 0);
+  }
+
+  const creneauIndisponible = placesRestantes(jourIso, creneau) < couverts;
 
   if (etat.ok) {
     const jour = jours.find((j) => j.iso === jourIso);
@@ -108,39 +131,54 @@ export function BookingCard({
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-[var(--color-ink-muted)]">Midi</span>
             <div className="grid grid-cols-4 gap-2">
-              {CRENEAUX_MIDI.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCreneau(c)}
-                  className={creneau === c ? CHIP_ACTIF : CHIP_INACTIF}
-                >
-                  {c}
-                </button>
-              ))}
+              {CRENEAUX_MIDI.map((c) => {
+                const complet = placesRestantes(jourIso, c) < couverts;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    disabled={complet}
+                    onClick={() => setCreneau(c)}
+                    title={complet ? "Complet" : undefined}
+                    className={complet ? CHIP_COMPLET : creneau === c ? CHIP_ACTIF : CHIP_INACTIF}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-[var(--color-ink-muted)]">Soir</span>
             <div className="grid grid-cols-4 gap-2">
-              {CRENEAUX_SOIR.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCreneau(c)}
-                  className={creneau === c ? CHIP_ACTIF : CHIP_INACTIF}
-                >
-                  {c}
-                </button>
-              ))}
+              {CRENEAUX_SOIR.map((c) => {
+                const complet = placesRestantes(jourIso, c) < couverts;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    disabled={complet}
+                    onClick={() => setCreneau(c)}
+                    title={complet ? "Complet" : undefined}
+                    className={complet ? CHIP_COMPLET : creneau === c ? CHIP_ACTIF : CHIP_INACTIF}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+        {!etat.erreur && creneauIndisponible && (
+          <p className="text-sm text-[var(--color-ink-muted)]">
+            Ce créneau est complet pour {couverts} pers., choisis-en un autre.
+          </p>
+        )}
 
         {estConnecte ? (
-          <button type="submit" disabled={enCours} className={BOUTON_CONFIRMER}>
+          <button type="submit" disabled={enCours || creneauIndisponible} className={BOUTON_CONFIRMER}>
             {enCours ? "Confirmation…" : "Confirmer la réservation"}
           </button>
         ) : (

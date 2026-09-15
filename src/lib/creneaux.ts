@@ -80,6 +80,18 @@ export function construireDateCreneau(jourIso: string, creneau: string): Date | 
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/**
+ * Inverse de `construireDateCreneau` : sérialise une Date en clé
+ * "YYYY-MM-DD_HH:mm" à partir de ses composantes locales — sert à indexer
+ * l'occupation d'un créneau (voir `reservation.ts`) sur la même clé côté
+ * calcul serveur et côté affichage.
+ */
+export function cleCreneau(date: Date): string {
+  const heures = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${formatIso(date)}_${heures}:${minutes}`;
+}
+
 export function estDansLaFenetreReservable(date: Date, maintenant = new Date()): boolean {
   const limite = new Date(maintenant);
   limite.setDate(limite.getDate() + NB_JOURS_RESERVABLES);

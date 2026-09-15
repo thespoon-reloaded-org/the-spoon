@@ -6,9 +6,15 @@ import { AvisForm } from "@/components/AvisForm";
 import { BookingCard } from "@/components/BookingCard";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { auth } from "@/lib/auth";
-import { genererJoursReservables } from "@/lib/creneaux";
+import {
+  CRENEAUX_HORAIRES,
+  cleCreneau,
+  construireDateCreneau,
+  genererJoursReservables,
+} from "@/lib/creneaux";
 import { LIBELLE_CATEGORIE } from "@/lib/plats";
 import { prisma } from "@/lib/prisma";
+import { capaciteEffective } from "@/lib/reservation";
 
 export default async function FicheRestaurantPage({
   params,
@@ -44,6 +50,21 @@ export default async function FicheRestaurantPage({
     : null;
 
   const avisExistant = session ? (restaurant.avis.find((a) => a.userId === session.user.id) ?? null) : null;
+
+  // Occupation des créneaux des prochains jours, pour ne pas proposer au
+  // dîneur un créneau déjà complet (voir "Capacité & conflits de réservation").
+  const joursReservables = genererJoursReservables();
+  const datesCreneaux = joursReservables
+    .flatMap((jour) => CRENEAUX_HORAIRES.map((creneau) => construireDateCreneau(jour.iso, creneau)))
+    .filter((date): date is Date => date !== null);
+  const occupationParCreneau = await prisma.booking.groupBy({
+    by: ["date"],
+    where: { restaurantId: restaurant.id, statut: "CONFIRMEE", date: { in: datesCreneaux } },
+    _sum: { couverts: true },
+  });
+  const occupation = Object.fromEntries(
+    occupationParCreneau.map((ligne) => [cleCreneau(ligne.date), ligne._sum.couverts ?? 0]),
+  );
 
   return (
     <main>
@@ -191,7 +212,9 @@ export default async function FicheRestaurantPage({
             <BookingCard
               restaurantId={restaurant.id}
               estConnecte={!!session}
-              jours={genererJoursReservables()}
+              jours={joursReservables}
+              occupation={occupation}
+              capacite={capaciteEffective(restaurant.capacite)}
             />
           </div>
         </div>
