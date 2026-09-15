@@ -19,27 +19,27 @@ datasource db {
 /// Les champs de gestion interne (commission, contact, fiche technique...)
 /// arriveront avec l'espace restaurant et le BO admin.
 model Restaurant {
-  id            String   @id @default(cuid())
-  nom           String
-  ville         String
-  cuisine       String
-  adresse       String
-  horaires      String?
-  description   String?
-  capacite      Int?
+  id                    String    @id @default(cuid())
+  nom                   String
+  ville                 String
+  cuisine               String
+  adresse               String
+  horaires              String?
+  description           String?
+  capacite              Int?
   /// Délai (en heures) avant le créneau au-delà duquel une annulation est
   /// jugée tardive — `null` : pas de politique définie. Prérequis du délai
   /// minimal d'annulation côté dîneur et du futur motif de contestation
   /// `annulation_tardive`, ni l'un ni l'autre pas encore appliqués.
   delaiAnnulationHeures Int?
-  noteCuilleres Float?
-  nombreAvis    Int      @default(0)
+  noteCuilleres         Float?
+  nombreAvis            Int       @default(0)
   /// Horodatage de la dernière photo uploadée (même mécanique que
   /// `PlatCuillere.photoMisAJourLe` — voir src/lib/photos.ts). `null` = pas
   /// de photo, sert aussi de cache-bust pour `/api/restaurants/[id]/photo`.
-  photoMisAJourLe DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  photoMisAJourLe       DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   platsCuillere      PlatCuillere[]
   bookings           Booking[]
@@ -103,18 +103,18 @@ model ExceptionHoraire {
 /// depuis l'écran "Mon menu" côté partenaire, la carte gérée par le
 /// restaurant lui-même (photo, description/ingrédients, catégorie, prix).
 model PlatCuillere {
-  id              String       @id @default(cuid())
+  id              String        @id @default(cuid())
   nom             String
   description     String?
   categorie       CategoriePlat @default(PLAT)
-  prixCentimes    Int          @default(0)
+  prixCentimes    Int           @default(0)
   /// Horodatage de la dernière photo uploadée (stockée sur Netlify Blobs,
   /// clé = id du plat). `null` = pas de photo, sert aussi de cache-bust pour
   /// l'URL publique `/api/plats/[id]/photo`.
   photoMisAJourLe DateTime?
   restaurantId    String
-  restaurant      Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdAt       DateTime     @default(now())
+  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
 
   @@index([restaurantId])
 }
@@ -144,18 +144,19 @@ enum RoleContactRestaurant {
 /// table dédiée, cookie dédié — une population avec ses propres accès, pas un
 /// rôle de plus sur `User`.
 model RestaurantContact {
-  id            String                @id @default(cuid())
+  id            String                     @id @default(cuid())
   restaurantId  String
-  restaurant    Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   nom           String
   email         String
-  emailVerified Boolean               @default(false)
+  emailVerified Boolean                    @default(false)
   image         String?
   role          RoleContactRestaurant
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
   sessions      RestaurantContactSession[]
   accounts      RestaurantContactAccount[]
+  dossiers      Dossier[]
 
   @@unique([email])
   @@index([restaurantId])
@@ -166,14 +167,14 @@ model RestaurantContact {
 /// permissions". `role` reste un texte libre affiché, pas un contrôle
 /// d'accès : la Console staff est lisible par tout le staff connecté.
 model Staff {
-  id            String   @id @default(cuid())
+  id            String                   @id @default(cuid())
   nom           String
-  email         String   @unique
-  emailVerified Boolean  @default(false)
+  email         String                   @unique
+  emailVerified Boolean                  @default(false)
   image         String?
   role          String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
   sessions      StaffSession[]
   accounts      StaffAccount[]
   journalAudit  JournalAuditRestaurant[]
@@ -327,23 +328,23 @@ enum StatutReservation {
 /// Pas de gestion de disponibilité/capacité ici — ce sera une story séparée
 /// (espace restaurant).
 model Booking {
-  id           String            @id @default(cuid())
-  restaurantId String
-  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date         DateTime
-  couverts     Int
-  statut       StatutReservation @default(CONFIRMEE)
+  id             String            @id @default(cuid())
+  restaurantId   String
+  restaurant     Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime
+  couverts       Int
+  statut         StatutReservation @default(CONFIRMEE)
   /// Nombre de couverts réellement servis, renseigné uniquement au passage en
   /// HONOREE — peut différer de `couverts` (le nombre réservé). C'est ce
   /// nombre qui sert de base à la commission facturée (epic Facturation).
   couvertsServis Int?
   /// Horodatage auquel le restaurant a signalé honoré/no-show — un attribut
   /// métier (utile pour la facturation), pas un simple `updatedAt` technique.
-  signaleeLe   DateTime?
-  createdAt    DateTime          @default(now())
-  ligneFacture LigneFacture?
+  signaleeLe     DateTime?
+  createdAt      DateTime          @default(now())
+  ligneFacture   LigneFacture?
 
   @@index([restaurantId])
   @@index([userId])
@@ -362,6 +363,7 @@ model Facture {
   montantTotalCentimes Int
   genereeLe            DateTime       @default(now())
   lignes               LigneFacture[]
+  dossiers             Dossier[]
 
   @@unique([restaurantId, mois])
   @@index([restaurantId])
@@ -371,18 +373,122 @@ model Facture {
 /// unique : une réservation ne peut être facturée qu'une seule fois, quel que
 /// soit le nombre de fois où le traitement mensuel est relancé.
 model LigneFacture {
-  id               String   @id @default(cuid())
+  id               String          @id @default(cuid())
   factureId        String
-  facture          Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade)
-  bookingId        String   @unique
-  booking          Booking  @relation(fields: [bookingId], references: [id])
+  facture          Facture         @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  bookingId        String          @unique
+  booking          Booking         @relation(fields: [bookingId], references: [id])
   /// Couverts pris en compte pour le calcul : `couvertsServis`, ou `couverts`
   /// (réservé) en repli si le signalement ne l'a pas renseigné.
   couvertsFactures Int
   montantCentimes  Int
-  createdAt        DateTime @default(now())
+  createdAt        DateTime        @default(now())
+  /// Présente si cette ligne est contestée dans un dossier (voir
+  /// LigneContestee) — au plus un dossier à la fois, contrainte unique côté
+  /// LigneContestee.ligneFactureId.
+  contestation     LigneContestee?
 
   @@index([factureId])
+}
+
+/// Motif de contestation d'une LigneFacture — liste fermée reprise du CANON
+/// métier. Porté par LigneContestee, pas par Dossier : deux lignes d'un même
+/// dossier peuvent avoir des motifs différents.
+enum MotifContestation {
+  NO_SHOW
+  ANNULATION_TARDIVE
+  COUVERTS_SURCOMPTES
+  DOUBLON
+  HORS_PLATEFORME
+  AUTRE
+}
+
+/// Statut d'un Dossier. Seuls les deux statuts nécessaires au ticket "Dépôt
+/// d'un dossier de contestation" + "Montant contesté dérivé & seuil de
+/// crédit d'office" sont modélisés — la décision d'instruction manuelle
+/// (accordé/partiel/refusé/escaladé, avec émission d'un Avoir) appartient à
+/// "Décision & émission d'avoir", un ticket bloqué par "Instruction d'un
+/// dossier" lui-même bloqué par "Console staff : vue restaurants" (Backlog).
+/// Un dossier EN_ATTENTE_INSTRUCTION reste donc sans suite outillée pour
+/// l'instant : attendu, pas un oubli.
+enum StatutDossier {
+  EN_ATTENTE_INSTRUCTION
+  CREDITE_OFFICE
+}
+
+/// Dossier de contestation déposé par un contact restaurant sur une ou
+/// plusieurs lignes d'UNE facture (voir LigneContestee) — point d'entrée de
+/// l'épic "Contestations & litiges". `montantContesteCentimes` n'est jamais
+/// saisi : toujours la somme des lignes contestées au moment de la création
+/// (voir calculerMontantConteste dans src/lib/contestation.ts). Pas
+/// d'ajout/retrait de ligne après coup dans ce lot, donc pas de recalcul
+/// différé à prévoir.
+model Dossier {
+  id                      String               @id @default(cuid())
+  factureId               String
+  facture                 Facture              @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  restaurantContactId     String
+  restaurantContact       RestaurantContact    @relation(fields: [restaurantContactId], references: [id])
+  commentaire             String?
+  montantContesteCentimes Int
+  /// Copié depuis ConfigContestation.seuilCreditOfficeCentimes au moment de
+  /// la création : changer le seuil plus tard ne réécrit jamais l'historique
+  /// des dossiers déjà déposés.
+  seuilAppliqueCentimes   Int
+  statut                  StatutDossier        @default(EN_ATTENTE_INSTRUCTION)
+  lignes                  LigneContestee[]
+  piecesJointes           PieceJointeDossier[]
+  createdAt               DateTime             @default(now())
+
+  @@index([factureId])
+  @@index([restaurantContactId])
+}
+
+/// Une LigneFacture contestée dans un dossier, avec son motif. `ligneFactureId`
+/// est unique : une LigneFacture ne peut être rattachée qu'à un seul dossier
+/// à la fois, tous statuts confondus — pas de re-contestation dans ce lot.
+model LigneContestee {
+  id             String            @id @default(cuid())
+  dossierId      String
+  dossier        Dossier           @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  ligneFactureId String            @unique
+  ligneFacture   LigneFacture      @relation(fields: [ligneFactureId], references: [id], onDelete: Cascade)
+  motif          MotifContestation
+  createdAt      DateTime          @default(now())
+
+  @@index([dossierId])
+}
+
+/// Une pièce jointe déposée sur un dossier de contestation — rattachée au
+/// dossier entier, pas à une ligne contestée (commentaire et pièces jointes
+/// sont possibles sur le dossier, pas par ligne). Le fichier lui-même est
+/// stocké via creerStorePhotos("dossiers-pieces-jointes"), sous la clé = id
+/// de cette ligne — voir src/lib/dossier-pieces-jointes.ts. Cette ligne n'est
+/// que la métadonnée.
+model PieceJointeDossier {
+  id           String   @id @default(cuid())
+  dossierId    String
+  dossier      Dossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  /// Nom du fichier tel qu'envoyé par le navigateur — affichage seulement,
+  /// jamais utilisé comme clé de stockage.
+  nomOriginal  String
+  typeMime     String
+  tailleOctets Int
+  createdAt    DateTime @default(now())
+
+  @@index([dossierId])
+}
+
+/// Config globale (singleton, une seule ligne, id fixe "singleton") du seuil
+/// de crédit d'office — voir "Montant contesté dérivé & seuil de crédit
+/// d'office". Volontairement pas une constante de code : éditable depuis la
+/// page staff /admin/contestation sans déploiement. La ligne est créée
+/// paresseusement au premier accès si elle n'existe pas encore — voir
+/// getConfigContestation dans src/lib/contestation.ts.
+model ConfigContestation {
+  id                        String   @id @default("singleton")
+  seuilCreditOfficeCentimes Int
+  updatedAt                 DateTime @updatedAt
 }
 
 /// Un avis déposé par un dîneur après son passage dans un restaurant — un
