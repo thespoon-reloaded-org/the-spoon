@@ -50,7 +50,12 @@ poussé à la main et jamais retrouvé côté base de déploiement.
 - En déploiement, `pnpm build` lance `prisma migrate deploy` avant `next
   build` : les migrations en attente s'appliquent automatiquement, et le
   build échoue si une migration ne passe pas — au lieu de laisser la prod
-  tourner avec un schéma différent de celui attendu par le code.
+  tourner avec un schéma différent de celui attendu par le code. Sur Netlify,
+  ça tourne contre la vraie base Neon partagée (pas une base vierge comme en
+  CI) : `prisma.config.ts` utilise `DATABASE_URL_UNPOOLED` (connexion directe,
+  hors pooler) pour ces commandes, requis par le verrou consultatif de Prisma
+  Migrate — sans ça, `prisma migrate deploy` échoue en prod avec un timeout
+  P1002, même si le code est correct et que la CI est verte.
 - `prisma db push` reste légitime pour bricoler vite en local (un schéma
   jetable, une expérimentation), mais ne doit jamais être utilisé contre la
   base de production.
