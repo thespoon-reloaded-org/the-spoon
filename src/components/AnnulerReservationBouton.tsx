@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 
-import { annulerReservation, type EtatAnnulation } from "@/app/mes-reservations/actions";
+import { annulerReservation, type EtatAnnulation } from "@/app/(site)/mes-reservations/actions";
+import { BOUTON_DANGER_DISCRET } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatAnnulation = {};
 
@@ -15,14 +16,14 @@ export function AnnulerReservationBouton({ bookingId }: { bookingId: string }) {
 
   return (
     <form action={action} className="flex flex-col items-end gap-1">
-      <button
-        type="submit"
-        disabled={enCours}
-        className="rounded-full border-[1.5px] border-[var(--color-line-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:opacity-60"
-      >
+      <button type="submit" disabled={enCours} className={BOUTON_DANGER_DISCRET}>
         {enCours ? "Annulation…" : "Annuler"}
       </button>
-      {etat.erreur && <p className="text-xs text-red-600">{etat.erreur}</p>}
+      {etat.erreur && (
+        <p role="alert" className="text-xs font-medium text-[var(--color-danger)]">
+          {etat.erreur}
+        </p>
+      )}
     </form>
   );
 }

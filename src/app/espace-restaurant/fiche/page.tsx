@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { FicheEtablissementForm } from "@/components/FicheEtablissementForm";
 import { authRestaurant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { BOUTON_SECONDAIRE } from "@/lib/ui";
+
+export const metadata: Metadata = { title: "Ma fiche" };
 
 /**
  * La fiche est alimentée uniquement par le seed jusqu'ici — cet écran laisse
@@ -32,8 +38,20 @@ export default async function FicheEtablissementPage() {
   if (!restaurant) notFound();
 
   return (
-    <div className="max-w-xl">
-      <FicheEtablissementForm fiche={restaurant} />
-    </div>
+    <>
+      <EnteteEspace
+        titre="Ma fiche établissement"
+        description="C'est ce que voient les dîneurs avant de réserver : nom, adresse, horaires, capacité et photo."
+        actions={
+          <Link href={`/restaurants/${restaurant.id}`} className={BOUTON_SECONDAIRE}>
+            Voir ma fiche publique
+          </Link>
+        }
+      />
+
+      <div className="max-w-xl">
+        <FicheEtablissementForm fiche={restaurant} />
+      </div>
+    </>
   );
 }

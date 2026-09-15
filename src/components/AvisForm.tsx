@@ -3,16 +3,77 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
-import { deposerAvis, type EtatAvis } from "@/app/restaurants/[id]/actions";
+import { deposerAvis, type EtatAvis } from "@/app/(site)/restaurants/[id]/actions";
+import { IconeValide } from "@/components/Icones";
 
-const CHIP =
-  "flex-1 rounded-[13px] border-[1.5px] px-3 py-2.5 text-center text-sm font-semibold cursor-pointer select-none transition-colors";
-const CHIP_INACTIF = `${CHIP} border-[var(--color-line-strong)] text-[var(--color-ink)]`;
-const CHIP_ACTIF = `${CHIP} border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-cream)]`;
 const BOUTON =
-  "rounded-full bg-[var(--color-accent)] px-7 py-4 text-center font-[family-name:var(--font-display)] text-[15px] font-bold text-[var(--color-cream)] disabled:opacity-60";
+  "w-full rounded-full bg-[var(--color-accent)] px-7 py-3.5 text-center font-[family-name:var(--font-display)] text-[15px] font-bold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const CARTE_AVIS =
+  "rounded-[28px] border border-[var(--color-line-strong)] bg-white p-6 shadow-[var(--shadow-carte)]";
 
 const ETAT_INITIAL: EtatAvis = {};
+
+const LIBELLE_NOTE = ["", "Décevant", "Moyen", "Bien", "Très bien", "Excellent"] as const;
+
+/**
+ * Sélecteur de note : cinq cuillères cliquables plutôt que cinq pastilles
+ * « 1 🥄 » … « 5 🥄 ». On note en survolant puis en cliquant, comme partout
+ * ailleurs — et la note choisie reste lisible au clavier grâce aux boutons.
+ */
+function SelecteurCuilleres({
+  note,
+  onChange,
+}: {
+  note: number;
+  onChange: (n: number) => void;
+}) {
+  const [survolee, setSurvolee] = useState<number | null>(null);
+  const affichee = survolee ?? note;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className="flex items-center gap-1"
+        role="group"
+        aria-label="Note en cuillères"
+        onMouseLeave={() => setSurvolee(null)}
+      >
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            aria-pressed={note === n}
+            aria-label={`${n} cuillère${n > 1 ? "s" : ""} sur 5`}
+            onClick={() => onChange(n)}
+            onMouseEnter={() => setSurvolee(n)}
+            onFocus={() => setSurvolee(n)}
+            onBlur={() => setSurvolee(null)}
+            className="rounded-lg p-0.5 text-[var(--color-accent)] transition-transform hover:scale-110"
+          >
+            <svg
+              width="30"
+              height="30"
+              viewBox="0 0 24 24"
+              fill={n <= affichee ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth={1.75}
+              strokeLinecap="round"
+              className={n <= affichee ? undefined : "opacity-30"}
+              aria-hidden="true"
+            >
+              <ellipse cx="12" cy="7.2" rx="4.2" ry="5" />
+              <path d="M12 12.2V21" />
+            </svg>
+          </button>
+        ))}
+      </div>
+      <span className="text-sm font-semibold text-[var(--color-ink-soft)]">
+        {LIBELLE_NOTE[affichee]}
+      </span>
+    </div>
+  );
+}
 
 export function AvisForm({
   restaurantId,
@@ -30,8 +91,10 @@ export function AvisForm({
 
   if (!estConnecte) {
     return (
-      <div className="flex flex-col gap-3 rounded-[30px] border border-[var(--color-line)] bg-white p-7 text-center">
-        <p className="text-sm text-[var(--color-ink-muted)]">Connecte-toi pour déposer un avis.</p>
+      <div className={`${CARTE_AVIS} flex flex-col gap-3 text-center`}>
+        <p className="text-sm text-[var(--color-ink-muted)]">
+          Connecte-toi pour déposer un avis sur ce restaurant.
+        </p>
         <Link href="/connexion" className={BOUTON}>
           Se connecter
         </Link>
@@ -41,9 +104,10 @@ export function AvisForm({
 
   if (!peutDeposer) {
     return (
-      <div className="rounded-[30px] border border-[var(--color-line)] bg-white p-7 text-center">
+      <div className={`${CARTE_AVIS} text-center`}>
         <p className="text-sm text-[var(--color-ink-muted)]">
-          Réserve une table et reviens après ton repas pour laisser un avis.
+          Seuls les dîneurs venus sur place peuvent noter : réserve une table et reviens après
+          ton repas.
         </p>
       </div>
     );
@@ -51,56 +115,51 @@ export function AvisForm({
 
   if (etat.ok) {
     return (
-      <div className="flex flex-col gap-2 rounded-[30px] border border-[var(--color-line)] bg-white p-7 text-center">
-        <p className="font-[family-name:var(--font-display)] text-xl font-bold text-[var(--color-ink)]">
-          Merci pour ton avis 🥄
+      <div className={`${CARTE_AVIS} flex flex-col items-center gap-2 text-center`}>
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-success-tint)] text-[var(--color-success)]">
+          <IconeValide taille={24} />
+        </span>
+        <p className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
+          Merci pour ton avis
+        </p>
+        <p className="text-sm text-[var(--color-ink-muted)]">
+          Il est déjà visible sur la fiche du restaurant.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 rounded-[30px] border border-[var(--color-line)] bg-white p-7">
-      <h2 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-[var(--color-ink)]">
+    <div className={`${CARTE_AVIS} flex flex-col gap-5`}>
+      <h3 className="font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-[var(--color-ink)]">
         {avisExistant ? "Modifier mon avis" : "Laisser un avis"}
-      </h2>
+      </h3>
 
-      <form action={action} className="flex flex-col gap-6">
+      <form action={action} className="flex flex-col gap-5">
         <input type="hidden" name="noteCuilleres" value={note} />
 
-        <div className="flex flex-col gap-2">
-          <span className="font-mono text-[11px] font-semibold tracking-wide text-[var(--color-ink-muted)]">
-            NOTE
-          </span>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setNote(n)}
-                className={note === n ? CHIP_ACTIF : CHIP_INACTIF}
-              >
-                {n} 🥄
-              </button>
-            ))}
-          </div>
-        </div>
+        <SelecteurCuilleres note={note} onChange={setNote} />
 
-        <div className="flex flex-col gap-2">
-          <span className="font-mono text-[11px] font-semibold tracking-wide text-[var(--color-ink-muted)]">
-            COMMENTAIRE
-          </span>
+        <label className="flex flex-col gap-2 text-sm font-semibold text-[var(--color-ink-soft)]">
+          Commentaire <span className="font-normal text-[var(--color-ink-muted)]">(facultatif)</span>
           <textarea
             name="commentaire"
             defaultValue={avisExistant?.commentaire ?? ""}
             maxLength={500}
             rows={4}
-            placeholder="Ton expérience dans ce restaurant (facultatif)"
-            className="rounded-[16px] border-[1.5px] border-[var(--color-line-strong)] px-4 py-3 text-sm text-[var(--color-ink)]"
+            placeholder="Ce que tu as aimé, ce qui peut être amélioré…"
+            className="rounded-[16px] border-[1.5px] border-[var(--color-line-strong)] px-4 py-3 text-sm font-normal text-[var(--color-ink)] transition-colors placeholder:text-[var(--color-ink-muted)] hover:border-[var(--color-ink-muted)] focus:border-[var(--color-ink)]"
           />
-        </div>
+        </label>
 
-        {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+        {etat.erreur && (
+          <p
+            role="alert"
+            className="rounded-xl bg-[var(--color-danger-tint)] px-3.5 py-2.5 text-sm font-medium text-[var(--color-danger)]"
+          >
+            {etat.erreur}
+          </p>
+        )}
 
         <button type="submit" disabled={enCours} className={BOUTON}>
           {enCours ? "Envoi…" : avisExistant ? "Modifier mon avis" : "Déposer mon avis"}

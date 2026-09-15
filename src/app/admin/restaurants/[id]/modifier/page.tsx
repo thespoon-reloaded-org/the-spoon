@@ -1,40 +1,42 @@
-import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { modifierRestaurant } from "@/app/admin/restaurants/actions";
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { RestaurantForm } from "@/components/RestaurantForm";
-import { authAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const restaurant = await prisma.restaurant.findUnique({ where: { id }, select: { nom: true } });
+  return { title: restaurant ? `Modifier ${restaurant.nom}` : "Modifier" };
+}
+
+/** La garde d'accès est faite une fois dans le layout parent. */
 export default async function ModifierRestaurantPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
-  const [session, restaurant] = await Promise.all([
-    authAdmin.api.getSession({ headers: await headers() }),
-    prisma.restaurant.findUnique({ where: { id } }),
-  ]);
-  if (!session) redirect("/connexion-admin");
+  const restaurant = await prisma.restaurant.findUnique({ where: { id } });
   if (!restaurant) notFound();
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-10">
+    <>
       <Link
         href={`/admin/restaurants/${id}`}
-        className="text-sm text-[var(--color-ink-muted)] hover:underline"
+        className="mb-4 inline-block text-sm font-semibold text-[var(--color-staff)] hover:underline"
       >
         ← Retour à la fiche
       </Link>
 
-      <h1 className="mt-4 font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
-        Modifier {restaurant.nom}
-      </h1>
+      <EnteteEspace
+        titre={`Modifier ${restaurant.nom}`}
+        description="Chaque champ modifié est consigné dans le journal d'audit, avec sa valeur avant et après."
+      />
 
-      <div className="mt-6">
+      <div className="max-w-xl">
         <RestaurantForm
           action={modifierRestaurant.bind(null, id)}
           libelleBouton="Enregistrer"
@@ -49,6 +51,6 @@ export default async function ModifierRestaurantPage({
           }}
         />
       </div>
-    </main>
+    </>
   );
 }

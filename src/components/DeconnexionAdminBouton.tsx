@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { IconeDeconnexion } from "@/components/Icones";
 import { authAdminClient } from "@/lib/auth-admin-client";
-import { BOUTON_SECONDAIRE } from "@/lib/ui";
 
 /** Déconnexion du staff connecté — session `Staff`, distincte de celle des dîneurs et des contacts restaurant. */
 export function DeconnexionAdminBouton() {
@@ -27,8 +27,9 @@ export function DeconnexionAdminBouton() {
       type="button"
       onClick={seDeconnecter}
       disabled={enCours}
-      className={BOUTON_SECONDAIRE}
+      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-[var(--color-cream)] transition-colors hover:bg-white/10 disabled:opacity-60"
     >
+      <IconeDeconnexion taille={17} />
       Se déconnecter
     </button>
   );

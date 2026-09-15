@@ -3,7 +3,8 @@
 import { useActionState } from "react";
 
 import { mettreAJourFiche, type EtatFiche } from "@/app/espace-restaurant/fiche/actions";
-import { BOUTON_PRIMAIRE, CARTE, CHAMP, EYEBROW, LABEL_CHAMP } from "@/lib/ui";
+import { MessageFormulaire } from "@/components/MessageFormulaire";
+import { BOUTON_PRIMAIRE, CARTE, CHAMP, CHAMP_FICHIER, EYEBROW, LABEL_CHAMP } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatFiche = {};
 
@@ -66,18 +67,25 @@ export function FicheEtablissementForm({
         <label className={LABEL_CHAMP}>
           Photo
           {fiche.photoMisAJourLe && (
+            /* Photo servie par la route API avec un cache-bust `?v=…` : pas
+               d'optimisation `next/image` possible, voir `PhotoCouverture`. */
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={`/api/restaurants/${fiche.id}/photo?v=${fiche.photoMisAJourLe.getTime()}`}
               alt={`Photo de ${fiche.nom}`}
-              className="h-32 w-full rounded-xl object-cover"
+              className="h-36 w-full rounded-xl object-cover"
             />
           )}
-          <input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif" className="text-sm text-[var(--color-ink)]" />
+          <input
+            type="file"
+            name="photo"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className={CHAMP_FICHIER}
+          />
           <span className="text-xs font-normal text-[var(--color-ink-muted)]">
             {fiche.photoMisAJourLe
-              ? "Laisse vide pour garder la photo actuelle."
-              : "Facultatif — JPG/PNG, 5 Mo max."}
+              ? "Laissez vide pour garder la photo actuelle."
+              : "Facultatif — JPG/PNG, 5 Mo max. Sans photo, un visuel générique est affiché."}
           </span>
         </label>
       </div>
@@ -141,17 +149,19 @@ export function FicheEtablissementForm({
         </label>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
             {enCours ? "Enregistrement…" : "Enregistrer"}
           </button>
-          {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+          {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
           {etat.ok && !etat.avertissement && (
-            <p className="text-sm text-green-700">Fiche mise à jour.</p>
+            <MessageFormulaire type="succes">Fiche mise à jour.</MessageFormulaire>
           )}
         </div>
-        {etat.avertissement && <p className="text-sm text-amber-700">{etat.avertissement}</p>}
+        {etat.avertissement && (
+          <MessageFormulaire type="avertissement">{etat.avertissement}</MessageFormulaire>
+        )}
       </div>
     </form>
   );

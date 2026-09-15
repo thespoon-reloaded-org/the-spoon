@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { IconeDeconnexion } from "@/components/Icones";
 import { authRestaurantClient } from "@/lib/auth-restaurant-client";
 
 /** Déconnexion du contact restaurant connecté — session `RestaurantContact`, distincte de celle des dîneurs. */
@@ -26,8 +27,9 @@ export function DeconnexionRestaurantBouton() {
       type="button"
       onClick={seDeconnecter}
       disabled={enCours}
-      className="rounded-full border-[1.5px] border-[var(--color-ink)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:opacity-60"
+      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-[var(--color-cream)] transition-colors hover:bg-white/10 disabled:opacity-60"
     >
+      <IconeDeconnexion taille={17} />
       Se déconnecter
     </button>
   );

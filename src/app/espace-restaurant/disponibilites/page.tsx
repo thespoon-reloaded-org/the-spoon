@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { authRestaurant } from "@/lib/auth";
 import {
   CRENEAUX_HORAIRES,
@@ -15,9 +17,11 @@ import {
   type JourCalendrier,
 } from "@/lib/creneaux";
 import { prisma } from "@/lib/prisma";
-import { BOUTON_SECONDAIRE, CARTE, EYEBROW } from "@/lib/ui";
+import { BOUTON_SECONDAIRE, CARTE, TITRE_SECTION } from "@/lib/ui";
 
 import { basculerException, basculerExceptionJournee, basculerHoraireHebdo } from "./actions";
+
+export const metadata: Metadata = { title: "Disponibilités" };
 
 const CHIP_OUVERT =
   "rounded-full border-[1.5px] border-[var(--color-line-strong)] bg-white px-3.5 py-2 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)]";
@@ -142,12 +146,17 @@ export default async function DisponibilitesPage({
   const tousOuverts = jourSelectionne ? CRENEAUX_HORAIRES.every(effectifOuvert) : false;
 
   return (
-    <div className="flex flex-col gap-8">
+    <>
+      <EnteteEspace
+        titre="Mes disponibilités"
+        description="Un créneau fermé ici n'est plus réservable côté dîneur. Deux plannings se superposent : l'horaire habituel, et les exceptions posées sur une date précise."
+      />
+
       <Legende />
 
-      <section className="flex flex-col gap-4">
+      <section className="mt-8 flex flex-col gap-4">
         <div>
-          <h2 className={EYEBROW}>Horaires d&apos;ouverture</h2>
+          <h2 className={TITRE_SECTION}>Horaires d&apos;ouverture</h2>
           <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
             Le planning classique, valable toutes les semaines.
           </p>
@@ -211,16 +220,16 @@ export default async function DisponibilitesPage({
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section className="mt-10 flex flex-col gap-4">
         <div>
-          <h2 className={EYEBROW}>Ouvertures &amp; fermetures exceptionnelles</h2>
-          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            Un jour férié, des congés, un événement — choisis une date, chaque créneau est
-            pré-rempli depuis le planning ci-dessus et tu peux le modifier juste pour ce jour-là.
+          <h2 className={TITRE_SECTION}>Ouvertures &amp; fermetures exceptionnelles</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--color-ink-muted)]">
+            Un jour férié, des congés, un événement — choisissez une date : chaque créneau est
+            pré-rempli depuis le planning ci-dessus et se modifie juste pour ce jour-là.
           </p>
         </div>
 
-        <div className={CARTE}>
+        <div className={`${CARTE} max-w-xl`}>
           <div className="flex items-center justify-between">
             <Link
               href={`?mois=${moisAdjacent(moisActuel, -1)}`}
@@ -279,7 +288,7 @@ export default async function DisponibilitesPage({
         </div>
 
         {jourSelectionne && (
-          <div className={CARTE}>
+          <div className={`${CARTE} max-w-xl`}>
             <div className="flex items-center justify-between">
               <span className="font-semibold capitalize text-[var(--color-ink)]">
                 {new Date(`${jourSelectionne}T00:00:00`).toLocaleDateString("fr-FR", {
@@ -338,6 +347,6 @@ export default async function DisponibilitesPage({
           </div>
         )}
       </section>
-    </div>
+    </>
   );
 }

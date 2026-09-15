@@ -28,12 +28,19 @@ export function FactureDocument({
   return (
     <div>
       {retour && (
-        <Link href={retour.href} className="text-sm text-[var(--color-ink-muted)] hover:underline">
+        <Link
+          href={retour.href}
+          className="text-sm font-semibold text-[var(--color-ink-soft)] hover:underline"
+        >
           ← {retour.label}
         </Link>
       )}
 
-      <div className={`${retour ? "mt-4" : ""} rounded-2xl border-[1.5px] border-[var(--color-line-strong)] bg-white p-8`}>
+      <div
+        className={`${
+          retour ? "mt-4 " : ""
+        }max-w-3xl rounded-2xl border border-[var(--color-line-strong)] bg-white p-6 shadow-[var(--shadow-carte)] sm:p-8`}
+      >
         <div className="flex flex-wrap items-start justify-between gap-4 border-b-[1.5px] border-[var(--color-line)] pb-6">
           <div>
             <p className={EYEBROW}>Facture</p>
@@ -54,13 +61,13 @@ export function FactureDocument({
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-6 text-sm">
+        <div className="mt-6 grid grid-cols-1 gap-6 text-sm sm:grid-cols-2">
           <div>
             <p className={EYEBROW}>Émetteur</p>
             <p className="mt-1 font-semibold text-[var(--color-ink)]">TheSpoon</p>
             <p className="text-[var(--color-ink-muted)]">Commission sur réservations honorées</p>
           </div>
-          <div className="text-right">
+          <div className="sm:text-right">
             <p className={EYEBROW}>Facturé à</p>
             <p className="mt-1 font-semibold text-[var(--color-ink)]">{facture.restaurant.nom}</p>
             <p className="text-[var(--color-ink-muted)]">{facture.restaurant.adresse}</p>
@@ -74,7 +81,10 @@ export function FactureDocument({
           </span>
         </p>
 
-        <table className="mt-4 w-full text-sm">
+        {/* La facture peut compter beaucoup de lignes et quatre colonnes
+            chiffrées : sur mobile, c'est le tableau qui défile, pas la page. */}
+        <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="border-b-[1.5px] border-[var(--color-line-strong)] text-left font-mono text-[11px] uppercase tracking-wide text-[var(--color-ink-muted)]">
               <th className="py-2 font-semibold">Réservation</th>
@@ -101,6 +111,7 @@ export function FactureDocument({
             ))}
           </tbody>
         </table>
+        </div>
 
         <div className="mt-6 flex justify-end border-t-[1.5px] border-[var(--color-line-strong)] pt-4">
           <div className="text-right">
