@@ -38,10 +38,14 @@ export async function marquerReservation(
   const session = await authRestaurant.api.getSession({ headers: await headers() });
   if (!session) redirect("/connexion-restaurant");
 
+  const couvertsServisSaisis = formData.get("couvertsServis");
   const donnees = schemaSignalement.safeParse({
     bookingId,
     statut,
-    couvertsServis: formData.get("couvertsServis") ?? undefined,
+    // Un champ vidé renvoie "" (pas null) — sans ce garde, z.coerce.number()
+    // le convertirait en 0, qui échoue .min(1) avec le message générique de
+    // Zod au lieu du message dédié du .refine ci-dessus.
+    couvertsServis: couvertsServisSaisis === "" ? undefined : (couvertsServisSaisis ?? undefined),
   });
   if (!donnees.success) {
     return { erreur: donnees.error.issues[0]?.message ?? "Réservation introuvable." };
@@ -60,9 +64,15 @@ export async function marquerReservation(
     return { erreur: "Ce créneau n'est pas encore passé." };
   }
 
+  let resultat: { count: number };
   try {
-    await prisma.booking.update({
-      where: { id: reservation.id },
+    // `updateMany` avec `statut: "CONFIRMEE"` dans le WHERE rend le
+    // check-then-act atomique : si deux signalements arrivent en même temps
+    // (double clic, retry réseau), un seul verra `count === 1` — l'autre
+    // trouve `count === 0` et sait qu'il a perdu la course, plutôt que
+    // d'écraser silencieusement le premier signalement.
+    resultat = await prisma.booking.updateMany({
+      where: { id: reservation.id, statut: "CONFIRMEE" },
       data: {
         statut: donnees.data.statut,
         signaleeLe: new Date(),
@@ -71,6 +81,9 @@ export async function marquerReservation(
     });
   } catch {
     return { erreur: "Impossible d'enregistrer le signalement, réessaie." };
+  }
+  if (resultat.count === 0) {
+    return { erreur: "Cette réservation a déjà été traitée." };
   }
 
   revalidatePath("/espace-restaurant/reservations");

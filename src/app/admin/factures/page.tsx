@@ -20,7 +20,7 @@ export default async function FacturesAdminPage() {
   if (!session) redirect("/connexion-admin");
 
   const factures = await prisma.facture.findMany({
-    include: { restaurant: { select: { nom: true } }, lignes: true },
+    include: { restaurant: { select: { nom: true } }, _count: { select: { lignes: true } } },
     orderBy: [{ mois: "desc" }, { restaurant: { nom: "asc" } }],
   });
 
@@ -46,8 +46,8 @@ export default async function FacturesAdminPage() {
               <p className="font-semibold text-[var(--color-ink)]">{facture.restaurant.nom}</p>
               <p className="text-sm text-[var(--color-ink-muted)]">
                 <span className="capitalize">{formaterMoisFacture(facture.mois)}</span> ·{" "}
-                {facture.lignes.length} réservation{facture.lignes.length > 1 ? "s" : ""} honorée
-                {facture.lignes.length > 1 ? "s" : ""}
+                {facture._count.lignes} réservation{facture._count.lignes > 1 ? "s" : ""} honorée
+                {facture._count.lignes > 1 ? "s" : ""}
               </p>
             </div>
             <p className="font-semibold text-[var(--color-ink)]">

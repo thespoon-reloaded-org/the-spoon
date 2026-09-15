@@ -6,7 +6,7 @@ import {
   genererFacturesDuMois,
   type EtatGenerationFactures,
 } from "@/app/admin/factures/actions";
-import { BOUTON_PRIMAIRE, CHAMP } from "@/lib/ui";
+import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatGenerationFactures = {};
 
@@ -16,7 +16,7 @@ export function GenererFacturesForm({ moisParDefaut }: { moisParDefaut: string }
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-col gap-1.5 text-sm font-semibold text-[var(--color-ink-soft)]">
+      <label className={LABEL_CHAMP}>
         Mois à facturer
         <input type="month" name="mois" defaultValue={moisParDefaut} className={CHAMP} />
       </label>

@@ -54,76 +54,103 @@ export function formaterMoisFacture(mois: Date): string {
 
 export type ResultatGenerationFactures = {
   facturesCreees: number;
-  dejaExistantes: number;
+  lignesAjoutees: number;
 };
 
 /**
  * Génère, pour chaque restaurant ayant au moins une réservation honorée dans
- * le mois donné, une facture et ses lignes. Idempotent : relancer le
- * traitement sur un mois déjà facturé ne crée rien de plus — voir
- * `@@unique([restaurantId, mois])` sur `Facture`, qui est la vraie garantie
- * (y compris sous double déclenchement concurrent), pas une simple
- * vérification applicative avant écriture.
+ * le mois donné, une facture et ses lignes — et complète une facture déjà
+ * générée avec les réservations honorées *depuis*, plutôt que de les ignorer.
+ *
+ * L'idempotence est au niveau de la ligne (`LigneFacture.bookingId` unique),
+ * pas au niveau de la facture : une facture existante n'est jamais un signal
+ * pour tout ignorer. Une réservation signalée honorée après coup (signalement
+ * tardif, correction d'un no-show) doit pouvoir rejoindre la facture déjà
+ * émise plutôt que de ne jamais être facturée — voir le commentaire sur
+ * `LigneFacture` dans le schéma.
  */
 export async function genererFacturesMois(mois: Date): Promise<ResultatGenerationFactures> {
   const debutMois = new Date(Date.UTC(mois.getUTCFullYear(), mois.getUTCMonth(), 1));
   const finMois = new Date(Date.UTC(mois.getUTCFullYear(), mois.getUTCMonth() + 1, 1));
 
-  const restaurantsAFacturer = await prisma.booking.findMany({
+  const bookings = await prisma.booking.findMany({
     where: { statut: "HONOREE", date: { gte: debutMois, lt: finMois } },
-    select: { restaurantId: true },
-    distinct: ["restaurantId"],
   });
 
-  let facturesCreees = 0;
-  let dejaExistantes = 0;
-
-  for (const { restaurantId } of restaurantsAFacturer) {
-    const creee = await genererFactureRestaurant(restaurantId, debutMois, finMois);
-    if (creee) {
-      facturesCreees++;
+  const bookingsParRestaurant = new Map<string, typeof bookings>();
+  for (const booking of bookings) {
+    const bookingsExistants = bookingsParRestaurant.get(booking.restaurantId);
+    if (bookingsExistants) {
+      bookingsExistants.push(booking);
     } else {
-      dejaExistantes++;
+      bookingsParRestaurant.set(booking.restaurantId, [booking]);
     }
   }
 
-  return { facturesCreees, dejaExistantes };
+  let facturesCreees = 0;
+  let lignesAjoutees = 0;
+
+  for (const [restaurantId, bookingsRestaurant] of bookingsParRestaurant) {
+    const resultat = await genererOuCompleterFacture(restaurantId, debutMois, bookingsRestaurant);
+    if (resultat.factureCreee) facturesCreees++;
+    lignesAjoutees += resultat.lignesAjoutees;
+  }
+
+  return { facturesCreees, lignesAjoutees };
 }
 
-async function genererFactureRestaurant(
+async function genererOuCompleterFacture(
   restaurantId: string,
-  debutMois: Date,
-  finMois: Date,
-): Promise<boolean> {
+  mois: Date,
+  bookings: Booking[],
+): Promise<{ factureCreee: boolean; lignesAjoutees: number }> {
   try {
-    await prisma.$transaction(async (tx) => {
-      const bookings = await tx.booking.findMany({
-        where: { restaurantId, statut: "HONOREE", date: { gte: debutMois, lt: finMois } },
-      });
+    return await prisma.$transaction(async (tx) => {
+      let facture = await tx.facture.findUnique({ where: { restaurantId_mois: { restaurantId, mois } } });
+      const factureCreee = !facture;
+      if (!facture) {
+        facture = await tx.facture.create({ data: { restaurantId, mois, montantTotalCentimes: 0 } });
+      }
 
-      const lignes = bookings.map((booking) => {
+      // Réservations déjà présentes sur UNE facture, peu importe laquelle —
+      // `bookingId` est unique tous mois confondus, donc ce filtre suffit à
+      // ne jamais recréer une ligne déjà émise.
+      const dejaFacturees = await tx.ligneFacture.findMany({
+        where: { bookingId: { in: bookings.map((b) => b.id) } },
+        select: { bookingId: true },
+      });
+      const idsDejaFactures = new Set(dejaFacturees.map((l) => l.bookingId));
+      const aFacturer = bookings.filter((b) => !idsDejaFactures.has(b.id));
+
+      if (aFacturer.length === 0) {
+        return { factureCreee, lignesAjoutees: 0 };
+      }
+
+      const lignes = aFacturer.map((booking) => {
         const couvertsFactures = couvertsAFacturer(booking);
         return {
+          factureId: facture.id,
           bookingId: booking.id,
           couvertsFactures,
           montantCentimes: couvertsFactures * COMMISSION_CENTIMES_PAR_COUVERT,
         };
       });
-      const montantTotalCentimes = lignes.reduce((total, ligne) => total + ligne.montantCentimes, 0);
+      const montantAjoute = lignes.reduce((total, ligne) => total + ligne.montantCentimes, 0);
 
-      await tx.facture.create({
-        data: {
-          restaurantId,
-          mois: debutMois,
-          montantTotalCentimes,
-          lignes: { create: lignes },
-        },
+      await tx.ligneFacture.createMany({ data: lignes });
+      await tx.facture.update({
+        where: { id: facture.id },
+        data: { montantTotalCentimes: { increment: montantAjoute } },
       });
+
+      return { factureCreee, lignesAjoutees: lignes.length };
     });
-    return true;
   } catch (erreur) {
     if (erreur instanceof Prisma.PrismaClientKnownRequestError && erreur.code === "P2002") {
-      return false; // déjà générée : relance du traitement, ou course concurrente
+      // Deux déclenchements concurrents sur le même restaurant/mois : celui-ci
+      // a perdu la course, la transaction est annulée en bloc (rien de
+      // partiellement commité) — un prochain passage reprendra ce qui manque.
+      return { factureCreee: false, lignesAjoutees: 0 };
     }
     throw erreur;
   }

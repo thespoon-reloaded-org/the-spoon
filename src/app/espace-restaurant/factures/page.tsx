@@ -13,7 +13,7 @@ export default async function MesFacturesPage() {
 
   const factures = await prisma.facture.findMany({
     where: { restaurantId: session.user.restaurantId },
-    include: { lignes: true },
+    include: { _count: { select: { lignes: true } } },
     orderBy: { mois: "desc" },
   });
 
@@ -38,8 +38,8 @@ export default async function MesFacturesPage() {
                       {formaterMoisFacture(facture.mois)}
                     </p>
                     <p className="text-sm text-[var(--color-ink-muted)]">
-                      {facture.lignes.length} réservation{facture.lignes.length > 1 ? "s" : ""} honorée
-                      {facture.lignes.length > 1 ? "s" : ""} ·{" "}
+                      {facture._count.lignes} réservation{facture._count.lignes > 1 ? "s" : ""} honorée
+                      {facture._count.lignes > 1 ? "s" : ""} ·{" "}
                       {joursRestants > 0
                         ? `${joursRestants} jour${joursRestants > 1 ? "s" : ""} pour contester`
                         : "Délai de contestation expiré"}

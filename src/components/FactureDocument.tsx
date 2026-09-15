@@ -1,12 +1,8 @@
 import Link from "next/link";
 
 import type { Booking, Facture, LigneFacture, Restaurant } from "@/generated/prisma";
-import {
-  COMMISSION_CENTIMES_PAR_COUVERT,
-  formaterMoisFacture,
-  formaterMontant,
-  referenceFacture,
-} from "@/lib/facturation";
+import { formaterMoisFacture, formaterMontant, referenceFacture } from "@/lib/facturation";
+import { EYEBROW } from "@/lib/ui";
 
 type FactureAvecDetails = Facture & {
   restaurant: Pick<Restaurant, "nom" | "adresse">;
@@ -37,9 +33,7 @@ export function FactureDocument({
       <div className="mt-4 rounded-2xl border-[1.5px] border-[var(--color-line-strong)] bg-white p-8">
         <div className="flex flex-wrap items-start justify-between gap-4 border-b-[1.5px] border-[var(--color-line)] pb-6">
           <div>
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[var(--color-ink-muted)]">
-              Facture
-            </p>
+            <p className={EYEBROW}>Facture</p>
             <p className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
               {referenceFacture(facture)}
             </p>
@@ -59,16 +53,12 @@ export function FactureDocument({
 
         <div className="mt-6 grid grid-cols-2 gap-6 text-sm">
           <div>
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[var(--color-ink-muted)]">
-              Émetteur
-            </p>
+            <p className={EYEBROW}>Émetteur</p>
             <p className="mt-1 font-semibold text-[var(--color-ink)]">TheSpoon</p>
             <p className="text-[var(--color-ink-muted)]">Commission sur réservations honorées</p>
           </div>
           <div className="text-right">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[var(--color-ink-muted)]">
-              Facturé à
-            </p>
+            <p className={EYEBROW}>Facturé à</p>
             <p className="mt-1 font-semibold text-[var(--color-ink)]">{facture.restaurant.nom}</p>
             <p className="text-[var(--color-ink-muted)]">{facture.restaurant.adresse}</p>
           </div>
@@ -104,7 +94,10 @@ export function FactureDocument({
                 </td>
                 <td className="py-3 text-right text-[var(--color-ink)]">{ligne.couvertsFactures}</td>
                 <td className="py-3 text-right text-[var(--color-ink-muted)]">
-                  {formaterMontant(COMMISSION_CENTIMES_PAR_COUVERT)}
+                  {/* Dérivé de la ligne stockée, jamais du taux courant : une
+                      facture déjà émise doit rester lisible telle quelle même
+                      si COMMISSION_CENTIMES_PAR_COUVERT change plus tard. */}
+                  {formaterMontant(ligne.montantCentimes / ligne.couvertsFactures)}
                 </td>
                 <td className="py-3 text-right font-semibold text-[var(--color-ink)]">
                   {formaterMontant(ligne.montantCentimes)}

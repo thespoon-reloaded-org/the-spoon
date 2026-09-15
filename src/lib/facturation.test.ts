@@ -111,12 +111,45 @@ describe("genererFacturesMois", () => {
     expect(facture!.montantTotalCentimes).toBe(1250);
   });
 
-  test("relancer le traitement sur le même mois ne crée pas de nouvelle facture", async () => {
+  test("relancer le traitement sur le même mois sans nouvelle réservation ne crée rien", async () => {
     const resultat = await genererFacturesMois(mois);
     expect(resultat.facturesCreees).toBe(0);
-    expect(resultat.dejaExistantes).toBeGreaterThanOrEqual(1);
+    expect(resultat.lignesAjoutees).toBe(0);
 
     const factures = await prisma.facture.findMany({ where: { restaurantId, mois } });
     expect(factures).toHaveLength(1);
+  });
+
+  test("une réservation signalée honorée après la génération rejoint la facture existante, jamais perdue", async () => {
+    // Signalement tardif : la facture de juin a déjà été émise (test
+    // précédent) quand cette réservation est marquée honorée après coup.
+    const bookingTardif = await prisma.booking.create({
+      data: {
+        restaurantId,
+        userId,
+        date: new Date(Date.UTC(2026, 5, 25, 19, 0)),
+        couverts: 6,
+        statut: "HONOREE",
+        couvertsServis: 6,
+      },
+    });
+
+    const resultat = await genererFacturesMois(mois);
+    // La facture existe déjà : pas de nouvelle facture, mais la ligne
+    // manquante doit être ajoutée, pas ignorée silencieusement.
+    expect(resultat.facturesCreees).toBe(0);
+    expect(resultat.lignesAjoutees).toBe(1);
+
+    const factures = await prisma.facture.findMany({ where: { restaurantId, mois } });
+    expect(factures).toHaveLength(1); // toujours une seule facture, complétée
+
+    const facture = await prisma.facture.findUnique({
+      where: { restaurantId_mois: { restaurantId, mois } },
+      include: { lignes: true },
+    });
+    expect(facture!.lignes).toHaveLength(3);
+    expect(facture!.lignes.some((l) => l.bookingId === bookingTardif.id)).toBe(true);
+    // (3 + 2 + 6) couverts × 2,50 € = 27,50 € = 2750 centimes.
+    expect(facture!.montantTotalCentimes).toBe(2750);
   });
 });
