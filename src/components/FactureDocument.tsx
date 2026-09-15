@@ -22,15 +22,18 @@ export function FactureDocument({
 }: {
   facture: FactureAvecDetails;
   joursRestants: number;
-  retour: { href: string; label: string };
+  /** Absent quand le document est incorporé dans un autre écran (ex. l'instruction d'un dossier), plutôt qu'affiché comme sa propre page. */
+  retour?: { href: string; label: string };
 }) {
   return (
     <div>
-      <Link href={retour.href} className="text-sm text-[var(--color-ink-muted)] hover:underline">
-        ← {retour.label}
-      </Link>
+      {retour && (
+        <Link href={retour.href} className="text-sm text-[var(--color-ink-muted)] hover:underline">
+          ← {retour.label}
+        </Link>
+      )}
 
-      <div className="mt-4 rounded-2xl border-[1.5px] border-[var(--color-line-strong)] bg-white p-8">
+      <div className={`${retour ? "mt-4" : ""} rounded-2xl border-[1.5px] border-[var(--color-line-strong)] bg-white p-8`}>
         <div className="flex flex-wrap items-start justify-between gap-4 border-b-[1.5px] border-[var(--color-line)] pb-6">
           <div>
             <p className={EYEBROW}>Facture</p>

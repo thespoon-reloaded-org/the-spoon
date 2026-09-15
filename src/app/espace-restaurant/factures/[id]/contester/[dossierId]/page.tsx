@@ -104,6 +104,13 @@ export default async function RecapitulatifDossierPage({
             </ul>
           </div>
         )}
+
+        {dossier.complementDemandeLe && (
+          <div className="rounded-xl border-[1.5px] border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p className="font-semibold">TheSpoon a demandé un complément sur ce dossier</p>
+            <p className="mt-1">{dossier.complementDemandeMessage}</p>
+          </div>
+        )}
       </div>
     </div>
   );
