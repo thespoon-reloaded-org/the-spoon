@@ -13,6 +13,7 @@ import {
   TAILLES_TABLE,
 } from "@/lib/creneaux";
 import { prisma } from "@/lib/prisma";
+import { CreneauCompletError, reserverCreneau } from "@/lib/reservation";
 
 const schemaReservation = z.object({
   jourIso: z.string(),
@@ -90,10 +91,16 @@ export async function creerReservation(
   }
 
   try {
-    await prisma.booking.create({
-      data: { restaurantId, userId: session.user.id, date, couverts: donnees.data.couverts },
+    await reserverCreneau({
+      restaurantId,
+      userId: session.user.id,
+      date,
+      couverts: donnees.data.couverts,
     });
-  } catch {
+  } catch (erreur) {
+    if (erreur instanceof CreneauCompletError) {
+      return { erreur: "Ce créneau est complet, choisis-en un autre." };
+    }
     return { erreur: "Impossible d'enregistrer la réservation, réessaie." };
   }
 
