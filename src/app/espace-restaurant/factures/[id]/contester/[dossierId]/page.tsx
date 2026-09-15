@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { authRestaurant } from "@/lib/auth";
 import { LABELS_MOTIF_CONTESTATION, LABELS_STATUT_DOSSIER } from "@/lib/contestation";
-import { formaterMontant } from "@/lib/facturation";
+import { formaterDateReservation, formaterMontant } from "@/lib/facturation";
 import { CARTE, EYEBROW } from "@/lib/ui";
 import { prisma } from "@/lib/prisma";
 
@@ -70,12 +70,8 @@ export default async function RecapitulatifDossierPage({
               className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-line)] pb-2 text-sm last:border-0"
             >
               <span className="text-[var(--color-ink)]">
-                {ligne.ligneFacture.booking.date.toLocaleDateString("fr-FR", {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "short",
-                })}{" "}
-                — {LABELS_MOTIF_CONTESTATION[ligne.motif]}
+                {formaterDateReservation(ligne.ligneFacture.booking.date, { avecHeure: false })} —{" "}
+                {LABELS_MOTIF_CONTESTATION[ligne.motif]}
               </span>
               <span className="font-semibold text-[var(--color-ink)]">
                 {formaterMontant(ligne.ligneFacture.montantCentimes)}

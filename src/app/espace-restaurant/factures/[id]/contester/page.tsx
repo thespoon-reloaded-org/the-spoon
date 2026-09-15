@@ -5,7 +5,7 @@ import Link from "next/link";
 import { deposerContestation } from "./actions";
 import { DeposerContestationForm } from "@/components/DeposerContestationForm";
 import { authRestaurant } from "@/lib/auth";
-import { formaterMontant, joursRestantsContestation } from "@/lib/facturation";
+import { formaterDateReservation, formaterMontant, joursRestantsContestation } from "@/lib/facturation";
 import { CARTE, EYEBROW } from "@/lib/ui";
 import { prisma } from "@/lib/prisma";
 
@@ -33,11 +33,7 @@ export default async function ContesterFacturePage({ params }: { params: Promise
     .filter((ligne) => !ligne.contestation)
     .map((ligne) => ({
       id: ligne.id,
-      dateFormatee: `${ligne.booking.date.toLocaleDateString("fr-FR", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-      })} à ${ligne.booking.date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`,
+      dateFormatee: formaterDateReservation(ligne.booking.date),
       montantFormate: formaterMontant(ligne.montantCentimes),
     }));
 

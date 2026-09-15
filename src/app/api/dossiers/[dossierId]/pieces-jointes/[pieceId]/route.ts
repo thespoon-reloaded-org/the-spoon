@@ -46,10 +46,17 @@ export async function GET(
     return new NextResponse(null, { status: 404 });
   }
 
+  // `nomOriginal` vient du nom de fichier envoyé par le navigateur, jamais
+  // validé côté serveur : au-delà des guillemets, des retours à la ligne
+  // (CR/LF) dans un en-tête HTTP feraient planter la construction de la
+  // réponse (valeur d'en-tête invalide) — ils sont retirés en plus des
+  // guillemets, pas seulement ces derniers.
+  const nomFichierSurEnTete = piece.nomOriginal.replace(/["\r\n]/g, "");
+
   return new NextResponse(resultat.data, {
     headers: {
       "Content-Type": piece.typeMime,
-      "Content-Disposition": `attachment; filename="${piece.nomOriginal.replace(/"/g, "")}"`,
+      "Content-Disposition": `attachment; filename="${nomFichierSurEnTete}"`,
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-store",
     },

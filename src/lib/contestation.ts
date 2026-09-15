@@ -72,15 +72,20 @@ export async function creerDossierContestation(params: {
     return { ok: false, erreur: "Le délai de contestation de cette facture est dépassé." };
   }
 
-  const lignesFacture = await prisma.ligneFacture.findMany({
-    where: { id: { in: params.lignes.map((l) => l.ligneFactureId) }, factureId: params.factureId },
-  });
+  // Les deux lectures ci-dessous ne dépendent l'une de l'autre que pour le
+  // calcul final (statut) : lancées en parallèle plutôt qu'en série, une
+  // fois la facture validée.
+  const [lignesFacture, config] = await Promise.all([
+    prisma.ligneFacture.findMany({
+      where: { id: { in: params.lignes.map((l) => l.ligneFactureId) }, factureId: params.factureId },
+    }),
+    getConfigContestation(),
+  ]);
   if (lignesFacture.length !== params.lignes.length) {
     return { ok: false, erreur: "Une des lignes sélectionnées est introuvable sur cette facture." };
   }
 
   const montantContesteCentimes = calculerMontantConteste(lignesFacture);
-  const config = await getConfigContestation();
   const statut = decisionStatutDossier(montantContesteCentimes, config.seuilCreditOfficeCentimes);
   const motifParLigne = new Map(params.lignes.map((l) => [l.ligneFactureId, l.motif]));
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import type { Booking, Facture, LigneFacture, Restaurant } from "@/generated/prisma";
-import { formaterMoisFacture, formaterMontant, referenceFacture } from "@/lib/facturation";
+import { formaterDateReservation, formaterMoisFacture, formaterMontant, referenceFacture } from "@/lib/facturation";
 import { EYEBROW } from "@/lib/ui";
 
 type FactureAvecDetails = Facture & {
@@ -83,15 +83,7 @@ export function FactureDocument({
           <tbody>
             {facture.lignes.map((ligne) => (
               <tr key={ligne.id} className="border-b border-[var(--color-line)] last:border-0">
-                <td className="py-3 text-[var(--color-ink)]">
-                  {ligne.booking.date.toLocaleDateString("fr-FR", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  })}{" "}
-                  à{" "}
-                  {ligne.booking.date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                </td>
+                <td className="py-3 text-[var(--color-ink)]">{formaterDateReservation(ligne.booking.date)}</td>
                 <td className="py-3 text-right text-[var(--color-ink)]">{ligne.couvertsFactures}</td>
                 <td className="py-3 text-right text-[var(--color-ink-muted)]">
                   {/* Dérivé de la ligne stockée, jamais du taux courant : une

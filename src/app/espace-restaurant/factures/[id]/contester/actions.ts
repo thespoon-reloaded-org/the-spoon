@@ -1,17 +1,24 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import type { MotifContestation } from "@/generated/prisma";
 import { authRestaurant } from "@/lib/auth";
 import { creerDossierContestation } from "@/lib/contestation";
+import { LABELS_MOTIF_CONTESTATION } from "@/lib/contestation-labels";
 import { getDossierPiecesJointesStore, validerPieceJointeDossier } from "@/lib/dossier-pieces-jointes";
 import { sauvegarderPhotoEntite } from "@/lib/photos";
 import { prisma } from "@/lib/prisma";
 
-const MOTIFS = ["NO_SHOW", "ANNULATION_TARDIVE", "COUVERTS_SURCOMPTES", "DOUBLON", "HORS_PLATEFORME", "AUTRE"] as const;
+// Dérivé de LABELS_MOTIF_CONTESTATION plutôt que retapé : évite une
+// troisième source de vérité pour la liste des motifs (schema.prisma +
+// contestation-labels.ts + ce tuple), qui pourrait diverger silencieusement.
+const MOTIFS = Object.keys(LABELS_MOTIF_CONTESTATION) as [MotifContestation, ...MotifContestation[]];
 
 const schemaLigne = z.object({
   ligneFactureId: z.string().min(1),
@@ -76,27 +83,37 @@ export async function deposerContestation(
       continue;
     }
 
-    const piece = await prisma.pieceJointeDossier.create({
-      data: {
-        dossierId: resultat.dossierId,
-        nomOriginal: fichier.name,
-        typeMime: fichier.type,
-        tailleOctets: fichier.size,
-      },
-    });
+    // L'id est généré ici (et non par Prisma à la création) pour pouvoir
+    // uploader AVANT d'écrire la métadonnée en base : si l'upload échoue (ou
+    // si le process s'arrête entre les deux étapes), aucune ligne
+    // PieceJointeDossier ne pointe vers un fichier qui n'existe pas — pas
+    // besoin de suppression compensatoire. Les tirets sont retirés : la clé
+    // sert aussi de nom de fichier sur le store disque local, qui exige
+    // `/^[a-z0-9]+$/i` (voir src/lib/photos.ts).
+    const pieceId = randomUUID().replace(/-/g, "");
 
     const erreurUpload = await sauvegarderPhotoEntite(
       getDossierPiecesJointesStore(),
-      piece.id,
+      pieceId,
       fichier,
       "Pièce jointe non envoyée, réessaie depuis le dossier.",
     );
     if (erreurUpload) {
       // Best effort : le dossier reste valide même si une pièce jointe n'a
       // pas pu être envoyée (même philosophie que sauvegarderPhotoEntite).
-      await prisma.pieceJointeDossier.delete({ where: { id: piece.id } });
       avertissement = true;
+      continue;
     }
+
+    await prisma.pieceJointeDossier.create({
+      data: {
+        id: pieceId,
+        dossierId: resultat.dossierId,
+        nomOriginal: fichier.name,
+        typeMime: fichier.type,
+        tailleOctets: fichier.size,
+      },
+    });
   }
 
   revalidatePath(`/espace-restaurant/factures/${factureId}`);
