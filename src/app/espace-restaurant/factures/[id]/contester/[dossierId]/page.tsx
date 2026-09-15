@@ -1,12 +1,29 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+import { EnteteEspace } from "@/components/EnteteEspace";
+import { IconeValide } from "@/components/Icones";
+import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { authRestaurant } from "@/lib/auth";
 import { LABELS_MOTIF_CONTESTATION, LABELS_STATUT_DOSSIER } from "@/lib/contestation";
 import { formaterDateReservation, formaterMontant } from "@/lib/facturation";
-import { CARTE, EYEBROW } from "@/lib/ui";
+import { CARTE, EYEBROW, pastilleEtat, type EtatPastille } from "@/lib/ui";
 import { prisma } from "@/lib/prisma";
+import type { StatutDossier } from "@/generated/prisma";
+
+export const metadata: Metadata = { title: "Dossier de contestation" };
+
+/**
+ * Un dossier crédité d'office est réglé ; un dossier en attente demande encore
+ * un traitement côté TheSpoon. La pastille le dit par sa couleur, le libellé
+ * seul ne le distinguait pas.
+ */
+const ETAT_STATUT: Record<StatutDossier, EtatPastille> = {
+  EN_ATTENTE_INSTRUCTION: "attention",
+  CREDITE_OFFICE: "succes",
+};
 
 /**
  * Récapitulatif en lecture seule d'un dossier tout juste déposé — pas une
@@ -36,66 +53,85 @@ export default async function RecapitulatifDossierPage({
   if (!dossier) notFound();
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <Link
-          href={`/espace-restaurant/factures/${id}`}
-          className="text-sm text-[var(--color-ink-muted)] hover:underline"
-        >
-          ← Retour à la facture
-        </Link>
-        <h2 className={`${EYEBROW} mt-3`}>Dossier déposé</h2>
-      </div>
+    <>
+      <Link
+        href={`/espace-restaurant/factures/${id}`}
+        className="mb-4 inline-block text-sm font-semibold text-[var(--color-pro)] hover:underline"
+      >
+        ← Retour à la facture
+      </Link>
+
+      <EnteteEspace
+        titre="Dossier déposé"
+        description="Vous recevrez la décision de l'équipe Partenaires sur cette facture."
+        actions={
+          <span className={pastilleEtat(ETAT_STATUT[dossier.statut])}>
+            {LABELS_STATUT_DOSSIER[dossier.statut]}
+          </span>
+        }
+      />
 
       {avertissement === "1" && (
-        <p className="rounded-xl border-[1.5px] border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Le dossier est enregistré, mais au moins une pièce jointe n&apos;a pas pu être envoyée.
-        </p>
+        <div className="mb-5 max-w-2xl">
+          <MessageFormulaire type="avertissement">
+            Le dossier est enregistré, mais au moins une pièce jointe n&apos;a pas pu être envoyée.
+          </MessageFormulaire>
+        </div>
       )}
 
-      <div className={`${CARTE} flex flex-col gap-4`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-[family-name:var(--font-display)] text-xl font-bold text-[var(--color-ink)]">
-            {formaterMontant(dossier.montantContesteCentimes)} contestés
-          </p>
-          <span className="rounded-full border-[1.5px] border-[var(--color-line-strong)] px-3 py-1 text-xs font-semibold text-[var(--color-ink)]">
-            {LABELS_STATUT_DOSSIER[dossier.statut]}
+      <div className={`${CARTE} flex max-w-2xl flex-col gap-5`}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-success-tint)] text-[var(--color-success)]">
+            <IconeValide taille={24} />
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="font-[family-name:var(--font-display)] text-2xl font-extrabold text-[var(--color-ink)]">
+              {formaterMontant(dossier.montantContesteCentimes)}
+            </span>
+            <span className="text-sm text-[var(--color-ink-muted)]">
+              contestés sur {dossier.lignes.length} réservation
+              {dossier.lignes.length > 1 ? "s" : ""}
+            </span>
           </span>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 border-t border-[var(--color-line)] pt-4">
           {dossier.lignes.map((ligne) => (
-            <div
+            <li
               key={ligne.id}
-              className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-line)] pb-2 text-sm last:border-0"
+              className="flex flex-wrap items-center justify-between gap-2 text-sm"
             >
               <span className="text-[var(--color-ink)]">
-                {formaterDateReservation(ligne.ligneFacture.booking.date, { avecHeure: false })} —{" "}
-                {LABELS_MOTIF_CONTESTATION[ligne.motif]}
+                {formaterDateReservation(ligne.ligneFacture.booking.date, { avecHeure: false })}{" "}
+                <span className="text-[var(--color-ink-muted)]">
+                  · {LABELS_MOTIF_CONTESTATION[ligne.motif]}
+                </span>
               </span>
               <span className="font-semibold text-[var(--color-ink)]">
                 {formaterMontant(ligne.ligneFacture.montantCentimes)}
               </span>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
 
         {dossier.commentaire && (
-          <div>
+          <div className="border-t border-[var(--color-line)] pt-4">
             <p className={EYEBROW}>Commentaire</p>
-            <p className="mt-1 text-sm text-[var(--color-ink)]">{dossier.commentaire}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-[var(--color-ink)]">
+              {dossier.commentaire}
+            </p>
           </div>
         )}
 
         {dossier.piecesJointes.length > 0 && (
-          <div>
+          <div className="border-t border-[var(--color-line)] pt-4">
             <p className={EYEBROW}>Pièces jointes</p>
-            <ul className="mt-1 flex flex-col gap-1">
+            <ul className="mt-2 flex flex-wrap gap-2">
               {dossier.piecesJointes.map((piece) => (
                 <li key={piece.id}>
                   <a
                     href={`/api/dossiers/${dossier.id}/pieces-jointes/${piece.id}`}
-                    className="text-sm text-[var(--color-ink)] underline hover:no-underline"
+                    className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-[var(--color-line-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink)]"
                   >
                     {piece.nomOriginal}
                   </a>
@@ -112,6 +148,6 @@ export default async function RecapitulatifDossierPage({
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

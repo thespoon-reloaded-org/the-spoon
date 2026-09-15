@@ -1,35 +1,34 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { SeuilContestationForm } from "@/components/SeuilContestationForm";
-import { authAdmin } from "@/lib/auth";
 import { getConfigContestation } from "@/lib/contestation";
-import { CARTE, EYEBROW } from "@/lib/ui";
+import { formaterMontant } from "@/lib/facturation";
+import { CARTE } from "@/lib/ui";
+
+export const metadata: Metadata = { title: "Contestations" };
 
 /**
  * Réglage du seuil de crédit d'office ("Montant contesté dérivé & seuil de
  * crédit d'office") — seul paramètre configurable de l'epic "Contestations &
- * litiges" pour l'instant.
+ * litiges" pour l'instant. La garde d'accès est faite une fois dans le layout
+ * parent.
  */
 export default async function ContestationAdminPage() {
-  const session = await authAdmin.api.getSession({ headers: await headers() });
-  if (!session) redirect("/connexion-admin");
-
   const config = await getConfigContestation();
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-10">
-      <p className={EYEBROW}>BO Admin</p>
-      <h1 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
-        Contestations
-      </h1>
-      <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-        En dessous de ce montant, un dossier de contestation est crédité d&apos;office, sans instruction.
-      </p>
+    <>
+      <EnteteEspace
+        titre="Contestations"
+        description={`Sous ${formaterMontant(
+          config.seuilCreditOfficeCentimes,
+        )}, un dossier de contestation est crédité d'office, sans instruction : le coût d'instruire dépasse le montant en jeu.`}
+      />
 
-      <div className={`mt-6 ${CARTE}`}>
+      <div className={`${CARTE} max-w-xl`}>
         <SeuilContestationForm seuilActuelEuros={config.seuilCreditOfficeCentimes / 100} />
       </div>
-    </main>
+    </>
   );
 }

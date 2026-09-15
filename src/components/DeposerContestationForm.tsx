@@ -3,8 +3,9 @@
 import { useActionState } from "react";
 
 import type { EtatDepotContestation } from "@/app/espace-restaurant/factures/[id]/contester/actions";
+import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { LABELS_MOTIF_CONTESTATION } from "@/lib/contestation-labels";
-import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
+import { BOUTON_PRIMAIRE, CHAMP, CHAMP_FICHIER, LABEL_CHAMP } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatDepotContestation = {};
 
@@ -36,9 +37,14 @@ export function DeposerContestationForm({
         {lignes.map((ligne) => (
           <label
             key={ligne.id}
-            className="flex flex-wrap items-center gap-4 rounded-xl border-[1.5px] border-[var(--color-line-strong)] bg-white p-4"
+            className="flex cursor-pointer flex-wrap items-center gap-4 rounded-xl border-[1.5px] border-[var(--color-line-strong)] bg-white p-4 transition-colors hover:border-[var(--color-ink-muted)] has-[:checked]:border-[var(--color-pro)] has-[:checked]:bg-[var(--color-pro-tint)]"
           >
-            <input type="checkbox" name="ligneIds" value={ligne.id} className="h-4 w-4" />
+            <input
+              type="checkbox"
+              name="ligneIds"
+              value={ligne.id}
+              className="h-4 w-4 accent-[var(--color-pro)]"
+            />
             <div className="min-w-[180px] flex-1 text-sm text-[var(--color-ink)]">
               {ligne.dateFormatee} · <span className="font-semibold">{ligne.montantFormate}</span>
             </div>
@@ -62,7 +68,7 @@ export function DeposerContestationForm({
           name="commentaire"
           rows={4}
           maxLength={2000}
-          placeholder="Précise le contexte pour l'équipe Partenaires…"
+          placeholder="Précisez le contexte pour l'équipe Partenaires…"
           className={CHAMP}
         />
       </label>
@@ -74,18 +80,18 @@ export function DeposerContestationForm({
           name="piecesJointes"
           multiple
           accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
-          className="text-sm text-[var(--color-ink)]"
+          className={CHAMP_FICHIER}
         />
         <span className="text-xs font-normal text-[var(--color-ink-muted)]">
           Image ou PDF, 5 Mo max par fichier.
         </span>
       </label>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
           {enCours ? "Envoi…" : "Déposer le dossier"}
         </button>
-        {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+        {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
       </div>
     </form>
   );

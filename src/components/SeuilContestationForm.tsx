@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { mettreAJourSeuilContestation, type EtatSeuilContestation } from "@/app/admin/contestation/actions";
+import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatSeuilContestation = {};
@@ -13,7 +14,7 @@ export function SeuilContestationForm({ seuilActuelEuros }: { seuilActuelEuros: 
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
-      <label className={LABEL_CHAMP}>
+      <label className={`${LABEL_CHAMP} w-full sm:w-56`}>
         Seuil de crédit d&apos;office (€)
         <input
           type="number"
@@ -26,10 +27,10 @@ export function SeuilContestationForm({ seuilActuelEuros }: { seuilActuelEuros: 
         />
       </label>
       <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
-        Enregistrer
+        {enCours ? "Enregistrement…" : "Enregistrer"}
       </button>
-      {etat.ok && <p className="text-sm text-green-700">Seuil mis à jour.</p>}
-      {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+      {etat.ok && <MessageFormulaire type="succes">Seuil mis à jour.</MessageFormulaire>}
+      {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
     </form>
   );
 }

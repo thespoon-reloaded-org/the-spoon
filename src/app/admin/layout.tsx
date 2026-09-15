@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 const MENU: readonly EntreeMenu[] = [
   { href: "/admin/restaurants", label: "Restaurants", icone: "restaurants" },
   { href: "/admin/factures", label: "Facturation", icone: "facture" },
+  { href: "/admin/contestation", label: "Contestations", icone: "litige" },
 ];
 
 /** L'univers « staff » : encre bleutée, accent violet (cf. `src/lib/univers.ts`). */
