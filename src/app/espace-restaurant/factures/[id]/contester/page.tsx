@@ -1,13 +1,17 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { deposerContestation } from "./actions";
 import { DeposerContestationForm } from "@/components/DeposerContestationForm";
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { authRestaurant } from "@/lib/auth";
 import { formaterDateReservation, formaterMontant, joursRestantsContestation } from "@/lib/facturation";
-import { CARTE, EYEBROW } from "@/lib/ui";
+import { CARTE, ETAT_VIDE, pastilleEtat } from "@/lib/ui";
 import { prisma } from "@/lib/prisma";
+
+export const metadata: Metadata = { title: "Contester une facture" };
 
 /**
  * Sélection des lignes à contester sur une facture + dépôt du dossier —
@@ -38,33 +42,55 @@ export default async function ContesterFacturePage({ params }: { params: Promise
     }));
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <Link
-          href={`/espace-restaurant/factures/${facture.id}`}
-          className="text-sm text-[var(--color-ink-muted)] hover:underline"
-        >
-          ← Retour à la facture
-        </Link>
-        <h2 className={`${EYEBROW} mt-3`}>Contester des lignes de facture</h2>
-      </div>
+    <>
+      <Link
+        href={`/espace-restaurant/factures/${facture.id}`}
+        className="mb-4 inline-block text-sm font-semibold text-[var(--color-pro)] hover:underline"
+      >
+        ← Retour à la facture
+      </Link>
 
-      <div className={CARTE}>
-        {joursRestants === 0 ? (
-          <p className="text-sm text-[var(--color-ink-muted)]">
-            Le délai de contestation de cette facture est dépassé.
+      <EnteteEspace
+        titre="Contester des lignes de facture"
+        description="Cochez les réservations que vous estimez facturées à tort et indiquez un motif pour chacune. L'équipe Partenaires instruit le dossier."
+        actions={
+          joursRestants > 0 ? (
+            <span className={pastilleEtat("attention")}>
+              {joursRestants} jour{joursRestants > 1 ? "s" : ""} pour contester
+            </span>
+          ) : (
+            <span className={pastilleEtat("neutre")}>Délai expiré</span>
+          )
+        }
+      />
+
+      {joursRestants === 0 ? (
+        <div className={ETAT_VIDE}>
+          <p className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
+            Délai de contestation dépassé
           </p>
-        ) : lignesDisponibles.length === 0 ? (
-          <p className="text-sm text-[var(--color-ink-muted)]">
-            Toutes les lignes de cette facture sont déjà contestées.
+          <p className="max-w-sm text-sm text-[var(--color-ink-muted)]">
+            Cette facture ne peut plus être contestée. Contactez l&apos;équipe Partenaires si vous
+            pensez qu&apos;il y a une erreur.
           </p>
-        ) : (
+        </div>
+      ) : lignesDisponibles.length === 0 ? (
+        <div className={ETAT_VIDE}>
+          <p className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
+            Toutes les lignes sont déjà contestées
+          </p>
+          <p className="max-w-sm text-sm text-[var(--color-ink-muted)]">
+            Il n&apos;y a plus de réservation contestable sur cette facture.
+          </p>
+        </div>
+      ) : (
+        <div className={`${CARTE} max-w-3xl`}>
           <DeposerContestationForm
             action={deposerContestation.bind(null, facture.id)}
             lignes={lignesDisponibles}
           />
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }

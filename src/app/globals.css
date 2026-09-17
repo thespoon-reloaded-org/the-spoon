@@ -19,8 +19,44 @@
   --color-line: #f0e7e4;
   --color-line-strong: #e6dad6;
 
+  /*
+   * Trois populations se connectent à TheSpoon (dîneur, contact restaurant,
+   * staff) et chacune a son propre univers visuel — c'est ce qui permet de
+   * savoir en un coup d'œil dans quel espace on se trouve, et de choisir sa
+   * porte sur l'écran de connexion. Le dîneur garde la marque (framboise
+   * `--color-accent`) : c'est le produit public. Les deux autres ci-dessous.
+   */
+
+  /* Espace restaurant — vert profond + jaune : outil de travail, pas vitrine. */
+  --color-pro: #123a30;
+  --color-pro-deep: #0b241d;
+  --color-pro-soft: #1d5647;
+  --color-pro-line: #244f43;
+  --color-pro-accent: #ffc145;
+  --color-pro-tint: #edf4f1;
+  --color-pro-ink: #0e2d25;
+
+  /* Console staff — encre bleutée + violet : interface interne. */
+  --color-staff: #1a1d33;
+  --color-staff-deep: #111327;
+  --color-staff-line: #2e3252;
+  --color-staff-accent: #8b7bff;
+  --color-staff-tint: #f0effb;
+
+  /* États — jusqu'ici écrits en dur (`text-green-700`, `text-red-600`). */
+  --color-success: #0f7a58;
+  --color-success-tint: #e7f5f0;
+  --color-warning: #94590a;
+  --color-warning-tint: #fdf3e0;
+  --color-danger: #c0182f;
+  --color-danger-tint: #fdeced;
+
   --font-display: "Bricolage Grotesque", sans-serif;
   --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  --shadow-carte: 0 1px 2px rgb(26 20 24 / 0.04), 0 8px 24px -12px rgb(26 20 24 / 0.14);
+  --shadow-carte-levee: 0 2px 4px rgb(26 20 24 / 0.05), 0 18px 40px -16px rgb(26 20 24 / 0.22);
+  --shadow-flottant: 0 24px 60px -24px rgb(26 20 24 / 0.38);
 }
 
 body {
@@ -29,11 +65,50 @@ body {
   font-family: var(--font-body);
 }
 
+/*
+ * Anneau de focus global : les boutons et champs de l'app n'ont plus de
+ * contour par défaut (`outline-none` un peu partout), ce qui rendait la
+ * navigation au clavier invisible. On le redonne une bonne fois ici.
+ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Dans les univers sombres, un anneau framboise sur fond vert/encre ne se voit pas. */
+.univers-pro :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--color-pro-accent);
+}
+.univers-staff :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--color-staff-accent);
+}
+
 @keyframes spoon-marquee {
   from {
     transform: translateX(0);
   }
   to {
     transform: translateX(-50%);
+  }
+}
+
+/* Barre de défilement discrète pour les carrousels horizontaux. */
+.defilement-doux {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scroll-snap-type: x proximity;
+}
+.defilement-doux > * {
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

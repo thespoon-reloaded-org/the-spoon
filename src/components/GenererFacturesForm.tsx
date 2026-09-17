@@ -6,6 +6,7 @@ import {
   genererFacturesDuMois,
   type EtatGenerationFactures,
 } from "@/app/admin/factures/actions";
+import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatGenerationFactures = {};
@@ -16,15 +17,15 @@ export function GenererFacturesForm({ moisParDefaut }: { moisParDefaut: string }
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
-      <label className={LABEL_CHAMP}>
+      <label className={`${LABEL_CHAMP} w-full sm:w-56`}>
         Mois à facturer
         <input type="month" name="mois" defaultValue={moisParDefaut} className={CHAMP} />
       </label>
       <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
-        Générer les factures
+        {enCours ? "Génération…" : "Générer les factures"}
       </button>
-      {etat.resume && <p className="text-sm text-green-700">{etat.resume}</p>}
-      {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+      <MessageFormulaire type="succes" message={etat.resume} />
+      <MessageFormulaire type="erreur" message={etat.erreur} />
     </form>
   );
 }

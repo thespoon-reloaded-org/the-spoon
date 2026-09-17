@@ -1,11 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { EcranConnexion } from "@/components/EcranConnexion";
+import {
+  BoutonConnexion,
+  ChampConnexion,
+  ErreurConnexion,
+} from "@/components/FormulaireConnexion";
 import { authAdminClient } from "@/lib/auth-admin-client";
-import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
+import { UNIVERS } from "@/lib/univers";
+
+const UNIVERS_STAFF = UNIVERS.staff;
 
 /**
  * Connexion du staff TheSpoon — pas d'inscription ici, les comptes sont
@@ -53,43 +60,34 @@ export default function ConnexionAdminPage() {
   if (sessionEnCoursDeChargement || session) return null;
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-16">
-      <Link href="/" className="text-sm text-[var(--color-ink-muted)] hover:underline">
-        ← Retour à la recherche
-      </Link>
+    <EcranConnexion univers={UNIVERS_STAFF}>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <ChampConnexion
+          libelle="Email TheSpoon"
+          univers={UNIVERS_STAFF}
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-      <h1 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">Console staff</h1>
-      <p className="mt-2 text-sm text-[var(--color-ink-muted)]">Réservé au staff TheSpoon.</p>
+        <ChampConnexion
+          libelle="Mot de passe"
+          univers={UNIVERS_STAFF}
+          type="password"
+          autoComplete="current-password"
+          required
+          value={motDePasse}
+          onChange={(e) => setMotDePasse(e.target.value)}
+        />
 
-      <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
-        <label className={LABEL_CHAMP}>
-          Email
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={CHAMP}
-          />
-        </label>
+        {erreur && <ErreurConnexion message={erreur} />}
 
-        <label className={LABEL_CHAMP}>
-          Mot de passe
-          <input
-            type="password"
-            required
-            value={motDePasse}
-            onChange={(e) => setMotDePasse(e.target.value)}
-            className={CHAMP}
-          />
-        </label>
-
-        {erreur && <p className="text-sm text-red-600">{erreur}</p>}
-
-        <button type="submit" disabled={enCours} className={`mt-2 ${BOUTON_PRIMAIRE}`}>
-          Se connecter
-        </button>
+        <BoutonConnexion univers={UNIVERS_STAFF} enCours={enCours}>
+          Ouvrir la console
+        </BoutonConnexion>
       </form>
-    </main>
+    </EcranConnexion>
   );
 }

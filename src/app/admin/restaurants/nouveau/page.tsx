@@ -1,28 +1,33 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { creerRestaurant } from "@/app/admin/restaurants/actions";
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { RestaurantForm } from "@/components/RestaurantForm";
-import { authAdmin } from "@/lib/auth";
+import { exigerSessionStaff } from "@/lib/garde-staff";
+
+export const metadata: Metadata = { title: "Nouveau restaurant" };
 
 export default async function NouveauRestaurantPage() {
-  const session = await authAdmin.api.getSession({ headers: await headers() });
-  if (!session) redirect("/connexion-admin");
+  await exigerSessionStaff();
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-10">
-      <Link href="/admin" className="text-sm text-[var(--color-ink-muted)] hover:underline">
-        ← Retour à la console
+    <>
+      <Link
+        href="/admin/restaurants"
+        className="mb-4 inline-block text-sm font-semibold text-[var(--color-staff)] hover:underline"
+      >
+        ← Tous les restaurants
       </Link>
 
-      <h1 className="mt-4 font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
-        Nouveau restaurant
-      </h1>
+      <EnteteEspace
+        titre="Nouveau restaurant"
+        description="La création est tracée dans le journal d'audit de l'établissement."
+      />
 
-      <div className="mt-6">
+      <div className="max-w-xl">
         <RestaurantForm action={creerRestaurant} libelleBouton="Créer" />
       </div>
-    </main>
+    </>
   );
 }

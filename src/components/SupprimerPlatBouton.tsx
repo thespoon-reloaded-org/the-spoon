@@ -15,7 +15,11 @@ export function SupprimerPlatBouton({ platId }: { platId: string }) {
       <button type="submit" disabled={enCours} className={`${BOUTON_DANGER_DISCRET} disabled:opacity-60`}>
         {enCours ? "Suppression…" : "Supprimer"}
       </button>
-      {etat.erreur && <p className="text-xs text-red-600">{etat.erreur}</p>}
+      {etat.erreur && (
+        <p role="alert" className="text-xs font-medium text-[var(--color-danger)]">
+          {etat.erreur}
+        </p>
+      )}
     </form>
   );
 }

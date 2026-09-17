@@ -32,24 +32,34 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
   const joursRestants = joursRestantsContestation(facture.genereeLe);
 
   return (
-    <div className="flex flex-col items-start gap-4 md:flex-row">
-      <div className="min-w-0 flex-1">
-        <FactureDocument
-          facture={facture}
-          joursRestants={joursRestants}
-          retour={{ href: "/espace-restaurant/factures", label: "Mes factures" }}
-        />
-      </div>
+    <>
+      <FactureDocument
+        facture={facture}
+        joursRestants={joursRestants}
+        retour={{ href: "/espace-restaurant/factures", label: "Mes factures" }}
+      />
+
+      {/* L'action de contestation était un bouton posé à côté du document,
+          aligné par une marge en dur (`md:mt-16`). Elle vit maintenant sous la
+          facture, avec le délai qui la conditionne : c'est cette information
+          qui décide si on clique ou non. */}
       {joursRestants > 0 && (
-        <div className="w-full shrink-0 md:mt-16 md:w-auto">
+        <div className="mt-5 flex max-w-3xl flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--color-line-strong)] bg-white p-5 shadow-[var(--shadow-carte)]">
+          <div>
+            <p className="font-semibold text-[var(--color-ink)]">Un couvert facturé à tort ?</p>
+            <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+              Il vous reste {joursRestants} jour{joursRestants > 1 ? "s" : ""} pour déposer un
+              dossier sur cette facture.
+            </p>
+          </div>
           <Link
             href={`/espace-restaurant/factures/${facture.id}/contester`}
-            className={`${BOUTON_PRIMAIRE} block text-center`}
+            className={BOUTON_PRIMAIRE}
           >
             Contester cette facture
           </Link>
         </div>
       )}
-    </div>
+    </>
   );
 }

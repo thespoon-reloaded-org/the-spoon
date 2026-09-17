@@ -1,18 +1,22 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { SignalerReservationBoutons } from "@/components/SignalerReservationBoutons";
 import { authRestaurant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CARTE, EYEBROW } from "@/lib/ui";
+import { ETAT_VIDE, TITRE_SECTION, pastilleEtat, type EtatPastille } from "@/lib/ui";
 import type { Booking, User } from "@/generated/prisma";
+
+export const metadata: Metadata = { title: "Réservations" };
 
 type ReservationAvecClient = Booking & { user: User };
 
-const STATUT: Record<ReservationAvecClient["statut"], { label: string; classe: string }> = {
-  CONFIRMEE: { label: "Confirmée", classe: "text-[var(--color-ink-muted)]" },
-  ANNULEE: { label: "Annulée", classe: "text-[var(--color-ink-muted)] line-through" },
-  HONOREE: { label: "Honorée", classe: "text-green-700" },
-  NO_SHOW: { label: "No-show", classe: "text-[var(--color-accent)]" },
+const STATUT: Record<ReservationAvecClient["statut"], { label: string; etat: EtatPastille }> = {
+  CONFIRMEE: { label: "Confirmée", etat: "neutre" },
+  ANNULEE: { label: "Annulée", etat: "neutre" },
+  HONOREE: { label: "Honorée", etat: "succes" },
+  NO_SHOW: { label: "No-show", etat: "danger" },
 };
 
 /** Fonction utilitaire (pas un composant) : Date.now() y est autorisé. */
@@ -24,27 +28,60 @@ function separerReservations(reservations: ReservationAvecClient[]) {
   };
 }
 
-function ligneReservation(reservation: ReservationAvecClient, estPassee: boolean) {
+/** Initiale du dîneur — un repère visuel dans une liste de noms. */
+function Pastille({ nom }: { nom: string }) {
+  return (
+    <span
+      aria-hidden
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-pro-tint)] font-[family-name:var(--font-display)] text-sm font-bold text-[var(--color-pro)]"
+    >
+      {(nom.trim()[0] ?? "?").toUpperCase()}
+    </span>
+  );
+}
+
+function LigneReservation({
+  reservation,
+  estPassee,
+}: {
+  reservation: ReservationAvecClient;
+  estPassee: boolean;
+}) {
   const aSignaler = estPassee && reservation.statut === "CONFIRMEE";
   const statut = STATUT[reservation.statut];
+
   return (
-    <li key={reservation.id} className={`${CARTE} flex items-center justify-between`}>
-      <div>
+    <li
+      className={`flex flex-wrap items-center gap-4 rounded-2xl border bg-white px-5 py-4 ${
+        aSignaler
+          ? "border-[var(--color-warning)]/35 bg-[var(--color-warning-tint)]"
+          : "border-[var(--color-line-strong)]"
+      }`}
+    >
+      <Pastille nom={reservation.user.name} />
+
+      <div className="min-w-0 flex-1">
         <p className="font-semibold text-[var(--color-ink)]">{reservation.user.name}</p>
         <p className="text-sm text-[var(--color-ink-muted)]">
           {reservation.date.toLocaleDateString("fr-FR", {
-            weekday: "short",
+            weekday: "long",
             day: "numeric",
-            month: "short",
+            month: "long",
           })}{" "}
           à {reservation.date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} ·{" "}
           {reservation.couverts} couvert{reservation.couverts > 1 ? "s" : ""}
+          {reservation.couvertsServis !== null &&
+            ` · ${reservation.couvertsServis} servi${reservation.couvertsServis > 1 ? "s" : ""}`}
         </p>
       </div>
+
       {aSignaler ? (
-        <SignalerReservationBoutons bookingId={reservation.id} couvertsPrevus={reservation.couverts} />
+        <SignalerReservationBoutons
+          bookingId={reservation.id}
+          couvertsPrevus={reservation.couverts}
+        />
       ) : (
-        <span className={`text-sm font-semibold ${statut.classe}`}>{statut.label}</span>
+        <span className={pastilleEtat(statut.etat)}>{statut.label}</span>
       )}
     </li>
   );
@@ -66,30 +103,66 @@ export default async function ReservationsRecuesPage() {
   });
 
   const { aVenir, passees } = separerReservations(reservations);
+  const aPointer = passees.filter((r) => r.statut === "CONFIRMEE").length;
+  // Une réservation annulée reste dans la liste, avec son statut (cf. README),
+  // mais elle ne compte pas comme une table à préparer : la compter ici
+  // donnait un nombre différent de l'indicateur « À venir » du tableau de bord.
+  const aVenirActives = aVenir.filter((r) => r.statut !== "ANNULEE").length;
 
   return (
-    <div className="flex flex-col gap-10">
+    <>
+      <EnteteEspace
+        titre="Réservations reçues"
+        description="Les créneaux passés se pointent honorés ou no-show — c'est ce geste qui alimente la facturation mensuelle."
+      />
+
       <section>
-        <h2 className={EYEBROW}>À venir</h2>
+        <h2 className={`${TITRE_SECTION} mb-4`}>
+          À venir{" "}
+          <span className="font-body text-base font-medium text-[var(--color-ink-muted)]">
+            · {aVenirActives}
+            {aVenir.length > aVenirActives && `, ${aVenir.length - aVenirActives} annulée${
+              aVenir.length - aVenirActives > 1 ? "s" : ""
+            }`}
+          </span>
+        </h2>
         {aVenir.length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--color-ink-muted)]">Aucune réservation à venir.</p>
+          <div className={ETAT_VIDE}>
+            <p className="font-semibold text-[var(--color-ink)]">Aucune réservation à venir</p>
+            <p className="max-w-sm text-sm text-[var(--color-ink-muted)]">
+              Vérifiez dans « Disponibilités » que vos créneaux des cinq prochains jours sont
+              ouverts.
+            </p>
+          </div>
         ) : (
-          <ul className="mt-3 flex flex-col gap-3">
-            {aVenir.map((reservation) => ligneReservation(reservation, false))}
+          <ul className="flex flex-col gap-3">
+            {aVenir.map((reservation) => (
+              <LigneReservation key={reservation.id} reservation={reservation} estPassee={false} />
+            ))}
           </ul>
         )}
       </section>
 
-      <section>
-        <h2 className={EYEBROW}>Passées</h2>
+      <section className="mt-10">
+        <h2 className={`${TITRE_SECTION} mb-4`}>
+          Passées{" "}
+          <span className="font-body text-base font-medium text-[var(--color-ink-muted)]">
+            · {passees.length}
+            {aPointer > 0 && `, dont ${aPointer} à pointer`}
+          </span>
+        </h2>
         {passees.length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--color-ink-muted)]">Aucune réservation passée.</p>
+          <div className={ETAT_VIDE}>
+            <p className="font-semibold text-[var(--color-ink)]">Aucune réservation passée</p>
+          </div>
         ) : (
-          <ul className="mt-3 flex flex-col gap-3">
-            {passees.map((reservation) => ligneReservation(reservation, true))}
+          <ul className="flex flex-col gap-3">
+            {passees.map((reservation) => (
+              <LigneReservation key={reservation.id} reservation={reservation} estPassee />
+            ))}
           </ul>
         )}
       </section>
-    </div>
+    </>
   );
 }

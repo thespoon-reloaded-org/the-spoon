@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Pas d'écran propre : `/espace-restaurant` retombe toujours sur son premier onglet. */
+/** Pas d'écran propre : `/espace-restaurant` retombe toujours sur le tableau de bord. */
 export default function EspaceRestaurantPage() {
-  redirect("/espace-restaurant/reservations");
+  redirect("/espace-restaurant/tableau-de-bord");
 }

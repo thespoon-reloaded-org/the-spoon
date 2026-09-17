@@ -1,11 +1,15 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { modifierPlat, trouverPlatDuRestaurant } from "../actions";
+import { EnteteEspace } from "@/components/EnteteEspace";
 import { PlatForm } from "@/components/PlatForm";
 import { authRestaurant } from "@/lib/auth";
-import { CARTE, EYEBROW } from "@/lib/ui";
+import { CARTE } from "@/lib/ui";
+
+export const metadata: Metadata = { title: "Modifier un plat" };
 
 export default async function ModifierPlatPage({
   params,
@@ -20,20 +24,23 @@ export default async function ModifierPlatPage({
   if (!plat) notFound();
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <Link
-          href="/espace-restaurant/menu"
-          className="text-sm text-[var(--color-ink-muted)] hover:underline"
-        >
-          ← Ma carte
-        </Link>
-        <h2 className={`${EYEBROW} mt-3`}>Modifier « {plat.nom} »</h2>
-      </div>
+    <>
+      <Link
+        href="/espace-restaurant/menu"
+        className="mb-4 inline-block text-sm font-semibold text-[var(--color-pro)] hover:underline"
+      >
+        ← Ma carte
+      </Link>
 
-      <div className={CARTE}>
-        <PlatForm action={modifierPlat.bind(null, platId)} plat={plat} libelleSoumission="Enregistrer" />
+      <EnteteEspace titre={`Modifier « ${plat.nom} »`} />
+
+      <div className={`${CARTE} max-w-xl`}>
+        <PlatForm
+          action={modifierPlat.bind(null, platId)}
+          plat={plat}
+          libelleSoumission="Enregistrer"
+        />
       </div>
-    </div>
+    </>
   );
 }

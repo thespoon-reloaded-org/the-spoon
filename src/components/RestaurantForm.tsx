@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import type { EtatFormulaireRestaurant } from "@/app/admin/restaurants/actions";
+import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { BOUTON_PRIMAIRE, CARTE, CHAMP, EYEBROW, LABEL_CHAMP } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatFormulaireRestaurant = {};
@@ -116,11 +117,11 @@ export function RestaurantForm({
         </label>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
           {enCours ? "Enregistrement…" : libelleBouton}
         </button>
-        {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
+        <MessageFormulaire type="erreur" message={etat.erreur} />
       </div>
     </form>
   );

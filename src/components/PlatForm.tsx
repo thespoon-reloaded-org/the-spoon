@@ -3,9 +3,10 @@
 import { useActionState } from "react";
 
 import type { EtatPlat } from "@/app/espace-restaurant/menu/actions";
+import { MessageFormulaire } from "@/components/MessageFormulaire";
 import type { PlatCuillere } from "@/generated/prisma";
 import { CATEGORIES } from "@/lib/plats";
-import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
+import { BOUTON_PRIMAIRE, CHAMP, CHAMP_FICHIER, LABEL_CHAMP } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatPlat = {};
 
@@ -82,6 +83,8 @@ export function PlatForm({
       <label className={LABEL_CHAMP}>
         Photo
         {plat?.photoMisAJourLe && (
+          /* Photo servie par la route API avec un cache-bust `?v=…` : pas
+             d'optimisation `next/image` possible, voir `PhotoCouverture`. */
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/api/plats/${plat.id}/photo?v=${plat.photoMisAJourLe.getTime()}`}
@@ -89,23 +92,31 @@ export function PlatForm({
             className="h-32 w-32 rounded-[16px] object-cover"
           />
         )}
-        <input type="file" name="photo" accept="image/png,image/jpeg,image/webp,image/gif" className="text-sm text-[var(--color-ink)]" />
+        <input
+          type="file"
+          name="photo"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className={CHAMP_FICHIER}
+        />
         <span className="text-xs font-normal text-[var(--color-ink-muted)]">
-          {plat ? "Laisse vide pour garder la photo actuelle." : "Facultatif — JPG/PNG, 5 Mo max."}
+          {plat
+            ? "Laissez vide pour garder la photo actuelle."
+            : "Facultatif — JPG/PNG, 5 Mo max. Sans photo, un visuel générique est affiché."}
         </span>
       </label>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
             {enCours ? "Enregistrement…" : libelleSoumission}
           </button>
-          {etat.erreur && <p className="text-sm text-red-600">{etat.erreur}</p>}
-          {etat.ok && !etat.avertissement && (
-            <p className="text-sm text-green-700">Enregistré.</p>
-          )}
+          <MessageFormulaire type="erreur" message={etat.erreur} />
+          <MessageFormulaire
+            type="succes"
+            message={etat.ok && !etat.avertissement ? "Enregistré." : null}
+          />
         </div>
-        {etat.avertissement && <p className="text-sm text-amber-700">{etat.avertissement}</p>}
+        <MessageFormulaire type="avertissement" message={etat.avertissement} />
       </div>
     </form>
   );

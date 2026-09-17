@@ -19,9 +19,51 @@ restaurant, staff), un jeu de tables d'auth dédié généré par better-auth
 `StaffSession`/`StaffAccount`/`StaffVerification`) — même mécanique, tables
 et cookies séparés par population.
 
-Identité visuelle non décidée : les couleurs dans `globals.css` sont un
-placeholder neutre, à ne pas confondre avec la charte Hymaïa (TheSpoon est sa
-propre marque, pas une interface interne Hymaïa).
+L'identité visuelle est celle de TheSpoon, pas celle d'Hymaïa (TheSpoon est sa
+propre marque, pas une interface interne) — voir « Charte & structure des
+écrans » plus bas.
+
+## Charte & structure des écrans
+
+**Trois univers, trois couleurs.** Trois populations se connectent, sur trois
+instances better-auth séparées, vers trois produits qui n'ont rien à voir. Elles
+ne partagent donc pas la même peau (`src/lib/univers.ts`, tokens dans
+`globals.css`) :
+
+| Univers | Couleur | Où |
+|---|---|---|
+| Dîneur | framboise `--color-accent` | site public + `/connexion` |
+| Restaurateur | vert profond `--color-pro` + jaune | `/espace-restaurant` + `/connexion-restaurant` |
+| Staff | encre bleutée `--color-staff` + violet | `/admin` + `/connexion-admin` |
+
+`/connexion` et `/connexion-restaurant` affichent le sélecteur « Vous êtes… » :
+les deux portes sont visibles d'emblée, chacune avec sa couleur et sa photo.
+Le staff n'y figure pas (accès interne, lien discret en pied de page).
+
+**Groupes de routes.** Les trois univers n'ont pas le même cadre, d'où le
+découpage de `src/app/` (les parenthèses n'apparaissent pas dans les URLs) :
+
+- `(site)/` — recherche, fiche établissement, mes réservations : header collant
+  + pied de page (`SiteHeader`, `SiteFooter`).
+- `(connexion)/` — les trois écrans de connexion, en pleine page.
+- `espace-restaurant/` et `admin/` — menu latéral (`BarreLaterale`), fixe à
+  partir de `lg`, tiroir en dessous. Le contrôle d'accès est fait une fois dans
+  le layout, pas page par page.
+
+**Briques partagées.** `src/lib/ui.ts` (champs, boutons, cartes, pastilles
+d'état, états vides), `src/components/Icones.tsx` (jeu de pictos maison, pas de
+dépendance), `EnteteEspace` (titre de page des espaces connectés),
+`MessageFormulaire` (retour de soumission, avec le bon rôle ARIA).
+
+**Photos.** `public/images/` contient des photos libres (voir `SOURCES.md`) qui
+servent de repli quand un restaurant ou un plat n'a pas encore la sienne —
+choisies par type de cuisine dans `src/lib/images.ts`. `PhotoCouverture` est le
+seul endroit qui sait les afficher, parce que les deux provenances ne se
+traitent pas pareil : les fichiers statiques passent par `next/image`, les
+photos téléversées non. Depuis Next.js 16, une image locale portant une chaîne
+de requête doit être déclarée dans `images.localPatterns` avec un `search`
+**exact** — impossible pour un cache-bust `?v=<horodatage>`, d'où le `<img>`
+simple sur ce chemin.
 
 ## Démarrer en local
 
@@ -79,8 +121,12 @@ poussé à la main et jamais retrouvé côté base de déploiement.
   `src/app/restaurants/[id]/actions.ts`). Le créneau doit tomber dans les 5
   prochains jours et ne pas être fermé côté restaurant (voir "Mes
   disponibilités" ci-dessous), sans vérifier les conflits de capacité.
-- Espace restaurant (`/espace-restaurant`) : tableau de bord du contact
-  connecté, scopé à son seul établissement (`src/app/espace-restaurant/`).
+- Espace restaurant (`/espace-restaurant`) : espace du contact connecté, scopé
+  à son seul établissement (`src/app/espace-restaurant/`), organisé autour d'un
+  menu latéral. Tableau de bord (`/espace-restaurant/tableau-de-bord`, l'écran
+  d'accueil) : couverts du jour, réservations à venir, créneaux passés restant à
+  pointer, note en cuillères — uniquement une lecture des données que les autres
+  écrans détaillent, rien de nouveau n'y est calculé.
   Réservations reçues (à venir / passées) : pour un créneau confirmé déjà
   passé, le restaurant le marque honoré ou no-show
   (`marquerReservation` dans `src/app/espace-restaurant/reservations/actions.ts`)
@@ -127,7 +173,8 @@ poussé à la main et jamais retrouvé côté base de déploiement.
   `password123`). Pas de permissions par rôle pour l'instant : tout le staff
   connecté a le même accès (voir le ticket Notion "Auth staff TheSpoon &
   permissions" pour la suite).
-- Console staff / BO admin (`/admin`) : liste des restaurants partenaires
+- Console staff / BO admin (`/admin`, qui renvoie sur `/admin/restaurants`) :
+  liste des restaurants partenaires
   avec recherche (nom/ville), fiche détail (infos, contacts, réservations
   récentes), création et modification d'un restaurant
   (`src/app/admin/`). Toute création ou modification est tracée dans un

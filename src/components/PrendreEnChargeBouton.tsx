@@ -17,9 +17,13 @@ export function PrendreEnChargeBouton({ dossierId }: { dossierId: string }) {
   return (
     <form action={action} className="flex flex-col items-end gap-1">
       <button type="submit" disabled={enCours} className={BOUTON_SECONDAIRE}>
-        Prendre en charge
+        {enCours ? "…" : "Prendre en charge"}
       </button>
-      {etat.erreur && <p className="text-xs text-red-600">{etat.erreur}</p>}
+      {etat.erreur && (
+        <p role="alert" className="text-xs font-medium text-[var(--color-danger)]">
+          {etat.erreur}
+        </p>
+      )}
     </form>
   );
 }

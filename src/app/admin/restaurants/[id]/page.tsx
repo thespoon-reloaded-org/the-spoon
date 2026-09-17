@@ -1,18 +1,52 @@
-import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import { cache } from "react";
 import Link from "next/link";
 
-import { authAdmin } from "@/lib/auth";
-import { BOUTON_SECONDAIRE, CARTE, EYEBROW } from "@/lib/ui";
+import { EnteteEspace } from "@/components/EnteteEspace";
+import { NoteCuilleres } from "@/components/NoteCuilleres";
+import { PhotoCouverture } from "@/components/PhotoCouverture";
+import { exigerSessionStaff } from "@/lib/garde-staff";
+import { photoRestaurant } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
+import {
+  BOUTON_SECONDAIRE,
+  CARTE,
+  ETAT_VIDE,
+  EYEBROW,
+  TITRE_SECTION,
+  pastilleEtat,
+  type EtatPastille,
+} from "@/lib/ui";
 import type { Booking } from "@/generated/prisma";
 
+/**
+ * `generateMetadata` et la page ont besoin du même restaurant. Sans `cache`,
+ * Next.js exécute les deux fonctions pour une même requête et Prisma part
+ * deux fois en base — la mémoïsation de Next ne couvre que `fetch`.
+ */
+const lireRestaurant = cache((id: string) =>
+  prisma.restaurant.findUnique({
+    where: { id },
+    include: {
+      contacts: { orderBy: { nom: "asc" } },
+      bookings: { include: { user: true }, orderBy: { date: "desc" }, take: 10 },
+      journalAudit: { include: { staff: true }, orderBy: { createdAt: "desc" }, take: 20 },
+    },
+  }),
+);
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const restaurant = await lireRestaurant(id);
+  return { title: restaurant?.nom ?? "Restaurant" };
+}
+
 /** Même mapping que src/app/espace-restaurant/reservations/page.tsx (STATUT). */
-const STATUT_RESERVATION: Record<Booking["statut"], { label: string; classe: string }> = {
-  CONFIRMEE: { label: "Confirmée", classe: "text-[var(--color-ink)]" },
-  ANNULEE: { label: "Annulée", classe: "text-red-600" },
-  HONOREE: { label: "Honorée", classe: "text-green-700" },
-  NO_SHOW: { label: "No-show", classe: "text-[var(--color-accent)]" },
+const STATUT_RESERVATION: Record<Booking["statut"], { label: string; etat: EtatPastille }> = {
+  CONFIRMEE: { label: "Confirmée", etat: "neutre" },
+  ANNULEE: { label: "Annulée", etat: "danger" },
+  HONOREE: { label: "Honorée", etat: "succes" },
+  NO_SHOW: { label: "No-show", etat: "danger" },
 };
 
 /** Libellé affiché pour chaque champ pouvant apparaître dans un diff du journal d'audit. */
@@ -33,106 +67,112 @@ function formatterValeur(valeur: unknown) {
   return String(valeur);
 }
 
+function Info({ libelle, children }: { libelle: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className={EYEBROW}>{libelle}</dt>
+      <dd className="mt-1 text-[15px] text-[var(--color-ink)]">{children}</dd>
+    </div>
+  );
+}
+
 /**
- * Fiche détail d'un partenaire — infos, contacts, réservations récentes.
- * Pas de section factures : l'epic Facturation & commission n'existe pas
- * encore, l'afficher aurait été fictif (même logique que "Fiche
- * établissement" côté dîneur, qui n'affiche pas de filtre "dispo").
+ * Fiche détail d'un partenaire — infos, contacts, réservations récentes,
+ * journal d'audit. La garde d'accès est faite une fois dans le layout parent.
  */
 export default async function FicheRestaurantAdminPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await exigerSessionStaff();
+
   const { id } = await params;
 
-  const [session, restaurant] = await Promise.all([
-    authAdmin.api.getSession({ headers: await headers() }),
-    prisma.restaurant.findUnique({
-      where: { id },
-      include: {
-        contacts: { orderBy: { nom: "asc" } },
-        bookings: {
-          include: { user: true },
-          orderBy: { date: "desc" },
-          take: 10,
-        },
-        journalAudit: {
-          include: { staff: true },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        },
-      },
-    }),
-  ]);
-  if (!session) redirect("/connexion-admin");
+  const restaurant = await lireRestaurant(id);
   if (!restaurant) notFound();
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <div className="flex items-center justify-between">
-        <Link href="/admin" className="text-sm text-[var(--color-ink-muted)] hover:underline">
-          ← Retour à la console
-        </Link>
-        <Link href={`/admin/restaurants/${id}/modifier`} className={BOUTON_SECONDAIRE}>
-          Modifier
-        </Link>
+    <>
+      <Link
+        href="/admin/restaurants"
+        className="mb-4 inline-block text-sm font-semibold text-[var(--color-staff)] hover:underline"
+      >
+        ← Tous les restaurants
+      </Link>
+
+      <EnteteEspace
+        titre={restaurant.nom}
+        description={`${restaurant.cuisine} · ${restaurant.ville}`}
+        actions={
+          <>
+            <Link href={`/restaurants/${id}`} className={BOUTON_SECONDAIRE}>
+              Fiche publique
+            </Link>
+            <Link href={`/admin/restaurants/${id}/modifier`} className={BOUTON_SECONDAIRE}>
+              Modifier
+            </Link>
+          </>
+        }
+      />
+
+      <div className={`${CARTE} flex flex-col gap-5 sm:flex-row`}>
+        <span className="relative h-[150px] w-full shrink-0 overflow-hidden rounded-xl sm:w-[220px]">
+          <PhotoCouverture
+            photo={photoRestaurant(restaurant)}
+            alt={restaurant.nom}
+            sizes="(max-width: 640px) 100vw, 220px"
+          />
+        </span>
+
+        <dl className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
+          <Info libelle="Adresse">{restaurant.adresse}</Info>
+          <Info libelle="Horaires">{restaurant.horaires ?? "—"}</Info>
+          <Info libelle="Capacité">
+            {restaurant.capacite ? `${restaurant.capacite} couverts` : "—"}
+          </Info>
+          <Info libelle="Note">
+            <NoteCuilleres
+              note={restaurant.noteCuilleres}
+              nombreAvis={restaurant.nombreAvis}
+              taille="petit"
+            />
+          </Info>
+          <Info libelle="Délai d'annulation">
+            {restaurant.delaiAnnulationHeures
+              ? `${restaurant.delaiAnnulationHeures} h avant le créneau`
+              : "Non défini"}
+          </Info>
+          {restaurant.description && (
+            <div className="sm:col-span-2">
+              <dt className={EYEBROW}>Description</dt>
+              <dd className="mt-1 text-[15px] leading-relaxed text-[var(--color-ink)]">
+                {restaurant.description}
+              </dd>
+            </div>
+          )}
+        </dl>
       </div>
 
-      <h1 className="mt-6 font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
-        {restaurant.nom}
-      </h1>
-      <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-        {restaurant.cuisine} · {restaurant.ville}
-      </p>
-
-      <dl className={`mt-6 grid grid-cols-2 gap-4 text-sm ${CARTE}`}>
-        <div>
-          <dt className={EYEBROW}>ADRESSE</dt>
-          <dd className="mt-0.5 text-[var(--color-ink)]">{restaurant.adresse}</dd>
-        </div>
-        <div>
-          <dt className={EYEBROW}>HORAIRES</dt>
-          <dd className="mt-0.5 text-[var(--color-ink)]">{restaurant.horaires ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className={EYEBROW}>CAPACITÉ</dt>
-          <dd className="mt-0.5 text-[var(--color-ink)]">
-            {restaurant.capacite ? `${restaurant.capacite} couverts` : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className={EYEBROW}>NOTE</dt>
-          <dd className="mt-0.5 text-[var(--color-ink)]">
-            {restaurant.noteCuilleres
-              ? `${restaurant.noteCuilleres.toFixed(1)} 🥄 (${restaurant.nombreAvis} avis)`
-              : "Pas encore d'avis"}
-          </dd>
-        </div>
-        {restaurant.description && (
-          <div className="col-span-2">
-            <dt className={EYEBROW}>DESCRIPTION</dt>
-            <dd className="mt-0.5 text-[var(--color-ink)]">{restaurant.description}</dd>
-          </div>
-        )}
-      </dl>
-
-      <section className="mt-8">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
-          Contacts
-        </h2>
+      <section className="mt-10">
+        <h2 className={`${TITRE_SECTION} mb-4`}>Contacts</h2>
         {restaurant.contacts.length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--color-ink-muted)]">Aucun contact enregistré.</p>
+          <div className={ETAT_VIDE}>
+            <p className="text-sm text-[var(--color-ink-muted)]">
+              Aucun contact enregistré — personne ne peut ouvrir l&apos;espace restaurateur de cet
+              établissement.
+            </p>
+          </div>
         ) : (
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul className="flex flex-col gap-2">
             {restaurant.contacts.map((contact) => (
               <li
                 key={contact.id}
-                className={`flex items-center justify-between p-4 text-sm ${CARTE}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-line-strong)] bg-white px-5 py-3.5"
               >
                 <span className="font-semibold text-[var(--color-ink)]">{contact.nom}</span>
-                <span className="text-[var(--color-ink-muted)]">{contact.email}</span>
-                <span className="text-[var(--color-ink-muted)]">
+                <span className="text-sm text-[var(--color-ink-muted)]">{contact.email}</span>
+                <span className={pastilleEtat("neutre")}>
                   {contact.role === "GERANT" ? "Gérant" : "Chef de salle"}
                 </span>
               </li>
@@ -141,20 +181,24 @@ export default async function FicheRestaurantAdminPage({
         )}
       </section>
 
-      <section className="mt-8">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
-          Réservations récentes
-        </h2>
+      <section className="mt-10">
+        <h2 className={`${TITRE_SECTION} mb-4`}>Réservations récentes</h2>
         {restaurant.bookings.length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--color-ink-muted)]">Aucune réservation pour l&apos;instant.</p>
+          <div className={ETAT_VIDE}>
+            <p className="text-sm text-[var(--color-ink-muted)]">
+              Aucune réservation pour l&apos;instant.
+            </p>
+          </div>
         ) : (
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul className="flex flex-col gap-2">
             {restaurant.bookings.map((reservation) => (
               <li
                 key={reservation.id}
-                className={`flex items-center justify-between p-4 text-sm ${CARTE}`}
+                className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--color-line-strong)] bg-white px-5 py-3.5 text-sm"
               >
-                <span className="font-semibold text-[var(--color-ink)]">{reservation.user.name}</span>
+                <span className="min-w-0 flex-1 truncate font-semibold text-[var(--color-ink)]">
+                  {reservation.user.name}
+                </span>
                 <span className="text-[var(--color-ink-muted)]">
                   {reservation.date.toLocaleDateString("fr-FR", {
                     weekday: "short",
@@ -170,7 +214,7 @@ export default async function FicheRestaurantAdminPage({
                 <span className="text-[var(--color-ink-muted)]">
                   {reservation.couverts} couvert{reservation.couverts > 1 ? "s" : ""}
                 </span>
-                <span className={`font-semibold ${STATUT_RESERVATION[reservation.statut].classe}`}>
+                <span className={pastilleEtat(STATUT_RESERVATION[reservation.statut].etat)}>
                   {STATUT_RESERVATION[reservation.statut].label}
                 </span>
               </li>
@@ -179,17 +223,20 @@ export default async function FicheRestaurantAdminPage({
         )}
       </section>
 
-      <section className="mt-8">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
-          Historique des modifications
-        </h2>
+      <section className="mt-10">
+        <h2 className={`${TITRE_SECTION} mb-4`}>Historique des modifications</h2>
         {restaurant.journalAudit.length === 0 ? (
-          <p className="mt-3 text-sm text-[var(--color-ink-muted)]">Aucune modification tracée.</p>
+          <div className={ETAT_VIDE}>
+            <p className="text-sm text-[var(--color-ink-muted)]">Aucune modification tracée.</p>
+          </div>
         ) : (
-          <ul className="mt-3 flex flex-col gap-2">
+          <ol className="flex flex-col gap-2">
             {restaurant.journalAudit.map((entree) => (
-              <li key={entree.id} className={`p-4 text-sm ${CARTE}`}>
-                <div className="flex items-center justify-between">
+              <li
+                key={entree.id}
+                className="rounded-2xl border border-[var(--color-line-strong)] bg-white px-5 py-4 text-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-[var(--color-ink)]">
                     {entree.action === "CREATION" ? "Création" : "Modification"} par{" "}
                     {entree.staff.nom}
@@ -208,7 +255,7 @@ export default async function FicheRestaurantAdminPage({
                   </span>
                 </div>
                 {Array.isArray(entree.champsModifies) && entree.champsModifies.length > 0 && (
-                  <ul className="mt-2 flex flex-col gap-1 text-[var(--color-ink-muted)]">
+                  <ul className="mt-2.5 flex flex-col gap-1 text-[var(--color-ink-muted)]">
                     {(entree.champsModifies as unknown as DiffChamp[]).map((diff) => (
                       <li key={diff.champ}>
                         <span className="font-medium text-[var(--color-ink)]">
@@ -221,9 +268,9 @@ export default async function FicheRestaurantAdminPage({
                 )}
               </li>
             ))}
-          </ul>
+          </ol>
         )}
       </section>
-    </main>
+    </>
   );
 }
