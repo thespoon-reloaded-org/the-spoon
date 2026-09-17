@@ -1,0 +1,23 @@
+-- Deuxième réparation du même écart que 20260915110000_repare_auth_restaurant_partenaire :
+-- la base de prod (Neon) porte `_prisma_migrations` complet, mais la migration
+-- d'origine (20260914000000_init) ne s'y était jamais appliquée entièrement.
+-- La réparation précédente avait rattrapé les colonnes et les tables
+-- RestaurantContactSession/Account/Verification ; il restait l'index unique
+-- sur RestaurantContact.email, déclaré par le schéma (`@@unique([email])`)
+-- mais absent de la vraie base — Staff_email_key, lui, était bien là.
+--
+-- Deux conséquences constatées en prod :
+--   * `prisma.restaurantContact.upsert({ where: { email } })` échoue en
+--     Postgres 42P10 ("no unique or exclusion constraint matching the ON
+--     CONFLICT specification"), tout comme `findUnique` côté SQL brut ;
+--   * rien n'empêche deux contacts de partager une adresse, alors que
+--     l'auth restaurant partenaire identifie un contact par son e-mail.
+--
+-- Idempotent (IF NOT EXISTS) : sans effet en local, en CI et sur tout
+-- environnement dont la migration init s'est appliquée normalement.
+-- À vérifier avant de rejouer sur une base suspecte : la création échouera
+-- s'il existe déjà des doublons.
+--   select email, count(*) from "RestaurantContact" group by email having count(*) > 1;
+
+-- CreateIndex
+CREATE UNIQUE INDEX IF NOT EXISTS "RestaurantContact_email_key" ON "RestaurantContact"("email");
