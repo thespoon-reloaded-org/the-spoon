@@ -78,11 +78,38 @@ pnpm dev                # http://localhost:3100
 
 `BETTER_AUTH_SECRET` se génère avec `openssl rand -hex 32`.
 
+`pnpm seed:dev` crée les restaurants, les contacts et le staff de dev, tous
+avec le mot de passe `password123` — connexion dîneur sur `/connexion`,
+restaurateur sur `/connexion-restaurant`, staff sur `/connexion-admin`.
+
+## Se donner un accès sur un environnement déployé
+
+`seed:dev` **commence par vider** restaurants, contacts et staff : il est fait
+pour une base de dev jetable et ne doit jamais être lancé contre une base
+déployée. Or un déploiement n'a jamais de comptes — `pnpm build` n'y applique
+que les migrations — et l'inscription libre est coupée pour les restaurateurs
+et le staff (`disableSignUp`, cf. `src/lib/auth.ts`).
+
+`pnpm creer-compte` couvre ce cas : il ne supprime rien, ne touche qu'aux
+lignes d'authentification et se relance sans risque.
+
+```bash
+COMPTE_EMAIL=prenom.nom@example.com \
+COMPTE_MOT_DE_PASSE='…' \
+COMPTE_NOM='Prénom Nom' \
+DATABASE_URL="$(netlify env:get DATABASE_URL --context production)" \
+pnpm creer-compte
+```
+
+Par défaut il crée les trois comptes ; `COMPTE_UNIVERS=restaurant,staff` en
+restreint la liste, `COMPTE_RESTAURANT='Chez Antoine'` choisit l'établissement
+du contact restaurateur.
+
 ## Migrations de base de données
 
 Tout changement de `prisma/schema.prisma` passe par une migration versionnée
 et commitée dans `prisma/migrations/`, jamais par `db push` directement sur
-une base partagée — deux incidents de prod ont déjà été causés par un schéma
+une base partagée — trois incidents de prod ont déjà été causés par un schéma
 poussé à la main et jamais retrouvé côté base de déploiement.
 
 - En local, après avoir modifié `prisma/schema.prisma` :
@@ -101,6 +128,25 @@ poussé à la main et jamais retrouvé côté base de déploiement.
 - `prisma db push` reste légitime pour bricoler vite en local (un schéma
   jetable, une expérimentation), mais ne doit jamais être utilisé contre la
   base de production.
+
+**`_prisma_migrations` n'est pas une preuve.** La base de prod porte la trace
+de toutes les migrations comme appliquées alors que `20260914000000_init` ne
+s'y était jamais déroulée en entier : deux migrations de réparation ont été
+nécessaires (`20260915110000_repare_auth_restaurant_partenaire` pour les
+colonnes et les tables d'auth restaurateur,
+`20260917120000_index_unique_email_contact` pour l'index unique resté manquant
+sur `RestaurantContact.email`). Devant un symptôme qui n'arrive qu'en prod —
+colonne inconnue, `42P10` sur un `upsert` — comparer le schéma réel plutôt que
+l'historique :
+
+```sql
+select tablename, indexname from pg_indexes where schemaname = 'public' order by 1, 2;
+select table_name, column_name from information_schema.columns where table_schema = 'public' order by 1, 2;
+```
+
+Une migration de réparation s'écrit idempotente (`IF NOT EXISTS`, `DO $$ …
+EXCEPTION`) : elle doit passer aussi bien sur la base abîmée que sur les bases
+saines (local, CI) où elle ne fait rien.
 
 ## Ce qui existe
 
