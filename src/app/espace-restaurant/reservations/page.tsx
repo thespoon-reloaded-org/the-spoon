@@ -104,6 +104,10 @@ export default async function ReservationsRecuesPage() {
 
   const { aVenir, passees } = separerReservations(reservations);
   const aPointer = passees.filter((r) => r.statut === "CONFIRMEE").length;
+  // Une réservation annulée reste dans la liste, avec son statut (cf. README),
+  // mais elle ne compte pas comme une table à préparer : la compter ici
+  // donnait un nombre différent de l'indicateur « À venir » du tableau de bord.
+  const aVenirActives = aVenir.filter((r) => r.statut !== "ANNULEE").length;
 
   return (
     <>
@@ -116,7 +120,10 @@ export default async function ReservationsRecuesPage() {
         <h2 className={`${TITRE_SECTION} mb-4`}>
           À venir{" "}
           <span className="font-body text-base font-medium text-[var(--color-ink-muted)]">
-            · {aVenir.length}
+            · {aVenirActives}
+            {aVenir.length > aVenirActives && `, ${aVenir.length - aVenirActives} annulée${
+              aVenir.length - aVenirActives > 1 ? "s" : ""
+            }`}
           </span>
         </h2>
         {aVenir.length === 0 ? (

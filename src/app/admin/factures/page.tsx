@@ -9,6 +9,7 @@ import {
   formaterMoisFacture,
   formaterMontant,
 } from "@/lib/facturation";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 import { prisma } from "@/lib/prisma";
 import { CARTE, ETAT_VIDE, TITRE_SECTION } from "@/lib/ui";
 
@@ -22,6 +23,8 @@ function moisPrecedentISO(): string {
 
 /** Déclenchement et suivi des factures mensuelles — "Déclenchement & vue des factures (BO Admin)". */
 export default async function FacturesAdminPage() {
+  await exigerSessionStaff();
+
   const factures = await prisma.facture.findMany({
     include: { restaurant: { select: { nom: true } }, _count: { select: { lignes: true } } },
     orderBy: [{ mois: "desc" }, { restaurant: { nom: "asc" } }],

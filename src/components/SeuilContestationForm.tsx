@@ -29,8 +29,8 @@ export function SeuilContestationForm({ seuilActuelEuros }: { seuilActuelEuros: 
       <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
         {enCours ? "Enregistrement…" : "Enregistrer"}
       </button>
-      {etat.ok && <MessageFormulaire type="succes">Seuil mis à jour.</MessageFormulaire>}
-      {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
+      <MessageFormulaire type="succes" message={etat.ok ? "Seuil mis à jour." : null} />
+      <MessageFormulaire type="erreur" message={etat.erreur} />
     </form>
   );
 }

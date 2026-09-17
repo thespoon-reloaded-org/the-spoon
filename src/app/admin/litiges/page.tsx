@@ -4,6 +4,7 @@ import Link from "next/link";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { IconeChevron } from "@/components/Icones";
 import { PrendreEnChargeBouton } from "@/components/PrendreEnChargeBouton";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 import { formaterAnciennete } from "@/lib/contestation";
 import { formaterMontant } from "@/lib/facturation";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,8 @@ export const metadata: Metadata = { title: "Litiges" };
  * La garde d'accès est faite une fois dans le layout parent.
  */
 export default async function LitigesAdminPage() {
+  await exigerSessionStaff();
+
   const dossiers = await prisma.dossier.findMany({
     where: { statut: "EN_ATTENTE_INSTRUCTION" },
     include: {

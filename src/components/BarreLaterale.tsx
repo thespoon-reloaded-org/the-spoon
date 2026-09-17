@@ -141,9 +141,21 @@ export function BarreLaterale({
         </button>
       </div>
 
-      {/* ---------- tiroir mobile ---------- */}
+      {/* ---------- tiroir mobile ----------
+           Échap ferme le tiroir : il couvre tout l'écran derrière un voile, et
+           sans ça un utilisateur au clavier n'a aucun moyen évident d'en
+           sortir. `onKeyDown` sur le conteneur suffit parce que le focus y
+           entre dès l'ouverture (le bouton de fermeture est auto-focalisé). */}
       {tiroirOuvert && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Menu ${marque}`}
+          onKeyDown={(evenement) => {
+            if (evenement.key === "Escape") setTiroirOuvert(false);
+          }}
+        >
           <button
             type="button"
             aria-label="Fermer le menu"
@@ -156,6 +168,7 @@ export function BarreLaterale({
           >
             <button
               type="button"
+              autoFocus
               onClick={() => setTiroirOuvert(false)}
               className="absolute right-3 top-4 rounded-xl p-2 text-[var(--color-cream)]"
               aria-label="Fermer le menu"

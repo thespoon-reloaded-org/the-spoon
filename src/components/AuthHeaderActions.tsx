@@ -24,7 +24,12 @@ export function AuthHeaderActions() {
   // Pendant la résolution de session, un espace réservé de la bonne taille :
   // renvoyer `null` faisait sauter le header au chargement de chaque page.
   if (isPending) {
-    return <span aria-hidden className="h-10 w-24 rounded-full bg-[var(--color-line)]" />;
+    return (
+      <span
+        aria-hidden
+        className="block h-10 w-24 rounded-full bg-[var(--color-line)]"
+      />
+    );
   }
 
   if (!session) {

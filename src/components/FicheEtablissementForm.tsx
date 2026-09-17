@@ -154,14 +154,13 @@ export function FicheEtablissementForm({
           <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
             {enCours ? "Enregistrement…" : "Enregistrer"}
           </button>
-          {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
-          {etat.ok && !etat.avertissement && (
-            <MessageFormulaire type="succes">Fiche mise à jour.</MessageFormulaire>
-          )}
+          <MessageFormulaire type="erreur" message={etat.erreur} />
+          <MessageFormulaire
+            type="succes"
+            message={etat.ok && !etat.avertissement ? "Fiche mise à jour." : null}
+          />
         </div>
-        {etat.avertissement && (
-          <MessageFormulaire type="avertissement">{etat.avertissement}</MessageFormulaire>
-        )}
+        <MessageFormulaire type="avertissement" message={etat.avertissement} />
       </div>
     </form>
   );

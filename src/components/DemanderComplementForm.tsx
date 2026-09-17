@@ -31,8 +31,8 @@ export function DemanderComplementForm({ dossierId }: { dossierId: string }) {
         <button type="submit" disabled={enCours} className={BOUTON_SECONDAIRE}>
           {enCours ? "Envoi…" : "Envoyer la demande"}
         </button>
-        {etat.ok && <MessageFormulaire type="succes">Demande enregistrée.</MessageFormulaire>}
-        {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
+        <MessageFormulaire type="succes" message={etat.ok ? "Demande enregistrée." : null} />
+        <MessageFormulaire type="erreur" message={etat.erreur} />
       </div>
     </form>
   );

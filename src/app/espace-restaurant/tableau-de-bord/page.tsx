@@ -83,8 +83,11 @@ export default async function TableauDeBordPage() {
         include: { user: { select: { name: true } } },
         orderBy: { date: "asc" },
       }),
+      // Même borne que `/espace-restaurant/reservations` : tout ce qui vient
+      // après maintenant, service de ce soir compris. Compter à partir de
+      // demain donnait deux nombres différents sous le même mot « À venir ».
       prisma.booking.count({
-        where: { restaurantId, statut: "CONFIRMEE", date: { gte: fin } },
+        where: { restaurantId, statut: "CONFIRMEE", date: { gt: maintenant } },
       }),
       prisma.booking.count({
         where: { restaurantId, statut: "CONFIRMEE", date: { lt: maintenant } },

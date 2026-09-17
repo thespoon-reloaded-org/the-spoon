@@ -110,14 +110,13 @@ export function PlatForm({
           <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
             {enCours ? "Enregistrement…" : libelleSoumission}
           </button>
-          {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
-          {etat.ok && !etat.avertissement && (
-            <MessageFormulaire type="succes">Enregistré.</MessageFormulaire>
-          )}
+          <MessageFormulaire type="erreur" message={etat.erreur} />
+          <MessageFormulaire
+            type="succes"
+            message={etat.ok && !etat.avertissement ? "Enregistré." : null}
+          />
         </div>
-        {etat.avertissement && (
-          <MessageFormulaire type="avertissement">{etat.avertissement}</MessageFormulaire>
-        )}
+        <MessageFormulaire type="avertissement" message={etat.avertissement} />
       </div>
     </form>
   );

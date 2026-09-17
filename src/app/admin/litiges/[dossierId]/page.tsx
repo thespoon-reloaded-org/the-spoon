@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
 import Link from "next/link";
 
 import { DemanderComplementForm } from "@/components/DemanderComplementForm";
@@ -7,7 +6,6 @@ import { EnteteEspace } from "@/components/EnteteEspace";
 import { FactureDocument } from "@/components/FactureDocument";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { PrendreEnChargeBouton } from "@/components/PrendreEnChargeBouton";
-import { authAdmin } from "@/lib/auth";
 import {
   formaterAnciennete,
   formaterDelaiSignalement,
@@ -15,6 +13,7 @@ import {
   LABELS_STATUT_DOSSIER,
 } from "@/lib/contestation";
 import { formaterDateReservation, formaterMontant, joursRestantsContestation } from "@/lib/facturation";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 import { prisma } from "@/lib/prisma";
 import {
   CARTE,
@@ -41,16 +40,16 @@ const ETAT_STATUT: Record<StatutDossier, EtatPastille> = {
  * pas le dossier — la décision elle-même est "Décision & émission d'avoir",
  * pas encore construite.
  *
- * La garde d'accès est faite une fois dans le layout parent ; la session sert
- * seulement à savoir si l'instructeur du dossier est bien la personne connectée.
+ * La garde d'accès est refaite ici, pas seulement dans le layout — voir
+ * `exigerSessionStaff`. La session sert aussi à savoir si l'instructeur du
+ * dossier est bien la personne connectée.
  */
 export default async function InstructionDossierPage({
   params,
 }: {
   params: Promise<{ dossierId: string }>;
 }) {
-  const session = await authAdmin.api.getSession({ headers: await headers() });
-  if (!session) return null; // garde déjà faite par le layout, satisfait TypeScript
+  const session = await exigerSessionStaff();
 
   const { dossierId } = await params;
 
@@ -112,14 +111,17 @@ export default async function InstructionDossierPage({
 
       {dossier.complementDemandeLe && (
         <div className="mb-6 max-w-3xl">
-          <MessageFormulaire type="avertissement">
-            <span>
-              <strong className="font-semibold">
-                Complément demandé {formaterAnciennete(dossier.complementDemandeLe)}
-              </strong>{" "}
-              — {dossier.complementDemandeMessage}
-            </span>
-          </MessageFormulaire>
+          <MessageFormulaire
+            type="avertissement"
+            message={
+              <span>
+                <strong className="font-semibold">
+                  Complément demandé {formaterAnciennete(dossier.complementDemandeLe)}
+                </strong>{" "}
+                — {dossier.complementDemandeMessage}
+              </span>
+            }
+          />
         </div>
       )}
 

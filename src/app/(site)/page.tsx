@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { IconeCuillere, IconeFleche, IconeLieu, IconeRecherche } from "@/components/Icones";
 import { MarqueIllustration } from "@/components/MarqueIllustration";
-import { NoteCuilleres } from "@/components/NoteCuilleres";
+import { Cuillere, NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { estPhotoReelle, photoCuisine, photoPlat, photoRestaurant } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
@@ -209,7 +209,7 @@ export default async function RecherchePage({
                     name="ville"
                     defaultValue={ville}
                     placeholder="Ville"
-                    className="block w-full bg-transparent text-[15px] font-semibold text-[var(--color-ink)] outline-none placeholder:font-normal placeholder:text-[var(--color-ink-muted)]"
+                    className="block w-full bg-transparent text-[15px] font-semibold text-[var(--color-ink)] placeholder:font-normal placeholder:text-[var(--color-ink-muted)]"
                   />
                 </span>
               </label>
@@ -227,7 +227,7 @@ export default async function RecherchePage({
                     name="cuisine"
                     defaultValue={cuisine}
                     placeholder="Italien, japonais…"
-                    className="block w-full bg-transparent text-[15px] font-semibold text-[var(--color-ink)] outline-none placeholder:font-normal placeholder:text-[var(--color-ink-muted)]"
+                    className="block w-full bg-transparent text-[15px] font-semibold text-[var(--color-ink)] placeholder:font-normal placeholder:text-[var(--color-ink-muted)]"
                   />
                 </span>
               </label>
@@ -280,20 +280,7 @@ export default async function RecherchePage({
             <div className="absolute bottom-6 right-2 flex flex-col gap-1.5 rounded-2xl bg-[var(--color-cream)] px-4 py-3 shadow-[var(--shadow-flottant)]">
               <span className="flex items-center gap-1 text-[var(--color-accent)]">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <svg
-                    key={i}
-                    width="19"
-                    height="19"
-                    viewBox="0 0 24 24"
-                    fill={i < 4 ? "currentColor" : "none"}
-                    stroke="currentColor"
-                    strokeWidth={1.75}
-                    strokeLinecap="round"
-                    className={i < 4 ? undefined : "opacity-35"}
-                  >
-                    <ellipse cx="12" cy="7.2" rx="4.2" ry="5" />
-                    <path d="M12 12.2V21" />
-                  </svg>
+                  <Cuillere key={i} pleine={i < 4} taille={19} />
                 ))}
               </span>
               <span className="text-xs font-semibold text-[var(--color-ink)]">

@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 
 import { deposerAvis, type EtatAvis } from "@/app/(site)/restaurants/[id]/actions";
 import { IconeValide } from "@/components/Icones";
+import { Cuillere } from "@/components/NoteCuilleres";
 
 const BOUTON =
   "w-full rounded-full bg-[var(--color-accent)] px-7 py-3.5 text-center font-[family-name:var(--font-display)] text-[15px] font-bold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60";
@@ -51,20 +52,7 @@ function SelecteurCuilleres({
             onBlur={() => setSurvolee(null)}
             className="rounded-lg p-0.5 text-[var(--color-accent)] transition-transform hover:scale-110"
           >
-            <svg
-              width="30"
-              height="30"
-              viewBox="0 0 24 24"
-              fill={n <= affichee ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth={1.75}
-              strokeLinecap="round"
-              className={n <= affichee ? undefined : "opacity-30"}
-              aria-hidden="true"
-            >
-              <ellipse cx="12" cy="7.2" rx="4.2" ry="5" />
-              <path d="M12 12.2V21" />
-            </svg>
+            <Cuillere pleine={n <= affichee} taille={30} opaciteVide="opacity-30" />
           </button>
         ))}
       </div>

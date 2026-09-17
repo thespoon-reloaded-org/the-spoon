@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
@@ -21,12 +22,24 @@ import { prisma } from "@/lib/prisma";
 import { capaciteEffective } from "@/lib/reservation";
 import { pastilleEtat } from "@/lib/ui";
 
+/**
+ * `generateMetadata` et la page ont besoin du même restaurant. Sans `cache`,
+ * Next.js exécute les deux fonctions pour une même requête et Prisma part
+ * deux fois en base — la mémoïsation de Next ne couvre que `fetch`.
+ */
+const lireRestaurant = cache((id: string) =>
+  prisma.restaurant.findUnique({
+    where: { id },
+    include: {
+      platsCuillere: { orderBy: { createdAt: "desc" } },
+      avis: { include: { user: true }, orderBy: { createdAt: "desc" } },
+    },
+  }),
+);
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id },
-    select: { nom: true, ville: true, cuisine: true, description: true },
-  });
+  const restaurant = await lireRestaurant(id);
   if (!restaurant) return { title: "Restaurant introuvable" };
   return {
     title: `${restaurant.nom}, ${restaurant.ville}`,
@@ -67,13 +80,7 @@ export default async function FicheRestaurantPage({
 }) {
   const { id } = await params;
   const [restaurant, session] = await Promise.all([
-    prisma.restaurant.findUnique({
-      where: { id },
-      include: {
-        platsCuillere: { orderBy: { createdAt: "desc" } },
-        avis: { include: { user: true }, orderBy: { createdAt: "desc" } },
-      },
-    }),
+    lireRestaurant(id),
     auth.api.getSession({ headers: await headers() }),
   ]);
 

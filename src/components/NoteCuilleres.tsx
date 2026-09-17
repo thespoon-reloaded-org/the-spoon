@@ -15,7 +15,22 @@ const TAILLES = {
   grand: { cuillere: 21, texte: "text-[15px]" },
 } as const;
 
-function Cuillere({ pleine, taille }: { pleine: boolean; taille: number }) {
+/**
+ * Une cuillère, pleine ou vide. Exportée parce que c'est le signe de la marque
+ * et qu'il apparaît ailleurs que dans une note : le sélecteur de dépôt d'avis
+ * et la vignette du hero s'en servent aussi. Une seule définition du tracé,
+ * sinon une retouche du dessin en oublie fatalement une.
+ */
+export function Cuillere({
+  pleine,
+  taille,
+  opaciteVide = "opacity-35",
+}: {
+  pleine: boolean;
+  taille: number;
+  /** Atténuation des cuillères manquantes — plus marquée sur fond clair. */
+  opaciteVide?: string;
+}) {
   return (
     <svg
       width={taille}
@@ -25,7 +40,7 @@ function Cuillere({ pleine, taille }: { pleine: boolean; taille: number }) {
       stroke="currentColor"
       strokeWidth={1.75}
       strokeLinecap="round"
-      className={pleine ? undefined : "opacity-35"}
+      className={pleine ? undefined : opaciteVide}
       aria-hidden="true"
     >
       <ellipse cx="12" cy="7.2" rx="4.2" ry="5" />

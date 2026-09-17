@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import Link from "next/link";
 
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 import { photoRestaurant } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
 import {
@@ -17,9 +19,25 @@ import {
 } from "@/lib/ui";
 import type { Booking } from "@/generated/prisma";
 
+/**
+ * `generateMetadata` et la page ont besoin du même restaurant. Sans `cache`,
+ * Next.js exécute les deux fonctions pour une même requête et Prisma part
+ * deux fois en base — la mémoïsation de Next ne couvre que `fetch`.
+ */
+const lireRestaurant = cache((id: string) =>
+  prisma.restaurant.findUnique({
+    where: { id },
+    include: {
+      contacts: { orderBy: { nom: "asc" } },
+      bookings: { include: { user: true }, orderBy: { date: "desc" }, take: 10 },
+      journalAudit: { include: { staff: true }, orderBy: { createdAt: "desc" }, take: 20 },
+    },
+  }),
+);
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const restaurant = await prisma.restaurant.findUnique({ where: { id }, select: { nom: true } });
+  const restaurant = await lireRestaurant(id);
   return { title: restaurant?.nom ?? "Restaurant" };
 }
 
@@ -67,24 +85,11 @@ export default async function FicheRestaurantAdminPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await exigerSessionStaff();
+
   const { id } = await params;
 
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id },
-    include: {
-      contacts: { orderBy: { nom: "asc" } },
-      bookings: {
-        include: { user: true },
-        orderBy: { date: "desc" },
-        take: 10,
-      },
-      journalAudit: {
-        include: { staff: true },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-      },
-    },
-  });
+  const restaurant = await lireRestaurant(id);
   if (!restaurant) notFound();
 
   return (

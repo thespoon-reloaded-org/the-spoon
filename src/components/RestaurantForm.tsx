@@ -121,7 +121,7 @@ export function RestaurantForm({
         <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
           {enCours ? "Enregistrement…" : libelleBouton}
         </button>
-        {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
+        <MessageFormulaire type="erreur" message={etat.erreur} />
       </div>
     </form>
   );

@@ -4,11 +4,13 @@ import Link from "next/link";
 import { creerRestaurant } from "@/app/admin/restaurants/actions";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { RestaurantForm } from "@/components/RestaurantForm";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 
 export const metadata: Metadata = { title: "Nouveau restaurant" };
 
-/** La garde d'accès est faite une fois dans le layout parent. */
-export default function NouveauRestaurantPage() {
+export default async function NouveauRestaurantPage() {
+  await exigerSessionStaff();
+
   return (
     <>
       <Link

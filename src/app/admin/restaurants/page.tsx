@@ -5,6 +5,7 @@ import { EnteteEspace } from "@/components/EnteteEspace";
 import { IconeChevron, IconeRecherche } from "@/components/Icones";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 import { photoRestaurant } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
 import { BOUTON_PRIMAIRE, CHAMP, ETAT_VIDE, pastilleEtat } from "@/lib/ui";
@@ -21,6 +22,8 @@ export default async function RestaurantsAdminPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  await exigerSessionStaff();
+
   const { q } = await searchParams;
 
   const restaurants = await prisma.restaurant.findMany({

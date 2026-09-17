@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { BarreLaterale, type EntreeMenu, type ThemeBarre } from "@/components/BarreLaterale";
 import { DeconnexionAdminBouton } from "@/components/DeconnexionAdminBouton";
-import { authAdmin } from "@/lib/auth";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 
 export const metadata: Metadata = {
   title: { default: "Console staff", template: "%s · Console staff" },
@@ -29,16 +27,15 @@ const THEME: ThemeBarre = {
 /**
  * Cadre de la console staff.
  *
- * Le contrôle d'accès vivait dans chaque page (`/admin`, `/admin/factures`,
- * chaque fiche) — une page ajoutée sans la garde serait passée en clair. Il
- * est fait une fois ici ; les pages continuent de lire la session, mais pour
- * afficher le nom, plus pour protéger la route. Pas de permissions par rôle :
- * tout le staff connecté a le même accès (ticket Notion « Auth staff TheSpoon
- * & permissions »).
+ * La garde posée ici couvre les requêtes directes, mais elle ne suffit pas :
+ * chaque page appelle `exigerSessionStaff` de son côté, parce qu'un layout
+ * n'est pas ré-exécuté lors d'une navigation côté client et n'empêche pas ses
+ * segments de s'exécuter (voir `src/lib/garde-staff.ts`). Pas de permissions
+ * par rôle : tout le staff connecté a le même accès (ticket Notion « Auth
+ * staff TheSpoon & permissions »).
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await authAdmin.api.getSession({ headers: await headers() });
-  if (!session) redirect("/connexion-admin");
+  const session = await exigerSessionStaff();
 
   return (
     <div className="univers-staff min-h-screen bg-[var(--color-staff-tint)] lg:flex">

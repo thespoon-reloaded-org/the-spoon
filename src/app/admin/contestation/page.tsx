@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { SeuilContestationForm } from "@/components/SeuilContestationForm";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 import { getConfigContestation } from "@/lib/contestation";
 import { formaterMontant } from "@/lib/facturation";
 import { CARTE } from "@/lib/ui";
@@ -15,6 +16,8 @@ export const metadata: Metadata = { title: "Contestations" };
  * parent.
  */
 export default async function ContestationAdminPage() {
+  await exigerSessionStaff();
+
   const config = await getConfigContestation();
 
   return (

@@ -73,9 +73,10 @@ export default async function RecapitulatifDossierPage({
 
       {avertissement === "1" && (
         <div className="mb-5 max-w-2xl">
-          <MessageFormulaire type="avertissement">
-            Le dossier est enregistré, mais au moins une pièce jointe n&apos;a pas pu être envoyée.
-          </MessageFormulaire>
+          <MessageFormulaire
+            type="avertissement"
+            message="Le dossier est enregistré, mais au moins une pièce jointe n’a pas pu être envoyée."
+          />
         </div>
       )}
 

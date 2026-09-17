@@ -14,8 +14,11 @@ import type { SourcePhoto } from "@/lib/images";
  * image locale dont la chaîne de requête n'est pas déclarée à l'exact dans
  * `images.localPatterns`, ce qu'un horodatage variable interdit.
  *
- * Le parent doit être positionné (`relative`) et avoir une hauteur : l'image
- * remplit son conteneur en `object-cover`.
+ * Le parent doit être positionné (`relative`) et avoir une hauteur **fixe** :
+ * l'image remplit son conteneur en `object-cover`. La hauteur fixe n'est pas
+ * qu'une question de cadrage — la branche `<img>` n'a pas de dimensions
+ * intrinsèques, donc un conteneur qui se dimensionne sur son contenu ferait
+ * sauter la mise en page à l'arrivée de la photo.
  */
 export function PhotoCouverture({
   photo,

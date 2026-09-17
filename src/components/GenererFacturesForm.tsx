@@ -24,8 +24,8 @@ export function GenererFacturesForm({ moisParDefaut }: { moisParDefaut: string }
       <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
         {enCours ? "Génération…" : "Générer les factures"}
       </button>
-      {etat.resume && <MessageFormulaire type="succes">{etat.resume}</MessageFormulaire>}
-      {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
+      <MessageFormulaire type="succes" message={etat.resume} />
+      <MessageFormulaire type="erreur" message={etat.erreur} />
     </form>
   );
 }

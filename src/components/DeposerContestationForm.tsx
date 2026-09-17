@@ -91,7 +91,7 @@ export function DeposerContestationForm({
         <button type="submit" disabled={enCours} className={BOUTON_PRIMAIRE}>
           {enCours ? "Envoi…" : "Déposer le dossier"}
         </button>
-        {etat.erreur && <MessageFormulaire type="erreur">{etat.erreur}</MessageFormulaire>}
+        <MessageFormulaire type="erreur" message={etat.erreur} />
       </div>
     </form>
   );

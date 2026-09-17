@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { FactureDocument } from "@/components/FactureDocument";
 import { joursRestantsContestation } from "@/lib/facturation";
+import { exigerSessionStaff } from "@/lib/garde-staff";
 import { prisma } from "@/lib/prisma";
 
 /** Détail d'une facture côté BO admin — même document que côté restaurant, sans scope restaurant (le staff voit tout). */
@@ -10,6 +11,8 @@ export default async function FactureAdminDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await exigerSessionStaff();
+
   const { id } = await params;
 
   const facture = await prisma.facture.findUnique({
