@@ -7,11 +7,13 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   calculerMontantConteste,
   creerDossierContestation,
+  deciderDossier,
   decisionStatutDossier,
   delaiContestationExpire,
   demanderComplementDossier,
   formaterAnciennete,
   formaterDelaiSignalement,
+  normaliserDecision,
   prendreEnChargeDossier,
 } from "./contestation";
 import { prisma } from "./prisma";
@@ -155,18 +157,21 @@ describe("creerDossierContestation", () => {
   });
 
   afterAll(async () => {
-    await prisma.pieceJointeDossier.deleteMany({ where: { dossier: { factureId } } });
-    await prisma.ligneContestee.deleteMany({ where: { dossier: { factureId } } });
-    await prisma.dossier.deleteMany({ where: { factureId } });
-    await prisma.ligneFacture.deleteMany({ where: { factureId } });
-    await prisma.facture.delete({ where: { id: factureId } });
+    // Portée sur le restaurant, pas sur la seule facture du fixture : certains
+    // tests créent leur propre facture, et ce qui y reste bloque la suppression
+    // du contact en fin de describe.
+    await prisma.pieceJointeDossier.deleteMany({ where: { dossier: { facture: { restaurantId } } } });
+    await prisma.ligneContestee.deleteMany({ where: { dossier: { facture: { restaurantId } } } });
+    await prisma.dossier.deleteMany({ where: { facture: { restaurantId } } });
+    await prisma.ligneFacture.deleteMany({ where: { facture: { restaurantId } } });
+    await prisma.facture.deleteMany({ where: { restaurantId } });
     await prisma.restaurantContact.delete({ where: { id: restaurantContactId } });
     await prisma.booking.deleteMany({ where: { restaurantId } });
     await prisma.user.delete({ where: { id: userId } });
     await prisma.restaurant.delete({ where: { id: restaurantId } });
   });
 
-  test("une ligne sous le seuil est créditée d'office, montant et seuil tracés", async () => {
+  test("une ligne sous le seuil est créditée d'office, avec sa décision et son avoir", async () => {
     const resultat = await creerDossierContestation({
       factureId,
       restaurantId,
@@ -177,10 +182,23 @@ describe("creerDossierContestation", () => {
     expect(resultat.ok).toBe(true);
     if (!resultat.ok) return;
 
-    const dossier = await prisma.dossier.findUniqueOrThrow({ where: { id: resultat.dossierId } });
+    const dossier = await prisma.dossier.findUniqueOrThrow({
+      where: { id: resultat.dossierId },
+      include: { decisions: { include: { avoir: true } } },
+    });
     expect(dossier.statut).toBe("CREDITE_OFFICE");
     expect(dossier.montantContesteCentimes).toBe(500);
     expect(dossier.seuilAppliqueCentimes).toBe(1000);
+
+    // Créditer d'office sans émettre d'avoir ne créditerait rien du tout.
+    expect(dossier.decisions).toHaveLength(1);
+    const decision = dossier.decisions[0];
+    expect(decision?.issue).toBe("ACCORDE");
+    expect(decision?.montantAccordeCentimes).toBe(500);
+    expect(decision?.imputation).toBe("THESPOON");
+    expect(decision?.decideParId).toBeNull(); // la règle de seuil, pas une personne
+    expect(decision?.avoir?.montantCentimes).toBe(500);
+    expect(decision?.avoir?.factureId).toBe(factureId);
   });
 
   test("deux lignes dont le total dépasse le seuil restent en attente d'instruction", async () => {
@@ -209,6 +227,61 @@ describe("creerDossierContestation", () => {
     const dossier = await prisma.dossier.findUniqueOrThrow({ where: { id: resultat.dossierId } });
     expect(dossier.statut).toBe("EN_ATTENTE_INSTRUCTION");
     expect(dossier.montantContesteCentimes).toBe(1500);
+  });
+
+  test("découper une contestation en petits dossiers ne contourne pas le seuil", async () => {
+    // Facture à part : le cumul se compte par facture, pas par restaurant.
+    const factureDecoupee = await prisma.facture.create({
+      data: { restaurantId, mois: new Date(Date.UTC(2026, 6, 1)), montantTotalCentimes: 1200 },
+    });
+    const lignes = [];
+    for (const [index, montantCentimes] of [600, 600].entries()) {
+      const booking = await prisma.booking.create({
+        data: {
+          restaurantId,
+          userId,
+          date: new Date(Date.UTC(2026, 6, 10 + index, 20, 0)),
+          couverts: 2,
+          statut: "HONOREE",
+          couvertsServis: 2,
+        },
+      });
+      lignes.push(
+        await prisma.ligneFacture.create({
+          data: { factureId: factureDecoupee.id, bookingId: booking.id, couvertsFactures: 2, montantCentimes },
+        }),
+      );
+    }
+
+    const depot = (ligneFactureId: string) =>
+      creerDossierContestation({
+        factureId: factureDecoupee.id,
+        restaurantId,
+        restaurantContactId,
+        lignes: [{ ligneFactureId, motif: "COUVERTS_SURCOMPTES" }],
+        commentaire: null,
+      });
+
+    // 6 € seul : sous le seuil de 10 €, crédité d'office.
+    const premier = await depot(lignes[0]!.id);
+    expect(premier.ok).toBe(true);
+    if (!premier.ok) return;
+    expect((await prisma.dossier.findUniqueOrThrow({ where: { id: premier.dossierId } })).statut).toBe(
+      "CREDITE_OFFICE",
+    );
+
+    // 6 € de plus sur la même facture : 12 € contestés au total, donc
+    // instruction — sinon il suffisait de découper pour tout faire créditer.
+    const second = await depot(lignes[1]!.id);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    const dossierSecond = await prisma.dossier.findUniqueOrThrow({
+      where: { id: second.dossierId },
+      include: { decisions: true },
+    });
+    expect(dossierSecond.statut).toBe("EN_ATTENTE_INSTRUCTION");
+    expect(dossierSecond.montantContesteCentimes).toBe(600); // le montant du dossier, pas le cumul
+    expect(dossierSecond.decisions).toHaveLength(0); // aucun avoir automatique
   });
 
   test("contester une ligne déjà contestée est refusé, sans créer de dossier fantôme", async () => {
@@ -474,5 +547,271 @@ describe("demanderComplementDossier", () => {
     expect(resultat.ok).toBe(false);
     if (resultat.ok) return;
     expect(resultat.erreur).toMatch(/instructeur assigné/);
+  });
+});
+
+describe("normaliserDecision", () => {
+  const motif = "Photos du service à l'appui.";
+
+  test("un accord crédite le montant contesté, jamais un chiffre saisi", () => {
+    const resultat = normaliserDecision(5000, {
+      issue: "ACCORDE",
+      montantAccordeCentimes: 99,
+      imputation: "THESPOON",
+      motif,
+    });
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+    expect(resultat.decision.montantAccordeCentimes).toBe(5000);
+    expect(resultat.decision.statutDossier).toBe("CLOTURE");
+  });
+
+  test("un accord doit dire qui porte le coût", () => {
+    const resultat = normaliserDecision(5000, { issue: "ACCORDE", imputation: null, motif });
+    expect(resultat.ok).toBe(false);
+  });
+
+  test("un accord ne peut pas être imputé au restaurant : il est crédité", () => {
+    const resultat = normaliserDecision(5000, { issue: "ACCORDE", imputation: "RESTAURANT", motif });
+    expect(resultat.ok).toBe(false);
+  });
+
+  test("un partiel reste strictement entre 0 et le montant contesté", () => {
+    const valide = normaliserDecision(5000, {
+      issue: "PARTIEL",
+      montantAccordeCentimes: 2000,
+      imputation: "CLIENT",
+      motif,
+    });
+    expect(valide.ok).toBe(true);
+    if (valide.ok) expect(valide.decision.montantAccordeCentimes).toBe(2000);
+
+    expect(
+      normaliserDecision(5000, { issue: "PARTIEL", montantAccordeCentimes: 0, imputation: "CLIENT", motif }).ok,
+    ).toBe(false);
+    expect(
+      normaliserDecision(5000, { issue: "PARTIEL", montantAccordeCentimes: 5000, imputation: "CLIENT", motif }).ok,
+    ).toBe(false);
+  });
+
+  test("un refus ne crédite rien et laisse le coût au restaurant", () => {
+    const resultat = normaliserDecision(5000, { issue: "REFUSE", motif });
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+    expect(resultat.decision.montantAccordeCentimes).toBe(0);
+    expect(resultat.decision.imputation).toBe("RESTAURANT");
+    expect(resultat.decision.statutDossier).toBe("CLOTURE");
+  });
+
+  test("une escalade ne tranche rien : ni montant, ni imputation", () => {
+    const resultat = normaliserDecision(5000, { issue: "ESCALADE", imputation: "THESPOON", motif });
+    expect(resultat.ok).toBe(true);
+    if (!resultat.ok) return;
+    expect(resultat.decision.montantAccordeCentimes).toBe(0);
+    expect(resultat.decision.imputation).toBeNull();
+    expect(resultat.decision.statutDossier).toBe("ESCALADE");
+  });
+
+  test("une décision sans motif est refusée, quelle que soit l'issue", () => {
+    expect(normaliserDecision(5000, { issue: "REFUSE", motif: "   " }).ok).toBe(false);
+  });
+});
+
+/**
+ * Preuve de la décision d'un dossier et de l'émission de l'avoir ("Décision &
+ * émission d'avoir") — nécessite une vraie base Postgres, comme les describe
+ * ci-dessus.
+ */
+describe("deciderDossier", () => {
+  let restaurantId: string;
+  let restaurantContactId: string;
+  let staffAId: string;
+  let staffBId: string;
+  const userId = randomUUID();
+  const motif = "Service annulé par le restaurant, couverts non servis.";
+
+  beforeAll(async () => {
+    const restaurant = await prisma.restaurant.create({
+      data: { nom: "Test décision", ville: "Lyon", cuisine: "Test", adresse: "1 rue du Test" },
+    });
+    restaurantId = restaurant.id;
+
+    const contact = await prisma.restaurantContact.create({
+      data: {
+        restaurantId,
+        nom: "Contact test",
+        email: `${randomUUID()}@test.example`,
+        role: "GERANT",
+      },
+    });
+    restaurantContactId = contact.id;
+
+    await prisma.user.create({
+      data: { id: userId, name: "Dîneur test", email: `${userId}@test.example` },
+    });
+
+    const staffA = await prisma.staff.create({ data: { nom: "Staff A", email: `${randomUUID()}@test.example` } });
+    staffAId = staffA.id;
+    const staffB = await prisma.staff.create({ data: { nom: "Staff B", email: `${randomUUID()}@test.example` } });
+    staffBId = staffB.id;
+  });
+
+  afterAll(async () => {
+    // Décisions et avoirs partent en cascade avec leurs dossiers et factures.
+    await prisma.dossier.deleteMany({ where: { facture: { restaurantId } } });
+    await prisma.facture.deleteMany({ where: { restaurantId } });
+    await prisma.restaurantContact.delete({ where: { id: restaurantContactId } });
+    await prisma.user.delete({ where: { id: userId } });
+    await prisma.restaurant.delete({ where: { id: restaurantId } });
+    await prisma.staff.deleteMany({ where: { id: { in: [staffAId, staffBId] } } });
+  });
+
+  /** Dossier au-dessus du seuil, déjà pris en charge par `instructeurId`. */
+  async function creerDossierPrisEnCharge(montantCentimes: number, instructeurId?: string) {
+    const facture = await prisma.facture.create({
+      data: { restaurantId, mois: new Date(), montantTotalCentimes: montantCentimes },
+    });
+    return prisma.dossier.create({
+      data: {
+        factureId: facture.id,
+        restaurantContactId,
+        montantContesteCentimes: montantCentimes,
+        seuilAppliqueCentimes: 1000,
+        statut: "EN_ATTENTE_INSTRUCTION",
+        instructeurId,
+        priseEnChargeLe: instructeurId ? new Date() : null,
+      },
+    });
+  }
+
+  test("un accord total clôt le dossier et émet l'avoir sur la facture", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+
+    const resultat = await deciderDossier(dossier.id, staffAId, {
+      issue: "ACCORDE",
+      imputation: "THESPOON",
+      motif,
+    });
+    expect(resultat).toEqual({ ok: true, avoirEmis: true });
+
+    const relu = await prisma.dossier.findUniqueOrThrow({
+      where: { id: dossier.id },
+      include: { decisions: { include: { avoir: true } } },
+    });
+    expect(relu.statut).toBe("CLOTURE");
+    expect(relu.decisions).toHaveLength(1);
+    expect(relu.decisions[0]?.decideParId).toBe(staffAId);
+    expect(relu.decisions[0]?.avoir?.montantCentimes).toBe(4000);
+    expect(relu.decisions[0]?.avoir?.factureId).toBe(dossier.factureId);
+  });
+
+  test("rejouer la décision ne crédite pas deux fois", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+    const saisie = { issue: "ACCORDE", imputation: "THESPOON", motif } as const;
+
+    const premier = await deciderDossier(dossier.id, staffAId, saisie);
+    const second = await deciderDossier(dossier.id, staffAId, saisie);
+
+    expect(premier.ok).toBe(true);
+    expect(second.ok).toBe(false);
+
+    const avoirs = await prisma.avoir.findMany({ where: { factureId: dossier.factureId } });
+    expect(avoirs).toHaveLength(1);
+  });
+
+  test("deux décisions simultanées : une seule passe, un seul avoir", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+    const saisie = { issue: "ACCORDE", imputation: "THESPOON", motif } as const;
+
+    const [premier, second] = await Promise.all([
+      deciderDossier(dossier.id, staffAId, saisie),
+      deciderDossier(dossier.id, staffAId, saisie),
+    ]);
+
+    expect([premier, second].filter((r) => r.ok)).toHaveLength(1);
+    const avoirs = await prisma.avoir.findMany({ where: { factureId: dossier.factureId } });
+    expect(avoirs).toHaveLength(1);
+  });
+
+  test("un refus clôt le dossier sans émettre d'avoir", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+
+    const resultat = await deciderDossier(dossier.id, staffAId, { issue: "REFUSE", motif });
+    expect(resultat).toEqual({ ok: true, avoirEmis: false });
+
+    const relu = await prisma.dossier.findUniqueOrThrow({
+      where: { id: dossier.id },
+      include: { decisions: { include: { avoir: true } } },
+    });
+    expect(relu.statut).toBe("CLOTURE");
+    expect(relu.decisions[0]?.avoir).toBeNull();
+    expect(relu.decisions[0]?.imputation).toBe("RESTAURANT");
+  });
+
+  test("seul l'instructeur assigné peut trancher un dossier en attente", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+
+    const resultat = await deciderDossier(dossier.id, staffBId, {
+      issue: "ACCORDE",
+      imputation: "THESPOON",
+      motif,
+    });
+    expect(resultat.ok).toBe(false);
+
+    const relu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    expect(relu.statut).toBe("EN_ATTENTE_INSTRUCTION");
+  });
+
+  test("un dossier escaladé sort de la file et peut être tranché par un autre membre du staff", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+
+    const escalade = await deciderDossier(dossier.id, staffAId, { issue: "ESCALADE", motif });
+    expect(escalade).toEqual({ ok: true, avoirEmis: false });
+    expect((await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } })).statut).toBe("ESCALADE");
+
+    const reprise = await deciderDossier(dossier.id, staffBId, {
+      issue: "PARTIEL",
+      montantAccordeCentimes: 1500,
+      imputation: "CLIENT",
+      motif: "Responsabilité partagée : la moitié des couverts était bien servie.",
+    });
+    expect(reprise).toEqual({ ok: true, avoirEmis: true });
+
+    const relu = await prisma.dossier.findUniqueOrThrow({
+      where: { id: dossier.id },
+      include: { decisions: { include: { avoir: true }, orderBy: { createdAt: "desc" } } },
+    });
+    expect(relu.statut).toBe("CLOTURE");
+    // La première instruction n'est pas écrasée : c'est tout l'intérêt d'une
+    // table de décisions plutôt que de colonnes sur le dossier.
+    expect(relu.decisions).toHaveLength(2);
+    expect(relu.decisions[0]?.montantAccordeCentimes).toBe(1500);
+    expect(relu.decisions[0]?.avoir?.montantCentimes).toBe(1500);
+  });
+
+  test("une escalade libère le dossier de son instructeur", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+
+    await deciderDossier(dossier.id, staffAId, { issue: "ESCALADE", motif });
+
+    const relu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    // Escalader, c'est passer la main : afficher "instruit par" quelqu'un qui
+    // s'en est dessaisi tromperait celui qui reprend le dossier.
+    expect(relu.instructeurId).toBeNull();
+    expect(relu.priseEnChargeLe).toBeNull();
+  });
+
+  test("un dossier escaladé accepte encore une demande de complément", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+    await deciderDossier(dossier.id, staffAId, { issue: "ESCALADE", motif });
+
+    // Un dossier est souvent escaladé faute d'un élément manquant : interdire
+    // la demande obligerait le repreneur à trancher à l'aveugle.
+    const resultat = await demanderComplementDossier(dossier.id, staffBId, "Merci d'envoyer le ticket de caisse.");
+    expect(resultat.ok).toBe(true);
+
+    const relu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    expect(relu.complementDemandeMessage).toMatch(/ticket de caisse/);
+    expect(relu.statut).toBe("ESCALADE"); // la demande ne referme rien
   });
 });

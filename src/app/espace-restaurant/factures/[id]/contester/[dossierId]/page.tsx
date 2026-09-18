@@ -7,28 +7,28 @@ import { EnteteEspace } from "@/components/EnteteEspace";
 import { IconeValide } from "@/components/Icones";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { authRestaurant } from "@/lib/auth";
-import { LABELS_MOTIF_CONTESTATION, LABELS_STATUT_DOSSIER } from "@/lib/contestation";
-import { formaterDateReservation, formaterMontant } from "@/lib/facturation";
-import { CARTE, EYEBROW, pastilleEtat, type EtatPastille } from "@/lib/ui";
+import {
+  ETAT_ISSUE_DECISION,
+  LABELS_ISSUE_DECISION,
+  LABELS_MOTIF_CONTESTATION,
+  STATUT_DOSSIER_COTE_RESTAURANT,
+} from "@/lib/contestation";
+import { formaterDateReservation, formaterMontant, referenceAvoir } from "@/lib/facturation";
+import { CARTE, EYEBROW, pastilleEtat } from "@/lib/ui";
 import { prisma } from "@/lib/prisma";
-import type { StatutDossier } from "@/generated/prisma";
 
 export const metadata: Metadata = { title: "Dossier de contestation" };
 
 /**
- * Un dossier crédité d'office est réglé ; un dossier en attente demande encore
- * un traitement côté TheSpoon. La pastille le dit par sa couleur, le libellé
- * seul ne le distinguait pas.
- */
-const ETAT_STATUT: Record<StatutDossier, EtatPastille> = {
-  EN_ATTENTE_INSTRUCTION: "attention",
-  CREDITE_OFFICE: "succes",
-};
-
-/**
- * Récapitulatif en lecture seule d'un dossier tout juste déposé — pas une
- * liste/file de dossiers (hors scope de ce lot), un simple lien direct après
- * le dépôt.
+ * Le dossier vu par le restaurant : ce qu'il a contesté, et la réponse de
+ * TheSpoon dès qu'elle existe. Atteignable juste après le dépôt, et retrouvé
+ * ensuite depuis la facture (c'est là que la décision est attendue, des jours
+ * plus tard).
+ *
+ * L'imputation n'y figure pas : savoir que le coût est "à la charge du
+ * client" est une information interne à TheSpoon, et l'afficher laisserait
+ * entendre au restaurant que le dîneur va être facturé — ce que rien ne fait
+ * encore (ticket "Frais de no-show au dîneur").
  */
 export default async function RecapitulatifDossierPage({
   params,
@@ -48,9 +48,17 @@ export default async function RecapitulatifDossierPage({
     include: {
       lignes: { include: { ligneFacture: { include: { booking: true } } } },
       piecesJointes: true,
+      decisions: { include: { avoir: true }, orderBy: { createdAt: "desc" } },
     },
   });
   if (!dossier) notFound();
+
+  // Seule la dernière décision est montrée, et seulement si elle conclut : les
+  // réinstructions successives et les escalades regardent l'équipe
+  // Partenaires, le restaurant attend une réponse, pas une délibération.
+  const dossierTranche = dossier.statut === "CLOTURE" || dossier.statut === "CREDITE_OFFICE";
+  const decision = dossierTranche ? dossier.decisions[0] : undefined;
+  const statut = STATUT_DOSSIER_COTE_RESTAURANT[dossier.statut];
 
   return (
     <>
@@ -62,14 +70,45 @@ export default async function RecapitulatifDossierPage({
       </Link>
 
       <EnteteEspace
-        titre="Dossier déposé"
-        description="Vous recevrez la décision de l'équipe Partenaires sur cette facture."
+        titre={decision ? "Réponse à votre contestation" : "Dossier déposé"}
+        description={
+          decision
+            ? "La décision de l'équipe Partenaires sur ce dossier."
+            : "Vous recevrez la décision de l'équipe Partenaires sur cette facture."
+        }
         actions={
-          <span className={pastilleEtat(ETAT_STATUT[dossier.statut])}>
-            {LABELS_STATUT_DOSSIER[dossier.statut]}
-          </span>
+          <>
+            <span className={pastilleEtat(statut.etat)}>{statut.libelle}</span>
+            {decision && (
+              <span className={pastilleEtat(ETAT_ISSUE_DECISION[decision.issue])}>
+                {LABELS_ISSUE_DECISION[decision.issue]}
+              </span>
+            )}
+          </>
         }
       />
+
+      {decision && (
+        <div className={`${CARTE} mb-5 flex max-w-2xl flex-col gap-3`}>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="font-[family-name:var(--font-display)] text-xl font-bold text-[var(--color-ink)]">
+              {decision.montantAccordeCentimes > 0
+                ? `${formaterMontant(decision.montantAccordeCentimes)} crédités`
+                : "Aucun avoir"}
+            </p>
+            {decision.avoir && (
+              <p className="text-sm text-[var(--color-ink-muted)]">
+                Avoir{" "}
+                <span className="font-semibold text-[var(--color-ink)]">
+                  {referenceAvoir(decision.avoir)}
+                </span>
+                , déduit de votre facture
+              </p>
+            )}
+          </div>
+          <p className="text-sm leading-relaxed text-[var(--color-ink)]">{decision.motif}</p>
+        </div>
+      )}
 
       {avertissement === "1" && (
         <div className="mb-5 max-w-2xl">

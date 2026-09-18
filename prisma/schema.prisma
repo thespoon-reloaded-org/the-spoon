@@ -194,6 +194,7 @@ model Staff {
   accounts          StaffAccount[]
   journalAudit      JournalAuditRestaurant[]
   dossiersInstruits Dossier[]
+  decisionsPrises   DecisionDossier[]
 }
 
 /// Action tracée dans le journal d'audit d'un restaurant partenaire.
@@ -387,6 +388,11 @@ model Facture {
   genereeLe            DateTime       @default(now())
   lignes               LigneFacture[]
   dossiers             Dossier[]
+  /// Avoirs émis sur cette facture à la suite d'une contestation. Ils ne
+  /// touchent pas `montantTotalCentimes` : une facture émise ne se réécrit
+  /// pas, elle se corrige par un avoir (voir `montantAvoirs` /
+  /// `netAPayerCentimes` dans src/lib/facturation.ts).
+  avoirs               Avoir[]
 
   @@unique([restaurantId, mois])
   @@index([restaurantId])
@@ -426,18 +432,21 @@ enum MotifContestation {
   AUTRE
 }
 
-/// Statut d'un Dossier. Seuls les deux statuts nécessaires au ticket "Dépôt
-/// d'un dossier de contestation" + "Montant contesté dérivé & seuil de
-/// crédit d'office" sont modélisés — la décision d'instruction manuelle
-/// (accordé/partiel/refusé/escaladé, avec émission d'un Avoir) appartient à
-/// "Décision & émission d'avoir", un ticket bloqué par "Instruction d'un
-/// dossier" lui-même bloqué par "File des litiges à instruire" (fait — voir
-/// `instructeurId`/`priseEnChargeLe` ci-dessous). Un dossier
-/// EN_ATTENTE_INSTRUCTION reste donc sans suite outillée pour l'instant,
-/// prise en charge mise à part : attendu, pas un oubli.
+/// Où en est un Dossier — pas ce qu'il a obtenu. EN_ATTENTE_INSTRUCTION et
+/// ESCALADE sont les deux états "reste à trancher" (voir `deciderDossier`
+/// dans src/lib/contestation.ts) ; CREDITE_OFFICE et CLOTURE sont terminaux.
+/// Ce qui a été décidé se lit sur la DecisionDossier la plus récente, jamais
+/// ici : un même statut CLOTURE couvre un accord comme un refus.
 enum StatutDossier {
   EN_ATTENTE_INSTRUCTION
+  /// Sous le seuil : crédité sans instruction humaine. Porte quand même une
+  /// décision et un avoir, émis à la création du dossier.
   CREDITE_OFFICE
+  /// Instruit, mais passé à quelqu'un d'autre : sorti de la file d'attente
+  /// normale, toujours à trancher.
+  ESCALADE
+  /// Tranché — accordé, partiel ou refusé.
+  CLOTURE
 }
 
 /// Dossier de contestation déposé par un contact restaurant sur une ou
@@ -467,9 +476,9 @@ model Dossier {
   instructeurId            String?
   instructeur              Staff?               @relation(fields: [instructeurId], references: [id])
   /// Horodatage de la prise en charge, distinct de `createdAt` — le dossier
-  /// reste EN_ATTENTE_INSTRUCTION et visible dans la file une fois pris (la
-  /// décision qui le fera sortir de la file est "Décision & émission d'avoir",
-  /// pas encore construite), seul l'affichage change (qui l'a pris).
+  /// reste EN_ATTENTE_INSTRUCTION et visible dans la file une fois pris,
+  /// seul l'affichage change (qui l'a pris). C'est la décision qui le fait
+  /// sortir de la file, pas la prise en charge.
   priseEnChargeLe          DateTime?
   /// Dernière demande de complément de l'instructeur au restaurant
   /// ("Instruction d'un dossier") — ne clôture pas le dossier, `null` tant
@@ -480,6 +489,9 @@ model Dossier {
   complementDemandeMessage String?
   lignes                   LigneContestee[]
   piecesJointes            PieceJointeDossier[]
+  /// Toutes les instructions tranchées de ce dossier, la plus récente faisant
+  /// foi — une réinstruction ajoute une ligne, elle n'écrase pas la première.
+  decisions                DecisionDossier[]
   createdAt                DateTime             @default(now())
 
   @@index([factureId])
@@ -532,6 +544,80 @@ model ConfigContestation {
   id                        String   @id @default("singleton")
   seuilCreditOfficeCentimes Int
   updatedAt                 DateTime @updatedAt
+}
+
+/// Issue d'une instruction, reprise du CANON métier. ESCALADE n'est pas une
+/// issue finale : elle passe la main sans rien accorder ni refuser.
+enum IssueDecision {
+  ACCORDE
+  PARTIEL
+  REFUSE
+  ESCALADE
+}
+
+/// Qui porte le coût du litige. RESTAURANT : la facture reste due telle
+/// quelle, aucun avoir. THESPOON : la plateforme renonce à sa commission.
+/// CLIENT : la responsabilité revient au dîneur — le restaurant est crédité
+/// quand même, et TheSpoon peut refacturer des frais de no-show au dîneur
+/// (ticket séparé "Frais de no-show au dîneur", sujet juridique à part).
+enum ImputationLitige {
+  RESTAURANT
+  THESPOON
+  CLIENT
+}
+
+/// Une instruction tranchée. Entité séparée, jamais des colonnes de Dossier :
+/// un dossier peut être réinstruit (escalade, relecture qualité, contestation
+/// de la décision) et on doit pouvoir comparer deux instructions du même
+/// dossier au lieu d'écraser la première.
+model DecisionDossier {
+  id                     String            @id @default(cuid())
+  dossierId              String
+  dossier                Dossier           @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  issue                  IssueDecision
+  /// Montant réellement crédité au restaurant. 0 sur un refus et sur une
+  /// escalade ; jamais supérieur au montant contesté du dossier (voir
+  /// `normaliserDecision` dans src/lib/contestation.ts).
+  montantAccordeCentimes Int
+  /// `null` sur une escalade seulement : tant que rien n'est tranché,
+  /// personne ne porte le coût.
+  imputation             ImputationLitige?
+  /// Motivation transmise au restaurant, obligatoire y compris sur un refus —
+  /// c'est la seule réponse qu'il reçoit sur son dossier.
+  motif                  String
+  /// Staff qui a tranché. `null` pour un crédit d'office : c'est la règle de
+  /// seuil qui décide, pas une personne.
+  decideParId            String?
+  decidePar              Staff?            @relation(fields: [decideParId], references: [id])
+  avoir                  Avoir?
+  createdAt              DateTime          @default(now())
+
+  @@index([dossierId])
+  @@index([decideParId])
+}
+
+/// L'avoir émis au restaurant quand une décision lui accorde quelque chose —
+/// TheSpoon ne rembourse pas, elle crédite ce qu'elle a facturé.
+///
+/// L'idempotence demandée par le ticket ("rejouer l'opération ne crédite pas
+/// deux fois") tient à deux verrous, pas à un : `decisionId` est unique ici,
+/// et une décision ne peut être prise que par une transition de statut
+/// atomique sur le dossier (voir `deciderDossier`). Le premier interdit deux
+/// avoirs pour une même décision, le second interdit deux décisions pour un
+/// même dossier en attente.
+model Avoir {
+  id              String          @id @default(cuid())
+  decisionId      String          @unique
+  decision        DecisionDossier @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  /// Redondant avec `decision.dossier.factureId`, et assumé : c'est ce qui
+  /// permet de lire les avoirs d'une facture sans traverser deux relations,
+  /// sur un lien qui ne bouge jamais (un dossier ne change pas de facture).
+  factureId       String
+  facture         Facture         @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  montantCentimes Int
+  emisLe          DateTime        @default(now())
+
+  @@index([factureId])
 }
 
 /// Un avis déposé par un dîneur après son passage dans un restaurant — un

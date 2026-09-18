@@ -8,6 +8,8 @@ import {
   COMMISSION_CENTIMES_PAR_COUVERT,
   formaterMoisFacture,
   formaterMontant,
+  montantAvoirsCentimes,
+  netAPayerCentimes,
 } from "@/lib/facturation";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import { prisma } from "@/lib/prisma";
@@ -26,11 +28,18 @@ export default async function FacturesAdminPage() {
   await exigerSessionStaff();
 
   const factures = await prisma.facture.findMany({
-    include: { restaurant: { select: { nom: true } }, _count: { select: { lignes: true } } },
+    include: {
+      restaurant: { select: { nom: true } },
+      _count: { select: { lignes: true } },
+      avoirs: { select: { montantCentimes: true } },
+    },
     orderBy: [{ mois: "desc" }, { restaurant: { nom: "asc" } }],
   });
 
   const total = factures.reduce((somme, facture) => somme + facture.montantTotalCentimes, 0);
+  // Ce que TheSpoon encaisse réellement : les avoirs émis sur litige viennent
+  // en déduction, et c'est ce chiffre-là qui intéresse le staff.
+  const totalAvoirs = factures.reduce((somme, facture) => somme + montantAvoirsCentimes(facture.avoirs), 0);
 
   return (
     <>
@@ -59,6 +68,15 @@ export default async function FacturesAdminPage() {
               <strong className="font-semibold text-[var(--color-ink)]">
                 {formaterMontant(total)}
               </strong>
+              {totalAvoirs > 0 && (
+                <>
+                  {" "}
+                  · net après avoirs :{" "}
+                  <strong className="font-semibold text-[var(--color-ink)]">
+                    {formaterMontant(total - totalAvoirs)}
+                  </strong>
+                </>
+              )}
             </span>
           )}
         </div>
@@ -87,11 +105,18 @@ export default async function FacturesAdminPage() {
                       <span className="capitalize">{formaterMoisFacture(facture.mois)}</span> ·{" "}
                       {facture._count.lignes} réservation{facture._count.lignes > 1 ? "s" : ""}{" "}
                       honorée{facture._count.lignes > 1 ? "s" : ""}
+                      {facture.avoirs.length > 0 && (
+                        <>
+                          {" "}
+                          · net après {formaterMontant(montantAvoirsCentimes(facture.avoirs))}{" "}
+                          d&apos;avoirs
+                        </>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
                     <p className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
-                      {formaterMontant(facture.montantTotalCentimes)}
+                      {formaterMontant(netAPayerCentimes(facture.montantTotalCentimes, facture.avoirs))}
                     </p>
                     <span className="text-[var(--color-ink-muted)]">
                       <IconeChevron taille={18} />

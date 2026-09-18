@@ -1,12 +1,21 @@
 import Link from "next/link";
 
-import type { Booking, Facture, LigneFacture, Restaurant } from "@/generated/prisma";
-import { formaterDateReservation, formaterMoisFacture, formaterMontant, referenceFacture } from "@/lib/facturation";
+import type { Avoir, Booking, Facture, LigneFacture, Restaurant } from "@/generated/prisma";
+import {
+  formaterDateReservation,
+  formaterMoisFacture,
+  formaterMontant,
+  netAPayerCentimes,
+  referenceAvoir,
+  referenceFacture,
+} from "@/lib/facturation";
 import { EYEBROW } from "@/lib/ui";
 
 type FactureAvecDetails = Facture & {
   restaurant: Pick<Restaurant, "nom" | "adresse">;
   lignes: (LigneFacture & { booking: Booking })[];
+  /** Avoirs émis sur cette facture à la suite d'une contestation tranchée. */
+  avoirs: Avoir[];
 };
 
 /**
@@ -113,13 +122,41 @@ export function FactureDocument({
         </table>
         </div>
 
+        {/* Une facture émise ne se réécrit pas : un litige tranché en faveur
+            du restaurant ne rabote pas le total, il ajoute un avoir en
+            déduction. Le net à payer n'apparaît donc que s'il diffère. */}
         <div className="mt-6 flex justify-end border-t-[1.5px] border-[var(--color-line-strong)] pt-4">
-          <div className="text-right">
-            <p className="text-sm text-[var(--color-ink-muted)]">Total</p>
-            <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
-              {formaterMontant(facture.montantTotalCentimes)}
-            </p>
-          </div>
+          {facture.avoirs.length === 0 ? (
+            <div className="text-right">
+              <p className="text-sm text-[var(--color-ink-muted)]">Total</p>
+              <p className="font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
+                {formaterMontant(facture.montantTotalCentimes)}
+              </p>
+            </div>
+          ) : (
+            <dl className="w-full max-w-xs text-sm">
+              <div className="flex items-baseline justify-between gap-6 py-1">
+                <dt className="text-[var(--color-ink-muted)]">Total facturé</dt>
+                <dd className="font-semibold text-[var(--color-ink)]">
+                  {formaterMontant(facture.montantTotalCentimes)}
+                </dd>
+              </div>
+              {facture.avoirs.map((avoir) => (
+                <div key={avoir.id} className="flex items-baseline justify-between gap-6 py-1">
+                  <dt className="text-[var(--color-ink-muted)]">Avoir {referenceAvoir(avoir)}</dt>
+                  <dd className="font-semibold text-[var(--color-success)]">
+                    &minus;{formaterMontant(avoir.montantCentimes)}
+                  </dd>
+                </div>
+              ))}
+              <div className="mt-2 flex items-baseline justify-between gap-6 border-t border-[var(--color-line)] pt-3">
+                <dt className="text-[var(--color-ink-muted)]">Net à payer</dt>
+                <dd className="font-[family-name:var(--font-display)] text-2xl font-bold text-[var(--color-ink)]">
+                  {formaterMontant(netAPayerCentimes(facture.montantTotalCentimes, facture.avoirs))}
+                </dd>
+              </div>
+            </dl>
+          )}
         </div>
       </div>
     </div>

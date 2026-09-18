@@ -1,44 +1,43 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+import { DeciderDossierForm } from "@/components/DeciderDossierForm";
 import { DemanderComplementForm } from "@/components/DemanderComplementForm";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { FactureDocument } from "@/components/FactureDocument";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { PrendreEnChargeBouton } from "@/components/PrendreEnChargeBouton";
 import {
+  dossierATrancher,
+  ETAT_ISSUE_DECISION,
+  ETAT_STATUT_DOSSIER,
   formaterAnciennete,
   formaterDelaiSignalement,
+  LABELS_IMPUTATION_LITIGE,
+  LABELS_ISSUE_DECISION,
   LABELS_MOTIF_CONTESTATION,
   LABELS_STATUT_DOSSIER,
+  peutInstruireDossier,
 } from "@/lib/contestation";
-import { formaterDateReservation, formaterMontant, joursRestantsContestation } from "@/lib/facturation";
+import {
+  formaterDateReservation,
+  formaterMontant,
+  joursRestantsContestation,
+  referenceAvoir,
+} from "@/lib/facturation";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import { prisma } from "@/lib/prisma";
-import {
-  CARTE,
-  EYEBROW,
-  TITRE_SECTION,
-  pastilleEtat,
-  type EtatPastille,
-} from "@/lib/ui";
-import type { StatutDossier } from "@/generated/prisma";
+import { CARTE, EYEBROW, TITRE_SECTION, pastilleEtat } from "@/lib/ui";
 
 export const metadata = { title: "Instruction d'un dossier" };
-
-/** Même code couleur que le récapitulatif côté restaurant. */
-const ETAT_STATUT: Record<StatutDossier, EtatPastille> = {
-  EN_ATTENTE_INSTRUCTION: "attention",
-  CREDITE_OFFICE: "succes",
-};
 
 /**
  * "Instruction d'un dossier" — l'écran de travail de l'instructeur : le
  * dossier complet, ses lignes contestées et leurs motifs, les réservations
  * d'origine (avec le délai entre le service et son signalement), les pièces
- * jointes, et l'historique du partenaire. Demander un complément ne clôture
- * pas le dossier — la décision elle-même est "Décision & émission d'avoir",
- * pas encore construite.
+ * jointes, l'historique du partenaire, et la décision qui referme le dossier
+ * ("Décision & émission d'avoir"). Demander un complément, lui, ne clôture
+ * rien.
  *
  * La garde d'accès est refaite ici, pas seulement dans le layout — voir
  * `exigerSessionStaff`. La session sert aussi à savoir si l'instructeur du
@@ -60,12 +59,17 @@ export default async function InstructionDossierPage({
         include: {
           restaurant: { select: { id: true, nom: true, adresse: true } },
           lignes: { include: { booking: true }, orderBy: { createdAt: "asc" } },
+          avoirs: { orderBy: { emisLe: "asc" } },
         },
       },
       restaurantContact: { select: { nom: true, email: true } },
       instructeur: { select: { nom: true } },
       lignes: { include: { ligneFacture: { include: { booking: true } } } },
       piecesJointes: true,
+      decisions: {
+        include: { avoir: true, decidePar: { select: { nom: true } } },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
   if (!dossier) notFound();
@@ -77,7 +81,11 @@ export default async function InstructionDossierPage({
     select: { id: true, montantContesteCentimes: true, statut: true, createdAt: true },
   });
 
-  const peutDemanderComplement = dossier.instructeurId === session.user.id;
+  const enAttente = dossier.statut === "EN_ATTENTE_INSTRUCTION";
+  // Demander un complément et trancher sont deux gestes d'instruction : même
+  // règle pour les deux, celle de `peutInstruireDossier`.
+  const peutInstruire = peutInstruireDossier(dossier, session.user.id);
+  const derniereDecision = dossier.decisions[0];
 
   return (
     <>
@@ -95,15 +103,23 @@ export default async function InstructionDossierPage({
         )} par ${dossier.restaurantContact.nom} (${dossier.restaurantContact.email})`}
         actions={
           <>
-            <span className={pastilleEtat(ETAT_STATUT[dossier.statut])}>
+            <span className={pastilleEtat(ETAT_STATUT_DOSSIER[dossier.statut])}>
               {LABELS_STATUT_DOSSIER[dossier.statut]}
             </span>
+            {/* L'issue n'est affichée que si elle dit autre chose que le
+                statut : un dossier escaladé porterait sinon deux fois le même
+                mot. */}
+            {dossier.statut === "CLOTURE" && derniereDecision && (
+              <span className={pastilleEtat(ETAT_ISSUE_DECISION[derniereDecision.issue])}>
+                {LABELS_ISSUE_DECISION[derniereDecision.issue]}
+              </span>
+            )}
             {dossier.instructeur ? (
               <span className={pastilleEtat("neutre")}>
                 Instruit par {dossier.instructeur.nom}
               </span>
             ) : (
-              <PrendreEnChargeBouton dossierId={dossier.id} />
+              enAttente && <PrendreEnChargeBouton dossierId={dossier.id} />
             )}
           </>
         }
@@ -201,7 +217,7 @@ export default async function InstructionDossierPage({
         )}
       </section>
 
-      {peutDemanderComplement && (
+      {peutInstruire && (
         <section className="mt-10 max-w-3xl">
           <h2 className={`${TITRE_SECTION} mb-4`}>Demander un complément</h2>
           <div className={CARTE}>
@@ -209,6 +225,69 @@ export default async function InstructionDossierPage({
           </div>
         </section>
       )}
+
+      <section className="mt-10 max-w-3xl">
+        <h2 className={`${TITRE_SECTION} mb-4`}>Décision</h2>
+
+        {dossier.decisions.length > 0 && (
+          <ul className="mb-4 flex flex-col gap-3">
+            {dossier.decisions.map((decision) => (
+              <li key={decision.id} className={CARTE}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className={pastilleEtat(ETAT_ISSUE_DECISION[decision.issue])}>
+                    {LABELS_ISSUE_DECISION[decision.issue]}
+                  </span>
+                  <span className="text-sm text-[var(--color-ink-muted)]">
+                    {decision.decidePar ? decision.decidePar.nom : "Traitement automatique"} ·{" "}
+                    {formaterAnciennete(decision.createdAt)}
+                  </span>
+                </div>
+
+                <p className="mt-3 font-semibold text-[var(--color-ink)]">
+                  {decision.montantAccordeCentimes > 0
+                    ? `${formaterMontant(decision.montantAccordeCentimes)} crédités`
+                    : "Rien de crédité"}
+                  {decision.imputation && (
+                    <span className="font-normal text-[var(--color-ink-muted)]">
+                      {" "}
+                      · {LABELS_IMPUTATION_LITIGE[decision.imputation]}
+                    </span>
+                  )}
+                </p>
+
+                <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink)]">{decision.motif}</p>
+
+                {decision.avoir && (
+                  <p className="mt-3 border-t border-[var(--color-line)] pt-3 text-sm text-[var(--color-ink-muted)]">
+                    Avoir{" "}
+                    <span className="font-semibold text-[var(--color-ink)]">
+                      {referenceAvoir(decision.avoir)}
+                    </span>{" "}
+                    émis sur la facture.
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {peutInstruire ? (
+          <div className={CARTE}>
+            <DeciderDossierForm
+              dossierId={dossier.id}
+              montantContesteCentimes={dossier.montantContesteCentimes}
+              montantConteste={formaterMontant(dossier.montantContesteCentimes)}
+            />
+          </div>
+        ) : (
+          dossierATrancher(dossier.statut) && (
+            <MessageFormulaire
+              type="avertissement"
+              message="Prenez ce dossier en charge pour pouvoir le trancher."
+            />
+          )
+        )}
+      </section>
 
       <section className="mt-10">
         <h2 className={`${TITRE_SECTION} mb-4`}>La facture contestée</h2>
@@ -238,7 +317,7 @@ export default async function InstructionDossierPage({
                     Déposé {formaterAnciennete(autre.createdAt)}
                   </span>
                   <span className="flex items-center gap-3">
-                    <span className={pastilleEtat(ETAT_STATUT[autre.statut])}>
+                    <span className={pastilleEtat(ETAT_STATUT_DOSSIER[autre.statut])}>
                       {LABELS_STATUT_DOSSIER[autre.statut]}
                     </span>
                     <span className="font-semibold text-[var(--color-ink)]">
