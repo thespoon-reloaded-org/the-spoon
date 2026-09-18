@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { IconeValide } from "@/components/Icones";
+import { JournalDossier } from "@/components/JournalDossier";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { authRestaurant } from "@/lib/auth";
 import {
@@ -49,6 +50,17 @@ export default async function RecapitulatifDossierPage({
       lignes: { include: { ligneFacture: { include: { booking: true } } } },
       piecesJointes: true,
       decisions: { include: { avoir: true }, orderBy: { createdAt: "desc" } },
+      // Les gestes d'organisation interne (prise en charge, escalade) ne sont
+      // pas filtrés à l'affichage mais dès la requête : ce qui n'est pas
+      // envoyé au navigateur ne peut pas fuiter.
+      evenements: {
+        where: { interne: false },
+        include: { auteurStaff: { select: { nom: true } } },
+        // Le type départage les événements d'un même instant (dépôt et
+        // crédit d'office partagent leur horodatage) — l'enum est déclaré
+        // dans l'ordre chronologique exprès.
+        orderBy: [{ createdAt: "asc" }, { type: "asc" }],
+      },
     },
   });
   if (!dossier) notFound();
@@ -107,6 +119,13 @@ export default async function RecapitulatifDossierPage({
             )}
           </div>
           <p className="text-sm leading-relaxed text-[var(--color-ink)]">{decision.motif}</p>
+        </div>
+      )}
+
+      {dossier.evenements.length > 0 && (
+        <div className={`${CARTE} mb-5 max-w-2xl`}>
+          <p className={`${EYEBROW} mb-4`}>Suivi du dossier</p>
+          <JournalDossier evenements={dossier.evenements} pourLePartenaire />
         </div>
       )}
 

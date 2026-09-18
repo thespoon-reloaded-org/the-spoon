@@ -168,6 +168,33 @@ export async function creerDossierContestation(params: {
             motif: motifParLigne.get(ligne.id)!,
           })),
         },
+        // Première ligne du journal — voir `EvenementDossier`. Écrite dans
+        // la même création que le dossier : un dossier sans ouverture dans
+        // son journal serait un dossier dont on ne sait pas quand il commence.
+        evenements: {
+          create: [
+            {
+              type: "DEPOT",
+              details: { montantContesteCentimes, nbLignes: lignesFacture.length },
+            },
+            ...(statut === "CREDITE_OFFICE"
+              ? [
+                  {
+                    type: "DECISION" as const,
+                    details: {
+                      issue: "ACCORDE",
+                      montantAccordeCentimes: montantContesteCentimes,
+                      imputation: "THESPOON",
+                    },
+                  },
+                  {
+                    type: "AVOIR_EMIS" as const,
+                    details: { montantCentimes: montantContesteCentimes },
+                  },
+                ]
+              : []),
+          ],
+        },
         // Un crédit d'office est une décision comme une autre — prise par la
         // règle de seuil plutôt que par une personne (`decideParId` reste
         // null). Sans elle, "crédité d'office" ne créditait rien : le dossier
@@ -222,11 +249,21 @@ export async function prendreEnChargeDossier(
     return { ok: false, erreur: "Dossier introuvable." };
   }
 
-  const resultat = await prisma.dossier.updateMany({
-    where: { id: dossierId, instructeurId: null },
-    data: { instructeurId, priseEnChargeLe: new Date() },
+  // Transaction : la prise en charge et sa ligne de journal partent ensemble
+  // ou pas du tout. Un journal qui rate un geste ne prouve plus rien.
+  const prise = await prisma.$transaction(async (tx) => {
+    const resultat = await tx.dossier.updateMany({
+      where: { id: dossierId, instructeurId: null },
+      data: { instructeurId, priseEnChargeLe: new Date() },
+    });
+    if (resultat.count === 0) return false;
+
+    await tx.evenementDossier.create({
+      data: { dossierId, type: "PRISE_EN_CHARGE", auteurStaffId: instructeurId, interne: true },
+    });
+    return true;
   });
-  if (resultat.count === 0) {
+  if (!prise) {
     return { ok: false, erreur: "Ce dossier a déjà été pris en charge." };
   }
   return { ok: true };
@@ -278,9 +315,21 @@ export async function demanderComplementDossier(
     return { ok: false, erreur: "Seul l'instructeur assigné à ce dossier peut demander un complément." };
   }
 
-  await prisma.dossier.update({
-    where: { id: dossierId },
-    data: { complementDemandeLe: new Date(), complementDemandeMessage: message },
+  await prisma.$transaction(async (tx) => {
+    await tx.dossier.update({
+      where: { id: dossierId },
+      data: { complementDemandeLe: new Date(), complementDemandeMessage: message },
+    });
+    // Le dossier n'en garde que la dernière ; le journal les garde toutes,
+    // et c'est là que se lit un aller-retour qui traîne.
+    await tx.evenementDossier.create({
+      data: {
+        dossierId,
+        type: "COMPLEMENT_DEMANDE",
+        details: { message },
+        auteurStaffId: staffId,
+      },
+    });
   });
   return { ok: true };
 }
@@ -462,6 +511,28 @@ export async function deciderDossier(
           }),
         },
       });
+
+      // Décision et avoir sont deux lignes de journal distinctes : un refus
+      // n'émet rien, et une escalade ne regarde que l'équipe Partenaires.
+      await tx.evenementDossier.create({
+        data: {
+          dossierId,
+          type: "DECISION",
+          details: { issue, montantAccordeCentimes, imputation },
+          auteurStaffId: staffId,
+          interne: issue === "ESCALADE",
+        },
+      });
+      if (montantAccordeCentimes > 0) {
+        await tx.evenementDossier.create({
+          data: {
+            dossierId,
+            type: "AVOIR_EMIS",
+            details: { montantCentimes: montantAccordeCentimes },
+            auteurStaffId: staffId,
+          },
+        });
+      }
     });
   } catch (erreur) {
     if (erreur instanceof DossierDejaTrancheError) return { ok: false, erreur: erreur.message };

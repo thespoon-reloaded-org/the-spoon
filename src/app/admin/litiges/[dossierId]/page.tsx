@@ -5,6 +5,7 @@ import { DeciderDossierForm } from "@/components/DeciderDossierForm";
 import { DemanderComplementForm } from "@/components/DemanderComplementForm";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { FactureDocument } from "@/components/FactureDocument";
+import { JournalDossier } from "@/components/JournalDossier";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { PrendreEnChargeBouton } from "@/components/PrendreEnChargeBouton";
 import {
@@ -69,6 +70,13 @@ export default async function InstructionDossierPage({
       decisions: {
         include: { avoir: true, decidePar: { select: { nom: true } } },
         orderBy: { createdAt: "desc" },
+      },
+      evenements: {
+        include: { auteurStaff: { select: { nom: true } } },
+        // Le type départage les événements d'un même instant (dépôt et
+        // crédit d'office partagent leur horodatage) — l'enum est déclaré
+        // dans l'ordre chronologique exprès.
+        orderBy: [{ createdAt: "asc" }, { type: "asc" }],
       },
     },
   });
@@ -288,6 +296,19 @@ export default async function InstructionDossierPage({
           )
         )}
       </section>
+
+      {dossier.evenements.length > 0 && (
+        <section className="mt-10 max-w-3xl">
+          <h2 className={`${TITRE_SECTION} mb-1`}>Journal du dossier</h2>
+          <p className="mb-5 text-sm text-[var(--color-ink-muted)]">
+            Tout ce qui a été fait sur ce dossier, dans l&apos;ordre. En ajout seul : rien ne s&apos;y
+            modifie ni ne s&apos;en supprime.
+          </p>
+          <div className={CARTE}>
+            <JournalDossier evenements={dossier.evenements} />
+          </div>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className={`${TITRE_SECTION} mb-4`}>La facture contestée</h2>
