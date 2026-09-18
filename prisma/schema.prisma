@@ -162,6 +162,21 @@ model RestaurantContact {
   @@index([restaurantId])
 }
 
+/// Une prise de contact d'un restaurateur pas encore partenaire — déposée
+/// depuis la landing ou l'écran de connexion restaurant ("Pas encore
+/// partenaire ?"), qui n'ouvrent pas de compte (voir `RestaurantContact`,
+/// réservé aux établissements déjà référencés). Juste de quoi qualifier la
+/// demande côté Console staff ; pas de statut de traitement pour l'instant,
+/// ça arrivera avec le ticket qui décrira le suivi de ces demandes.
+model DemandeContactRestaurateur {
+  id            String   @id @default(cuid())
+  nom           String
+  email         String
+  etablissement String
+  message       String
+  createdAt     DateTime @default(now())
+}
+
 /// L'organigramme interne TheSpoon. Pas de rôles détaillés ici (instructeur
 /// litiges, validateur avoirs...) — ça arrivera avec "Auth staff TheSpoon &
 /// permissions". `role` reste un texte libre affiché, pas un contrôle

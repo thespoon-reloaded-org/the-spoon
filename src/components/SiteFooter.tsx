@@ -90,7 +90,7 @@ export function SiteFooter() {
             © {new Date().getFullYear()} TheSpoon — la note s&apos;affiche en cuillères.
           </p>
           <Link
-            href="/connexion-restaurant"
+            href="/devenir-partenaire"
             className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-yellow)] hover:underline"
           >
             Référencer mon restaurant

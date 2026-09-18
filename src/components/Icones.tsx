@@ -229,6 +229,15 @@ export function IconeValide(p: ProprietesIcone) {
   );
 }
 
+export function IconeMessage(p: ProprietesIcone) {
+  return (
+    <Svg {...p}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="m4 7 7.3 5.2a1.2 1.2 0 0 0 1.4 0L20 7" />
+    </Svg>
+  );
+}
+
 /**
  * Registre des icônes utilisables par nom.
  *
@@ -250,6 +259,7 @@ export const ICONES = {
   utilisateur: IconeUtilisateur,
   litige: IconeLitige,
   reglages: IconeReglages,
+  message: IconeMessage,
 } as const;
 
 export type CleIcone = keyof typeof ICONES;
