@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 
 import type { EtatFormulaireContact } from "@/app/admin/restaurants/actions";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
+import { ROLES_CONTACT } from "@/lib/contacts";
 import { BOUTON_PRIMAIRE, CHAMP, LABEL_CHAMP } from "@/lib/ui";
 
 const ETAT_INITIAL: EtatFormulaireContact = {};
@@ -20,9 +21,20 @@ export function ContactRestaurantForm({
   action: (etat: EtatFormulaireContact, formData: FormData) => Promise<EtatFormulaireContact>;
 }) {
   const [etat, soumettre, enCours] = useActionState(action, ETAT_INITIAL);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Les champs sont non contrôlés : sans ce reset explicite, "Nom"/"Email"
+  // gardent les valeurs du contact qui vient d'être créé — en resoumettant
+  // sans y penser, on obtiendrait soit un rejet trompeur (même email), soit
+  // pire, un nouveau contact avec un nom périmé associé au nouvel email.
+  useEffect(() => {
+    if (etat.motDePasseGenere) {
+      formRef.current?.reset();
+    }
+  }, [etat.motDePasseGenere]);
 
   return (
-    <form action={soumettre} className="flex flex-col gap-4">
+    <form ref={formRef} action={soumettre} className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={LABEL_CHAMP}>
           Nom
@@ -31,15 +43,29 @@ export function ContactRestaurantForm({
 
         <label className={LABEL_CHAMP}>
           Email
-          <input type="email" name="email" required className={CHAMP} />
+          {/* Pas "email" : ce champ saisit l'adresse d'un tiers (le contact à
+              créer), pas celle du staff connecté — l'autocomplétion du
+              navigateur suggérerait sinon ses propres adresses enregistrées,
+              au risque d'accorder l'accès à la mauvaise personne. */}
+          <input
+            type="email"
+            name="email"
+            required
+            maxLength={160}
+            autoComplete="off"
+            className={CHAMP}
+          />
         </label>
       </div>
 
       <label className={LABEL_CHAMP}>
         Rôle
         <select name="role" defaultValue="GERANT" className={CHAMP}>
-          <option value="GERANT">Gérant</option>
-          <option value="CHEF_DE_SALLE">Chef de salle</option>
+          {ROLES_CONTACT.map((role) => (
+            <option key={role.valeur} value={role.valeur}>
+              {role.libelle}
+            </option>
+          ))}
         </select>
       </label>
 

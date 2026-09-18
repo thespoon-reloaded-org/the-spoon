@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { authAdmin } from "@/lib/auth";
 import { genererMotDePasseTemporaire, nouveauCompteCredential } from "@/lib/comptes";
+import { LIBELLE_ROLE_CONTACT } from "@/lib/contacts";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
 
@@ -137,7 +138,12 @@ const schemaContact = z.object({
     .trim()
     .min(1, "Le nom est obligatoire.")
     .max(80, "Nom trop long (80 caractères max)."),
-  email: z.string().trim().toLowerCase().email("Email invalide."),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(160, "Email trop long (160 caractères max).")
+    .email("Email invalide."),
   role: z.enum(["GERANT", "CHEF_DE_SALLE"], {
     message: "Choisis un rôle : gérant ou chef de salle.",
   }),
@@ -155,7 +161,11 @@ export type EtatFormulaireContact = { erreur?: string; ok?: boolean; motDePasseG
  * stocké en clair, jamais renvoyé après ce premier rendu — à charge pour le
  * staff de le transmettre à la main (pas de canal d'email dans ce projet).
  * Pas de redirection, contrairement à `creerRestaurant` : il faut rester sur
- * la page pour afficher ce mot de passe.
+ * la page pour afficher ce mot de passe. Comme `creerRestaurant`/
+ * `modifierRestaurant`, l'ajout est tracé dans `JournalAuditRestaurant`
+ * (action `AJOUT_CONTACT`) — la fiche détail affirme que "toute création ou
+ * modification est tracée", et accorder un accès de connexion est l'action
+ * la plus sensible de cette page.
  */
 export async function creerContactRestaurant(
   restaurantId: string,
@@ -172,6 +182,13 @@ export async function creerContactRestaurant(
   });
   if (!donnees.success) {
     return { erreur: donnees.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+
+  // Revérifié ici et pas seulement au chargement de la page : le restaurant a
+  // pu disparaître entre les deux (même précaution que `modifierRestaurant`).
+  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } });
+  if (!restaurant) {
+    return { erreur: "Restaurant introuvable." };
   }
 
   // Vérification préalable en plus de la contrainte unique ci-dessous :
@@ -203,6 +220,20 @@ export async function creerContactRestaurant(
       await tx.restaurantContactAccount.create({
         data: nouveauCompteCredential(contact.id, motDePasseHash),
       });
+      await tx.journalAuditRestaurant.create({
+        data: {
+          restaurantId,
+          staffId: session.user.id,
+          action: "AJOUT_CONTACT",
+          champsModifies: [
+            {
+              champ: "contact",
+              avant: null,
+              apres: `${donnees.data.nom} (${LIBELLE_ROLE_CONTACT[donnees.data.role]}) — ${donnees.data.email}`,
+            },
+          ],
+        },
+      });
     });
   } catch (erreur) {
     // Filet de sécurité si deux créations concurrentes visent le même email
@@ -214,6 +245,7 @@ export async function creerContactRestaurant(
     throw erreur;
   }
 
+  revalidatePath("/admin");
   revalidatePath(`/admin/restaurants/${restaurantId}`);
   return { ok: true, motDePasseGenere: motDePasse };
 }

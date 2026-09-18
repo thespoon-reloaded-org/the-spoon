@@ -10,7 +10,7 @@
  * égaux à l'id de l'utilisateur — convention posée par `creer-compte`,
  * reprise ici pour ne pas la dupliquer.
  */
-import { randomBytes } from "node:crypto";
+import { randomInt } from "node:crypto";
 
 /** Le `providerId` attendu par better-auth pour une connexion par mot de passe. */
 export const FOURNISSEUR_CREDENTIAL = "credential";
@@ -37,19 +37,13 @@ const ALPHABET_MOT_DE_PASSE = "23456789ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstu
 /**
  * Mot de passe temporaire lisible pour un contact créé depuis la Console
  * staff, affiché une seule fois à l'écran (voir `creerContactRestaurant`).
- * Tirage par rejet plutôt que modulo direct : `256 % alphabet.length !== 0`,
- * un modulo introduirait un léger biais vers le début de l'alphabet.
+ * `randomInt` (CSPRNG + tirage par rejet déjà géré nativement, sans biais
+ * modulo) plutôt qu'un tirage par rejet écrit à la main.
  */
 export function genererMotDePasseTemporaire(longueur = 12): string {
-  const seuilRejet = 256 - (256 % ALPHABET_MOT_DE_PASSE.length);
   let motDePasse = "";
-  while (motDePasse.length < longueur) {
-    // Un octet à la fois : simple, et le rejet ne consomme en moyenne qu'une
-    // poignée d'octets de plus pour un mot de passe de cette longueur.
-    const octet = randomBytes(1).readUInt8(0);
-    if (octet < seuilRejet) {
-      motDePasse += ALPHABET_MOT_DE_PASSE.charAt(octet % ALPHABET_MOT_DE_PASSE.length);
-    }
+  for (let i = 0; i < longueur; i++) {
+    motDePasse += ALPHABET_MOT_DE_PASSE.charAt(randomInt(ALPHABET_MOT_DE_PASSE.length));
   }
   return motDePasse;
 }

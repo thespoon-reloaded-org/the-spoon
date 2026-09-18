@@ -39,7 +39,11 @@ import { prisma } from "../src/lib/prisma";
 const UNIVERS = ["client", "restaurant", "staff"] as const;
 type Univers = (typeof UNIVERS)[number];
 
-const EMAIL = exigerVariable("COMPTE_EMAIL");
+// Normalisé en minuscule : la Console staff fait de même avant de vérifier
+// l'unicité de RestaurantContact.email (index Postgres sensible à la casse),
+// sans quoi un compte créé ici avec une casse différente échapperait à
+// cette vérification et se retrouverait dupliqué.
+const EMAIL = exigerVariable("COMPTE_EMAIL").trim().toLowerCase();
 const MOT_DE_PASSE = exigerVariable("COMPTE_MOT_DE_PASSE");
 const NOM = process.env.COMPTE_NOM ?? "Compte de test";
 const RESTAURANT_VOULU = process.env.COMPTE_RESTAURANT;

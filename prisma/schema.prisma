@@ -182,18 +182,25 @@ model Staff {
 }
 
 /// Action tracée dans le journal d'audit d'un restaurant partenaire.
+/// `AJOUT_CONTACT` couvre l'ajout d'un contact (donc d'un accès de connexion)
+/// depuis la fiche admin — voir `creerContactRestaurant`.
 enum ActionAuditRestaurant {
   CREATION
   MODIFICATION
+  AJOUT_CONTACT
 }
 
-/// Trace d'une création ou modification d'un restaurant partenaire depuis la
-/// Console staff — critère d'acceptation du ticket Notion "Console staff :
-/// vue restaurants" ("toute modification est tracée"). `champsModifies` est
-/// `null` pour une création (tout est nouveau, rien à comparer) et liste pour
-/// une modification les champs qui ont effectivement changé, avec leur
-/// ancienne et nouvelle valeur — pas le formulaire complet, seulement le
-/// diff, pour rester lisible dans l'écran qui l'affiche.
+/// Trace d'une création ou modification d'un restaurant partenaire, ou de
+/// l'ajout d'un de ses contacts, depuis la Console staff — critère
+/// d'acceptation du ticket Notion "Console staff : vue restaurants" ("toute
+/// modification est tracée"), qui couvre la fiche détail dans son ensemble
+/// (infos ET contacts). `champsModifies` est `null` pour une création (tout
+/// est nouveau, rien à comparer) et liste pour une modification les champs
+/// qui ont effectivement changé, avec leur ancienne et nouvelle valeur — pas
+/// le formulaire complet, seulement le diff, pour rester lisible dans
+/// l'écran qui l'affiche. Pour `AJOUT_CONTACT`, une seule entrée
+/// `{champ: "contact", avant: null, apres: "<nom> (<rôle>) — <email>"}`
+/// identifie le contact ajouté.
 model JournalAuditRestaurant {
   id             String                @id @default(cuid())
   restaurantId   String
