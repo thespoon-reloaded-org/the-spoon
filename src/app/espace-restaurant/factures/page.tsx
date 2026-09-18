@@ -10,6 +10,8 @@ import {
   formaterMoisFacture,
   formaterMontant,
   joursRestantsContestation,
+  montantAvoirsCentimes,
+  netAPayerCentimes,
 } from "@/lib/facturation";
 import { prisma } from "@/lib/prisma";
 import { CARTE_CLIQUABLE, ETAT_VIDE, pastilleEtat } from "@/lib/ui";
@@ -23,7 +25,7 @@ export default async function MesFacturesPage() {
 
   const factures = await prisma.facture.findMany({
     where: { restaurantId: session.user.restaurantId },
-    include: { _count: { select: { lignes: true } } },
+    include: { _count: { select: { lignes: true } }, avoirs: { select: { montantCentimes: true } } },
     orderBy: { mois: "desc" },
   });
 
@@ -50,6 +52,9 @@ export default async function MesFacturesPage() {
         <ul className="flex flex-col gap-3">
           {factures.map((facture) => {
             const joursRestants = joursRestantsContestation(facture.genereeLe);
+            // Le chiffre qui compte pour le restaurant est ce qu'il doit, pas
+            // ce qui a été facturé avant contestation.
+            const avoirs = montantAvoirsCentimes(facture.avoirs);
             return (
               <li key={facture.id}>
                 <Link
@@ -63,6 +68,7 @@ export default async function MesFacturesPage() {
                     <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
                       {facture._count.lignes} réservation{facture._count.lignes > 1 ? "s" : ""}{" "}
                       honorée{facture._count.lignes > 1 ? "s" : ""}
+                      {avoirs > 0 && <> · net après {formaterMontant(avoirs)} d&apos;avoirs</>}
                     </p>
                   </div>
 
@@ -73,7 +79,7 @@ export default async function MesFacturesPage() {
                         : "Délai de contestation expiré"}
                     </span>
                     <span className="font-[family-name:var(--font-display)] text-xl font-bold text-[var(--color-ink)]">
-                      {formaterMontant(facture.montantTotalCentimes)}
+                      {formaterMontant(netAPayerCentimes(facture.montantTotalCentimes, facture.avoirs))}
                     </span>
                     <span className="text-[var(--color-ink-muted)]">
                       <IconeChevron taille={18} />

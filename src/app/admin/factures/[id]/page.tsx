@@ -20,6 +20,7 @@ export default async function FactureAdminDetailPage({
     include: {
       restaurant: { select: { nom: true, adresse: true } },
       lignes: { include: { booking: true }, orderBy: { createdAt: "asc" } },
+      avoirs: { orderBy: { emisLe: "asc" } },
     },
   });
   if (!facture) notFound();

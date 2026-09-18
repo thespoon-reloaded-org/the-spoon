@@ -1,10 +1,24 @@
-import type { LigneFacture, MotifContestation, StatutDossier } from "@/generated/prisma";
+import type {
+  ImputationLitige,
+  IssueDecision,
+  LigneFacture,
+  MotifContestation,
+  StatutDossier,
+} from "@/generated/prisma";
 import { Prisma } from "@/generated/prisma";
 
-import { joursRestantsContestation } from "./facturation";
+import { formaterMontant, joursRestantsContestation } from "./facturation";
 import { prisma } from "./prisma";
 
-export { LABELS_MOTIF_CONTESTATION, LABELS_STATUT_DOSSIER } from "./contestation-labels";
+export {
+  ETAT_ISSUE_DECISION,
+  ETAT_STATUT_DOSSIER,
+  LABELS_IMPUTATION_LITIGE,
+  LABELS_ISSUE_DECISION,
+  LABELS_MOTIF_CONTESTATION,
+  LABELS_STATUT_DOSSIER,
+  STATUT_DOSSIER_COTE_RESTAURANT,
+} from "./contestation-labels";
 
 /**
  * Valeur de départ du seuil de crédit d'office si ConfigContestation n'a
@@ -20,9 +34,9 @@ export function calculerMontantConteste(lignes: Pick<LigneFacture, "montantCenti
 }
 
 /**
- * En-dessous du seuil (strictement) : crédit d'office, le dossier n'entre
- * pas dans la file d'instruction. Au seuil ou au-dessus : instruction
- * manuelle (pas encore outillée — "Décision & émission d'avoir").
+ * En-dessous du seuil (strictement) : crédit d'office, le dossier n'entre pas
+ * dans la file d'instruction et son avoir est émis dès le dépôt. Au seuil ou
+ * au-dessus : instruction manuelle, tranchée par `deciderDossier`.
  */
 export function decisionStatutDossier(montantContesteCentimes: number, seuilCentimes: number): StatutDossier {
   return montantContesteCentimes < seuilCentimes ? "CREDITE_OFFICE" : "EN_ATTENTE_INSTRUCTION";
@@ -131,6 +145,28 @@ export async function creerDossierContestation(params: {
             motif: motifParLigne.get(ligne.id)!,
           })),
         },
+        // Un crédit d'office est une décision comme une autre — prise par la
+        // règle de seuil plutôt que par une personne (`decideParId` reste
+        // null). Sans elle, "crédité d'office" ne créditait rien : le dossier
+        // changeait de statut et s'arrêtait là, sans avoir en déduction de la
+        // facture.
+        ...(statut === "CREDITE_OFFICE" && {
+          decisions: {
+            create: {
+              issue: "ACCORDE",
+              montantAccordeCentimes: montantContesteCentimes,
+              imputation: "THESPOON",
+              motif: `Crédit d'office : ${formaterMontant(
+                montantContesteCentimes,
+              )} contestés, sous le seuil d'instruction de ${formaterMontant(
+                config.seuilCreditOfficeCentimes,
+              )}.`,
+              avoir: {
+                create: { factureId: params.factureId, montantCentimes: montantContesteCentimes },
+              },
+            },
+          },
+        }),
       },
     });
     return { ok: true, dossierId: dossier.id };
@@ -199,4 +235,191 @@ export async function demanderComplementDossier(
     data: { complementDemandeLe: new Date(), complementDemandeMessage: message },
   });
   return { ok: true };
+}
+
+/** Les deux statuts depuis lesquels un dossier peut encore être tranché. */
+export const STATUTS_A_TRANCHER = ["EN_ATTENTE_INSTRUCTION", "ESCALADE"] as const;
+
+export function dossierATrancher(statut: StatutDossier): boolean {
+  return (STATUTS_A_TRANCHER as readonly StatutDossier[]).includes(statut);
+}
+
+/** Ce que l'instructeur saisit ; ce qui est enregistré passe par `normaliserDecision`. */
+export type SaisieDecision = {
+  issue: IssueDecision;
+  /** Seulement pour un accord partiel — ignoré (et non requis) sur les autres issues. */
+  montantAccordeCentimes?: number | null;
+  /** Seulement pour un accord (total ou partiel) — forcée sur un refus, absente sur une escalade. */
+  imputation?: ImputationLitige | null;
+  motif: string;
+};
+
+export type DecisionNormalisee = {
+  issue: IssueDecision;
+  montantAccordeCentimes: number;
+  imputation: ImputationLitige | null;
+  /** Statut dans lequel le dossier bascule une fois la décision enregistrée. */
+  statutDossier: StatutDossier;
+};
+
+export type ResultatNormalisation =
+  | { ok: true; decision: DecisionNormalisee }
+  | { ok: false; erreur: string };
+
+/**
+ * Traduit une saisie d'instructeur en décision enregistrable, et refuse les
+ * combinaisons qui n'ont pas de sens métier. Pure (pas de base) : c'est ici
+ * que vivent les règles, pas dans le formulaire, qui peut être contourné.
+ *
+ * - accordé : le montant est celui du dossier, jamais un chiffre saisi ;
+ * - partiel : strictement entre 0 et le montant contesté (sinon c'est un
+ *   accord ou un refus, qui ont chacun leur issue) ;
+ * - refusé : rien n'est crédité, donc le coût reste au restaurant — imputation
+ *   forcée plutôt que demandée ;
+ * - escaladé : rien n'est tranché, donc ni montant ni imputation.
+ */
+export function normaliserDecision(
+  montantContesteCentimes: number,
+  saisie: SaisieDecision,
+): ResultatNormalisation {
+  if (!saisie.motif.trim()) {
+    return { ok: false, erreur: "La décision doit être motivée : c'est la réponse envoyée au restaurant." };
+  }
+
+  switch (saisie.issue) {
+    case "ACCORDE":
+    case "PARTIEL": {
+      const montantAccordeCentimes =
+        saisie.issue === "ACCORDE" ? montantContesteCentimes : Math.round(saisie.montantAccordeCentimes ?? 0);
+      if (saisie.issue === "PARTIEL") {
+        if (!Number.isFinite(montantAccordeCentimes) || montantAccordeCentimes <= 0) {
+          return { ok: false, erreur: "Un accord partiel doit créditer un montant supérieur à 0 — sinon c'est un refus." };
+        }
+        if (montantAccordeCentimes >= montantContesteCentimes) {
+          return {
+            ok: false,
+            erreur: `Un accord partiel doit rester sous ${formaterMontant(
+              montantContesteCentimes,
+            )} — au-delà, c'est un accord total.`,
+          };
+        }
+      }
+      if (saisie.imputation !== "THESPOON" && saisie.imputation !== "CLIENT") {
+        return {
+          ok: false,
+          erreur: "Un accord doit dire qui porte le coût : TheSpoon ou le client.",
+        };
+      }
+      return {
+        ok: true,
+        decision: {
+          issue: saisie.issue,
+          montantAccordeCentimes,
+          imputation: saisie.imputation,
+          statutDossier: "CLOTURE",
+        },
+      };
+    }
+    case "REFUSE":
+      return {
+        ok: true,
+        decision: {
+          issue: "REFUSE",
+          montantAccordeCentimes: 0,
+          imputation: "RESTAURANT",
+          statutDossier: "CLOTURE",
+        },
+      };
+    case "ESCALADE":
+      return {
+        ok: true,
+        decision: {
+          issue: "ESCALADE",
+          montantAccordeCentimes: 0,
+          imputation: null,
+          statutDossier: "ESCALADE",
+        },
+      };
+  }
+}
+
+/** Le dossier a changé de statut entre la lecture et l'écriture de la décision. */
+export class DossierDejaTrancheError extends Error {
+  constructor() {
+    super("Ce dossier vient d'être tranché par quelqu'un d'autre.");
+    this.name = "DossierDejaTrancheError";
+  }
+}
+
+export type ResultatDecision = { ok: true; avoirEmis: boolean } | { ok: false; erreur: string };
+
+/**
+ * "Décision & émission d'avoir" — la seule sortie d'un dossier en attente.
+ * Enregistre l'issue, l'imputation et le motif, émet l'avoir correspondant
+ * s'il y a quelque chose à créditer, et fait basculer le dossier hors de la
+ * file d'instruction.
+ *
+ * Rejouer l'opération ne crédite pas deux fois : la transition de statut est
+ * une transition atomique (`updateMany` filtré sur le statut lu, même
+ * mécanique que `prendreEnChargeDossier`), et c'est elle qui autorise
+ * l'écriture de la décision. Un deuxième envoi — double clic, retour arrière,
+ * deux instructeurs sur le même dossier — trouve le dossier dans un autre
+ * statut et repart sans rien écrire. Deuxième verrou en base : `decisionId`
+ * est unique sur Avoir, donc une décision ne peut pas porter deux avoirs.
+ *
+ * Qui peut trancher : l'instructeur qui a pris le dossier en charge, et lui
+ * seul, tant que le dossier est EN_ATTENTE_INSTRUCTION. Un dossier escaladé
+ * est ouvert à tout le staff — c'est le sens de l'escalade, passer la main —
+ * faute de rôles (la double validation d'un responsable au-dessus d'un seuil
+ * est le ticket "Validation des avoirs au-dessus du seuil", qui attend
+ * "Auth staff TheSpoon & permissions").
+ */
+export async function deciderDossier(
+  dossierId: string,
+  staffId: string,
+  saisie: SaisieDecision,
+): Promise<ResultatDecision> {
+  const dossier = await prisma.dossier.findUnique({ where: { id: dossierId } });
+  if (!dossier) return { ok: false, erreur: "Dossier introuvable." };
+  if (!dossierATrancher(dossier.statut)) {
+    return { ok: false, erreur: "Ce dossier est déjà tranché." };
+  }
+  if (dossier.statut === "EN_ATTENTE_INSTRUCTION" && dossier.instructeurId !== staffId) {
+    return { ok: false, erreur: "Seul l'instructeur assigné à ce dossier peut le trancher." };
+  }
+
+  const normalisee = normaliserDecision(dossier.montantContesteCentimes, saisie);
+  if (!normalisee.ok) return normalisee;
+  const { issue, montantAccordeCentimes, imputation, statutDossier } = normalisee.decision;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const transition = await tx.dossier.updateMany({
+        where: { id: dossierId, statut: dossier.statut },
+        data: { statut: statutDossier },
+      });
+      if (transition.count === 0) throw new DossierDejaTrancheError();
+
+      await tx.decisionDossier.create({
+        data: {
+          dossierId,
+          issue,
+          montantAccordeCentimes,
+          imputation,
+          motif: saisie.motif.trim(),
+          decideParId: staffId,
+          ...(montantAccordeCentimes > 0 && {
+            avoir: {
+              create: { factureId: dossier.factureId, montantCentimes: montantAccordeCentimes },
+            },
+          }),
+        },
+      });
+    });
+  } catch (erreur) {
+    if (erreur instanceof DossierDejaTrancheError) return { ok: false, erreur: erreur.message };
+    throw erreur;
+  }
+
+  return { ok: true, avoirEmis: montantAccordeCentimes > 0 };
 }

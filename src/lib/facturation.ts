@@ -1,4 +1,4 @@
-import type { Booking, Facture } from "@/generated/prisma";
+import type { Avoir, Booking, Facture } from "@/generated/prisma";
 import { Prisma } from "@/generated/prisma";
 
 import { prisma } from "./prisma";
@@ -23,9 +23,8 @@ export function couvertsAFacturer(booking: Pick<Booking, "couverts" | "couvertsS
 /**
  * Délai de contestation d'une facture, en jours à partir de sa génération —
  * aucun ticket ne fixait ce chiffre, décision prise en conversation avec Elsa
- * (30 jours, délai B2B standard). Utilisé côté "Mes factures" pour afficher
- * le temps restant ; le dépôt de contestation lui-même (epic "Contestations
- * & litiges") n'est pas encore construit.
+ * (30 jours, délai B2B standard). Affiché côté "Mes factures", et revérifié
+ * côté serveur au dépôt d'un dossier (voir `delaiContestationExpire`).
  */
 export const DELAI_CONTESTATION_JOURS = 30;
 
@@ -42,6 +41,36 @@ export function referenceFacture(facture: Pick<Facture, "id" | "mois">): string 
   const annee = facture.mois.getUTCFullYear();
   const moisIndex = String(facture.mois.getUTCMonth() + 1).padStart(2, "0");
   return `FA-${annee}${moisIndex}-${facture.id.slice(-6).toUpperCase()}`;
+}
+
+/**
+ * Référence lisible d'un avoir — même forme que `referenceFacture`, préfixe
+ * distinct : un avoir et la facture qu'il corrige ne doivent jamais se
+ * confondre dans un échange avec un restaurateur.
+ */
+export function referenceAvoir(avoir: Pick<Avoir, "id" | "emisLe">): string {
+  const annee = avoir.emisLe.getUTCFullYear();
+  const moisIndex = String(avoir.emisLe.getUTCMonth() + 1).padStart(2, "0");
+  return `AV-${annee}${moisIndex}-${avoir.id.slice(-6).toUpperCase()}`;
+}
+
+/** Somme des avoirs émis sur une facture. */
+export function montantAvoirsCentimes(avoirs: Pick<Avoir, "montantCentimes">[]): number {
+  return avoirs.reduce((total, avoir) => total + avoir.montantCentimes, 0);
+}
+
+/**
+ * Ce qui reste dû après déduction des avoirs. Une facture émise ne se réécrit
+ * pas (`montantTotalCentimes` ne bouge jamais) : elle se corrige par un
+ * avoir, et c'est la soustraction des deux qui donne le net. Borné à 0 — un
+ * avoir plus gros que la facture ne crée pas une dette de TheSpoon envers le
+ * restaurant, situation qu'aucun écran ne saurait traiter aujourd'hui.
+ */
+export function netAPayerCentimes(
+  montantTotalCentimes: number,
+  avoirs: Pick<Avoir, "montantCentimes">[],
+): number {
+  return Math.max(0, montantTotalCentimes - montantAvoirsCentimes(avoirs));
 }
 
 export function formaterMontant(centimes: number): string {
