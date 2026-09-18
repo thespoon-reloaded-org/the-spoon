@@ -2,9 +2,12 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import Link from "next/link";
 
+import { creerContactRestaurant } from "@/app/admin/restaurants/actions";
+import { ContactRestaurantForm } from "@/components/ContactRestaurantForm";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
+import { LIBELLE_ROLE_CONTACT } from "@/lib/contacts";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import { photoRestaurant } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
@@ -58,6 +61,14 @@ const LABEL_CHAMP: Record<string, string> = {
   horaires: "Horaires",
   description: "Description",
   capacite: "Capacité",
+  contact: "Contact",
+};
+
+/** Libellé affiché pour chaque action du journal d'audit. */
+const LABEL_ACTION_AUDIT: Record<string, string> = {
+  CREATION: "Création",
+  MODIFICATION: "Modification",
+  AJOUT_CONTACT: "Ajout d'un contact",
 };
 
 type DiffChamp = { champ: string; avant: unknown; apres: unknown };
@@ -172,13 +183,16 @@ export default async function FicheRestaurantAdminPage({
               >
                 <span className="font-semibold text-[var(--color-ink)]">{contact.nom}</span>
                 <span className="text-sm text-[var(--color-ink-muted)]">{contact.email}</span>
-                <span className={pastilleEtat("neutre")}>
-                  {contact.role === "GERANT" ? "Gérant" : "Chef de salle"}
-                </span>
+                <span className={pastilleEtat("neutre")}>{LIBELLE_ROLE_CONTACT[contact.role]}</span>
               </li>
             ))}
           </ul>
         )}
+
+        <div className={`${CARTE} mt-4`}>
+          <h3 className={`${EYEBROW} mb-4`}>Ajouter un contact</h3>
+          <ContactRestaurantForm action={creerContactRestaurant.bind(null, id)} />
+        </div>
       </section>
 
       <section className="mt-10">
@@ -238,8 +252,7 @@ export default async function FicheRestaurantAdminPage({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-[var(--color-ink)]">
-                    {entree.action === "CREATION" ? "Création" : "Modification"} par{" "}
-                    {entree.staff.nom}
+                    {LABEL_ACTION_AUDIT[entree.action] ?? entree.action} par {entree.staff.nom}
                   </span>
                   <span className="text-[var(--color-ink-muted)]">
                     {entree.createdAt.toLocaleDateString("fr-FR", {

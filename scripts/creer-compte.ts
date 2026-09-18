@@ -32,16 +32,18 @@ import { randomUUID } from "node:crypto";
 
 import { hashPassword } from "better-auth/crypto";
 
+import { FOURNISSEUR_CREDENTIAL, nouveauCompteCredential } from "../src/lib/comptes";
 import { prisma } from "../src/lib/prisma";
 
 /** Les trois instances better-auth de `src/lib/auth.ts`, vues côté script. */
 const UNIVERS = ["client", "restaurant", "staff"] as const;
 type Univers = (typeof UNIVERS)[number];
 
-/** Connexion par mot de passe : le `providerId` attendu par better-auth. */
-const FOURNISSEUR = "credential";
-
-const EMAIL = exigerVariable("COMPTE_EMAIL");
+// Normalisé en minuscule : la Console staff fait de même avant de vérifier
+// l'unicité de RestaurantContact.email (index Postgres sensible à la casse),
+// sans quoi un compte créé ici avec une casse différente échapperait à
+// cette vérification et se retrouverait dupliqué.
+const EMAIL = exigerVariable("COMPTE_EMAIL").trim().toLowerCase();
 const MOT_DE_PASSE = exigerVariable("COMPTE_MOT_DE_PASSE");
 const NOM = process.env.COMPTE_NOM ?? "Compte de test";
 const RESTAURANT_VOULU = process.env.COMPTE_RESTAURANT;
@@ -68,23 +70,6 @@ function lireUnivers(): readonly Univers[] {
   return demandes as Univers[];
 }
 
-/**
- * La ligne de compte, identique pour les trois populations : c'est la
- * convention de `seed:dev`, où l'identifiant du compte reprend celui de
- * l'utilisateur. Elle ne vaut que pour une ligne créée ici — un dîneur inscrit
- * depuis le site a un identifiant de compte tiré au hasard par better-auth,
- * qu'on retrouve par `userId` plutôt que de lui en ajouter un deuxième.
- */
-function nouveauCompte(utilisateurId: string, motDePasseHash: string) {
-  return {
-    id: utilisateurId,
-    accountId: utilisateurId,
-    providerId: FOURNISSEUR,
-    userId: utilisateurId,
-    password: motDePasseHash,
-  };
-}
-
 async function creerDineur(motDePasseHash: string) {
   const dineur = await prisma.user.upsert({
     where: { email: EMAIL },
@@ -93,12 +78,12 @@ async function creerDineur(motDePasseHash: string) {
   });
 
   const compte = await prisma.account.findFirst({
-    where: { userId: dineur.id, providerId: FOURNISSEUR },
+    where: { userId: dineur.id, providerId: FOURNISSEUR_CREDENTIAL },
   });
   if (compte) {
     await prisma.account.update({ where: { id: compte.id }, data: { password: motDePasseHash } });
   } else {
-    await prisma.account.create({ data: nouveauCompte(dineur.id, motDePasseHash) });
+    await prisma.account.create({ data: nouveauCompteCredential(dineur.id, motDePasseHash) });
   }
 
   return "dîneur : /connexion";
@@ -132,7 +117,7 @@ async function creerContactRestaurant(motDePasseHash: string) {
   });
 
   const compte = await prisma.restaurantContactAccount.findFirst({
-    where: { userId: contact.id, providerId: FOURNISSEUR },
+    where: { userId: contact.id, providerId: FOURNISSEUR_CREDENTIAL },
   });
   if (compte) {
     await prisma.restaurantContactAccount.update({
@@ -141,7 +126,7 @@ async function creerContactRestaurant(motDePasseHash: string) {
     });
   } else {
     await prisma.restaurantContactAccount.create({
-      data: nouveauCompte(contact.id, motDePasseHash),
+      data: nouveauCompteCredential(contact.id, motDePasseHash),
     });
   }
 
@@ -158,7 +143,7 @@ async function creerStaff(motDePasseHash: string) {
   });
 
   const compte = await prisma.staffAccount.findFirst({
-    where: { userId: membre.id, providerId: FOURNISSEUR },
+    where: { userId: membre.id, providerId: FOURNISSEUR_CREDENTIAL },
   });
   if (compte) {
     await prisma.staffAccount.update({
@@ -166,7 +151,7 @@ async function creerStaff(motDePasseHash: string) {
       data: { password: motDePasseHash },
     });
   } else {
-    await prisma.staffAccount.create({ data: nouveauCompte(membre.id, motDePasseHash) });
+    await prisma.staffAccount.create({ data: nouveauCompteCredential(membre.id, motDePasseHash) });
   }
 
   return "staff : /connexion-admin";
