@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import Link from "next/link";
 
+import { creerContactRestaurant } from "@/app/admin/restaurants/actions";
+import { ContactRestaurantForm } from "@/components/ContactRestaurantForm";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
@@ -179,6 +181,11 @@ export default async function FicheRestaurantAdminPage({
             ))}
           </ul>
         )}
+
+        <div className={`${CARTE} mt-4`}>
+          <h3 className={`${EYEBROW} mb-4`}>Ajouter un contact</h3>
+          <ContactRestaurantForm action={creerContactRestaurant.bind(null, id)} />
+        </div>
       </section>
 
       <section className="mt-10">

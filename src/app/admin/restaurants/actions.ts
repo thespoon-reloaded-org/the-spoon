@@ -3,10 +3,13 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { hashPassword } from "better-auth/crypto";
 import { z } from "zod";
 
 import { authAdmin } from "@/lib/auth";
+import { genererMotDePasseTemporaire, nouveauCompteCredential } from "@/lib/comptes";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma";
 
 const champTexteOptionnel = z
   .string()
@@ -126,4 +129,91 @@ export async function modifierRestaurant(
   revalidatePath("/admin");
   revalidatePath(`/admin/restaurants/${restaurantId}`);
   redirect(`/admin/restaurants/${restaurantId}`);
+}
+
+const schemaContact = z.object({
+  nom: z
+    .string()
+    .trim()
+    .min(1, "Le nom est obligatoire.")
+    .max(80, "Nom trop long (80 caractères max)."),
+  email: z.string().trim().toLowerCase().email("Email invalide."),
+  role: z.enum(["GERANT", "CHEF_DE_SALLE"], {
+    message: "Choisis un rôle : gérant ou chef de salle.",
+  }),
+});
+
+export type EtatFormulaireContact = { erreur?: string; ok?: boolean; motDePasseGenere?: string };
+
+/**
+ * Ajoute un contact à un restaurant depuis la Console staff, avec un accès
+ * de connexion immédiat — `authRestaurant` coupe l'inscription libre
+ * (`disableSignUp`), donc une ligne `RestaurantContact` seule ne suffirait
+ * pas à donner un accès. Même mécanique que `pnpm creer-compte`
+ * (`src/lib/comptes.ts`), déplacée dans l'UI : un mot de passe temporaire est
+ * généré ici et retourné une seule fois dans l'état du formulaire — jamais
+ * stocké en clair, jamais renvoyé après ce premier rendu — à charge pour le
+ * staff de le transmettre à la main (pas de canal d'email dans ce projet).
+ * Pas de redirection, contrairement à `creerRestaurant` : il faut rester sur
+ * la page pour afficher ce mot de passe.
+ */
+export async function creerContactRestaurant(
+  restaurantId: string,
+  _etatPrecedent: EtatFormulaireContact,
+  formData: FormData,
+): Promise<EtatFormulaireContact> {
+  const session = await authAdmin.api.getSession({ headers: await headers() });
+  if (!session) redirect("/connexion-admin");
+
+  const donnees = schemaContact.safeParse({
+    nom: formData.get("nom"),
+    email: formData.get("email"),
+    role: formData.get("role"),
+  });
+  if (!donnees.success) {
+    return { erreur: donnees.error.issues[0]?.message ?? "Formulaire invalide." };
+  }
+
+  // Vérification préalable en plus de la contrainte unique ci-dessous :
+  // évite de générer et hacher un mot de passe pour rien sur le cas courant
+  // (email déjà pris par un contact d'un autre établissement).
+  const dejaPris = await prisma.restaurantContact.findUnique({
+    where: { email: donnees.data.email },
+  });
+  if (dejaPris) {
+    return { erreur: "Cet email est déjà utilisé par un autre contact." };
+  }
+
+  const motDePasse = genererMotDePasseTemporaire();
+  const motDePasseHash = await hashPassword(motDePasse);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const contact = await tx.restaurantContact.create({
+        data: {
+          restaurantId,
+          nom: donnees.data.nom,
+          email: donnees.data.email,
+          role: donnees.data.role,
+          // Pas de flux de vérification d'email dans ce projet — même
+          // convention que `pnpm creer-compte` et `seed:dev`.
+          emailVerified: true,
+        },
+      });
+      await tx.restaurantContactAccount.create({
+        data: nouveauCompteCredential(contact.id, motDePasseHash),
+      });
+    });
+  } catch (erreur) {
+    // Filet de sécurité si deux créations concurrentes visent le même email
+    // entre la vérification ci-dessus et cet insert (contrainte unique sur
+    // RestaurantContact.email — voir README, "Migrations de base de données").
+    if (erreur instanceof Prisma.PrismaClientKnownRequestError && erreur.code === "P2002") {
+      return { erreur: "Cet email est déjà utilisé par un autre contact." };
+    }
+    throw erreur;
+  }
+
+  revalidatePath(`/admin/restaurants/${restaurantId}`);
+  return { ok: true, motDePasseGenere: motDePasse };
 }

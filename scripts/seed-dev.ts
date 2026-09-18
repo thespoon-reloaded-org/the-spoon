@@ -2,12 +2,23 @@ import "dotenv/config";
 
 import { hashPassword } from "better-auth/crypto";
 
+import { nouveauCompteCredential } from "../src/lib/comptes";
 import { prisma } from "../src/lib/prisma";
 
 /** Mot de passe des contacts restaurant et du staff seedés — uniquement pour le dev local. */
 const MOT_DE_PASSE_CONTACT_DEV = "password123";
 
-/** Une poignée de vrais restaurants, pour avoir quelque chose à chercher en dev. */
+/**
+ * Une poignée de vrais restaurants, pour avoir quelque chose à chercher en
+ * dev — pas un jeu de données volumineux et anonyme (voir README, "produit
+ * et écrans d'abord"). Chacun a de quoi peupler tous les écrans qui en
+ * dépendent : plusieurs plats (entrée/plat/dessert) pour "Ma carte" et la
+ * fiche publique, et pour certains un ou deux contacts pour l'espace
+ * restaurant. Quelques établissements sont volontairement laissés sans
+ * contact : c'est l'état vide affiché sur la fiche admin
+ * (`/admin/restaurants/[id]`), et le cas d'usage direct du bouton "Ajouter
+ * un contact" qui y vit.
+ */
 const restaurants = [
   {
     nom: "Chez Antoine",
@@ -20,12 +31,9 @@ const restaurants = [
     noteCuilleres: 4.3,
     nombreAvis: 128,
     plats: [
-      {
-        nom: "Gratin dauphinois",
-        description: "Crémeux, cuit trois heures.",
-        categorie: "PLAT" as const,
-        prixCentimes: 1650,
-      },
+      { nom: "Salade lyonnaise", description: "Lardons, œuf poché, croûtons.", categorie: "ENTREE" as const, prixCentimes: 950 },
+      { nom: "Gratin dauphinois", description: "Crémeux, cuit trois heures.", categorie: "PLAT" as const, prixCentimes: 1650 },
+      { nom: "Tarte aux pralines", description: "Praline rose de la Maison Voisin.", categorie: "DESSERT" as const, prixCentimes: 850 },
     ],
     contacts: [
       { nom: "Antoine Dubreuil", email: "antoine@chez-antoine.example", role: "GERANT" as const },
@@ -42,12 +50,9 @@ const restaurants = [
     noteCuilleres: 4.7,
     nombreAvis: 64,
     plats: [
-      {
-        nom: "Ramen tonkotsu",
-        description: "Bouillon os de porc 18h, œuf mollet.",
-        categorie: "PLAT" as const,
-        prixCentimes: 1450,
-      },
+      { nom: "Gyoza", description: "Porc et chou, sauce ponzu.", categorie: "ENTREE" as const, prixCentimes: 750 },
+      { nom: "Ramen tonkotsu", description: "Bouillon os de porc 18h, œuf mollet.", categorie: "PLAT" as const, prixCentimes: 1450 },
+      { nom: "Mochi glacé", description: "Thé vert, sésame noir.", categorie: "DESSERT" as const, prixCentimes: 650 },
     ],
     contacts: [{ nom: "Haruto Sato", email: "haruto@miso-bar.example", role: "GERANT" as const }],
   },
@@ -62,7 +67,9 @@ const restaurants = [
     noteCuilleres: null,
     nombreAvis: 0,
     plats: [
+      { nom: "Œuf mayonnaise", description: null, categorie: "ENTREE" as const, prixCentimes: 700 },
       { nom: "Pot-au-feu", description: null, categorie: "PLAT" as const, prixCentimes: 1800 },
+      { nom: "Île flottante", description: null, categorie: "DESSERT" as const, prixCentimes: 750 },
     ],
     contacts: [
       { nom: "Camille Roy", email: "camille@petit-marche.example", role: "CHEF_DE_SALLE" as const },
@@ -79,12 +86,9 @@ const restaurants = [
     noteCuilleres: 4.8,
     nombreAvis: 212,
     plats: [
-      {
-        nom: "Risotto aux cèpes",
-        description: "Riz carnaroli, cèpes séchés, parmesan 24 mois.",
-        categorie: "PLAT" as const,
-        prixCentimes: 2200,
-      },
+      { nom: "Burrata", description: "Tomates anciennes, basilic, huile d'olive toscane.", categorie: "ENTREE" as const, prixCentimes: 1200 },
+      { nom: "Risotto aux cèpes", description: "Riz carnaroli, cèpes séchés, parmesan 24 mois.", categorie: "PLAT" as const, prixCentimes: 2200 },
+      { nom: "Tiramisu", description: "Recette de la nonna, mascarpone maison.", categorie: "DESSERT" as const, prixCentimes: 800 },
     ],
   },
   {
@@ -98,12 +102,9 @@ const restaurants = [
     noteCuilleres: 4.6,
     nombreAvis: 97,
     plats: [
-      {
-        nom: "Velouté de potimarron",
-        description: "Noisettes torréfiées, huile de courge.",
-        categorie: "ENTREE" as const,
-        prixCentimes: 950,
-      },
+      { nom: "Velouté de potimarron", description: "Noisettes torréfiées, huile de courge.", categorie: "ENTREE" as const, prixCentimes: 950 },
+      { nom: "Bourguignon de seitan", description: "Champignons de Paris, vin rouge, purée maison.", categorie: "PLAT" as const, prixCentimes: 1750 },
+      { nom: "Crumble pommes-poires", description: "Amandes, cannelle.", categorie: "DESSERT" as const, prixCentimes: 700 },
     ],
   },
   {
@@ -117,13 +118,161 @@ const restaurants = [
     noteCuilleres: 4.5,
     nombreAvis: 73,
     plats: [
+      { nom: "Chorba libanaise", description: "Soupe de lentilles corail, citron confit.", categorie: "ENTREE" as const, prixCentimes: 850 },
+      { nom: "Moussaka libanaise", description: "Aubergines, pois chiches, tomate.", categorie: "PLAT" as const, prixCentimes: 1600 },
+      { nom: "Baklava", description: "Pistaches, sirop de fleur d'oranger.", categorie: "DESSERT" as const, prixCentimes: 600 },
+    ],
+  },
+  {
+    nom: "La Criée Bleue",
+    ville: "Marseille",
+    cuisine: "Fruits de mer",
+    adresse: "3 quai des Belges, 13001 Marseille",
+    horaires: "Mar-Dim 12h-14h30, 19h-22h30",
+    description: "Poissons de la criée du matin, terrasse sur le Vieux-Port.",
+    capacite: 50,
+    noteCuilleres: 4.6,
+    nombreAvis: 156,
+    plats: [
+      { nom: "Tartare de daurade", description: "Agrumes, huile d'olive de Provence.", categorie: "ENTREE" as const, prixCentimes: 1400 },
+      { nom: "Bouillabaisse", description: "Rouille maison, croûtons, service en deux temps.", categorie: "PLAT" as const, prixCentimes: 3200 },
+      { nom: "Tarte au citron", description: "Citrons de Menton, meringue légère.", categorie: "DESSERT" as const, prixCentimes: 850 },
+    ],
+    contacts: [
+      { nom: "Solène Vasseur", email: "solene@criee-bleue.example", role: "GERANT" as const },
+    ],
+  },
+  {
+    nom: "Le Comptoir Basque",
+    ville: "Bordeaux",
+    cuisine: "Basque",
+    adresse: "14 cours de l'Intendance, 33000 Bordeaux",
+    horaires: "Mar-Sam 12h-14h, 19h30-22h30",
+    description: "Piment d'Espelette et cochon noir de Bigorre.",
+    capacite: 32,
+    noteCuilleres: 4.4,
+    nombreAvis: 58,
+    plats: [
+      { nom: "Piperade", description: "Œufs brouillés, jambon de Bayonne.", categorie: "ENTREE" as const, prixCentimes: 900 },
+      { nom: "Axoa de veau", description: "Piment d'Espelette, oignons doux.", categorie: "PLAT" as const, prixCentimes: 1900 },
+      { nom: "Gâteau basque", description: "Crème pâtissière ou cerises noires, au choix.", categorie: "DESSERT" as const, prixCentimes: 750 },
+    ],
+    // Volontairement sans contact — voir le commentaire en tête de fichier.
+  },
+  {
+    nom: "Cantine Toulousaine",
+    ville: "Toulouse",
+    cuisine: "Sud-Ouest",
+    adresse: "6 place du Capitole, 31000 Toulouse",
+    horaires: "Lun-Sam 12h-14h30, 19h-22h30",
+    description: "Cassoulet au canard confit, cuisson à l'ancienne.",
+    capacite: 55,
+    noteCuilleres: 4.5,
+    nombreAvis: 189,
+    plats: [
+      { nom: "Salade de gésiers", description: "Confits maison, noix.", categorie: "ENTREE" as const, prixCentimes: 1100 },
+      { nom: "Cassoulet", description: "Canard confit, saucisse de Toulouse, haricots tarbais.", categorie: "PLAT" as const, prixCentimes: 2100 },
+      { nom: "Croustade aux pommes", description: "Pâte filo, armagnac.", categorie: "DESSERT" as const, prixCentimes: 800 },
+    ],
+    // Deux contacts : sert aussi à vérifier le rendu de la liste à plusieurs
+    // entrées sur la fiche admin.
+    contacts: [
+      { nom: "Iban Etchegoyen", email: "iban@cantine-toulousaine.example", role: "GERANT" as const },
       {
-        nom: "Chorba libanaise",
-        description: "Soupe de lentilles corail, citron confit.",
-        categorie: "ENTREE" as const,
-        prixCentimes: 850,
+        nom: "Marion Duprat",
+        email: "marion@cantine-toulousaine.example",
+        role: "CHEF_DE_SALLE" as const,
       },
     ],
+  },
+  {
+    nom: "Chti'Bistrot",
+    ville: "Lille",
+    cuisine: "Ch'ti",
+    adresse: "2 place du Général de Gaulle, 59000 Lille",
+    horaires: "Mar-Dim 12h-14h, 19h-22h",
+    description: "Bières du Nord et carbonnade mijotée toute la journée.",
+    capacite: 38,
+    noteCuilleres: 4.2,
+    nombreAvis: 84,
+    plats: [
+      { nom: "Potjevleesch", description: "Terrine de viandes blanches en gelée.", categorie: "ENTREE" as const, prixCentimes: 950 },
+      { nom: "Carbonnade flamande", description: "Bière brune, pain d'épices, frites maison.", categorie: "PLAT" as const, prixCentimes: 1750 },
+      { nom: "Gaufre au sucre", description: "Sucre perlé, servie chaude.", categorie: "DESSERT" as const, prixCentimes: 550 },
+    ],
+    contacts: [
+      { nom: "Kevin Deceuninck", email: "kevin@chti-bistrot.example", role: "GERANT" as const },
+    ],
+  },
+  {
+    nom: "Beurre Salé",
+    ville: "Nantes",
+    cuisine: "Breton",
+    adresse: "10 rue Crébillon, 44000 Nantes",
+    horaires: "Mer-Dim 12h-14h, 19h-21h30",
+    description: "Galettes de blé noir et cidre brut de Fouesnant.",
+    capacite: 26,
+    noteCuilleres: 4.3,
+    nombreAvis: 41,
+    plats: [
+      { nom: "Rillettes de sardines", description: "Beurre demi-sel, pain de campagne.", categorie: "ENTREE" as const, prixCentimes: 750 },
+      { nom: "Galette complète", description: "Jambon, œuf, emmental, blé noir.", categorie: "PLAT" as const, prixCentimes: 1250 },
+      { nom: "Kouign-amann", description: "Beurre salé, pâte feuilletée caramélisée.", categorie: "DESSERT" as const, prixCentimes: 600 },
+    ],
+    // Volontairement sans contact — voir le commentaire en tête de fichier.
+  },
+  {
+    nom: "Table d'Alsace",
+    ville: "Strasbourg",
+    cuisine: "Alsacien",
+    adresse: "4 place de la Cathédrale, 67000 Strasbourg",
+    horaires: "Mar-Sam 12h-14h, 19h-22h",
+    description: "Choucroute royale et vins d'Alsace au verre.",
+    capacite: 42,
+    noteCuilleres: 4.4,
+    nombreAvis: 102,
+    plats: [
+      { nom: "Salade de cervelas", description: "Emmental, oignons, vinaigrette.", categorie: "ENTREE" as const, prixCentimes: 850 },
+      { nom: "Choucroute royale", description: "Trois charcuteries, pommes de terre.", categorie: "PLAT" as const, prixCentimes: 1950 },
+      { nom: "Kougelhopf", description: "Amandes et raisins secs.", categorie: "DESSERT" as const, prixCentimes: 700 },
+    ],
+    contacts: [{ nom: "Elise Muller", email: "elise@table-alsace.example", role: "GERANT" as const }],
+  },
+  {
+    nom: "Sol y Sal",
+    ville: "Montpellier",
+    cuisine: "Espagnol",
+    adresse: "8 place de la Comédie, 34000 Montpellier",
+    horaires: "Mar-Dim 12h-14h30, 19h30-23h",
+    description: "Tapas et paella au feu de bois, terrasse ombragée.",
+    capacite: 34,
+    noteCuilleres: 4.6,
+    nombreAvis: 119,
+    plats: [
+      { nom: "Croquetas de jamón", description: "Béchamel au jambon ibérique.", categorie: "ENTREE" as const, prixCentimes: 800 },
+      { nom: "Paella valenciana", description: "Poulet, lapin, haricots verts, safran.", categorie: "PLAT" as const, prixCentimes: 2000 },
+      { nom: "Crema catalana", description: "Sucre caramélisé au fer chaud.", categorie: "DESSERT" as const, prixCentimes: 700 },
+    ],
+    contacts: [
+      { nom: "Nuria Ferrer", email: "nuria@sol-y-sal.example", role: "CHEF_DE_SALLE" as const },
+    ],
+  },
+  {
+    nom: "Niçoise & Co",
+    ville: "Nice",
+    cuisine: "Niçois",
+    adresse: "5 cours Saleya, 06300 Nice",
+    horaires: "Lun-Dim 12h-14h30, 19h-22h30",
+    description: "Cuisine du comté de Nice, produits du marché Saleya.",
+    capacite: 30,
+    noteCuilleres: 4.5,
+    nombreAvis: 88,
+    plats: [
+      { nom: "Salade niçoise", description: "Thon, anchois, œuf, olives de Nice.", categorie: "ENTREE" as const, prixCentimes: 1100 },
+      { nom: "Daube niçoise", description: "Bœuf mijoté au vin rouge, olives, orange.", categorie: "PLAT" as const, prixCentimes: 1900 },
+      { nom: "Tarte tropézienne", description: "Brioche, crème mousseline.", categorie: "DESSERT" as const, prixCentimes: 750 },
+    ],
+    // Volontairement sans contact — voir le commentaire en tête de fichier.
   },
 ];
 
@@ -145,11 +294,13 @@ async function run() {
 
   const motDePasseHash = await hashPassword(MOT_DE_PASSE_CONTACT_DEV);
   let nombreContacts = 0;
+  let nombrePlats = 0;
 
   for (const { plats, contacts, ...restaurant } of restaurants) {
     const restaurantCree = await prisma.restaurant.create({
       data: { ...restaurant, platsCuillere: { create: plats } },
     });
+    nombrePlats += plats.length;
 
     for (const contact of contacts ?? []) {
       const contactCree = await prisma.restaurantContact.create({
@@ -157,15 +308,9 @@ async function run() {
       });
       // Compte de connexion du contact — même mécanique que l'auth dîneur
       // (accountId = id du user, providerId "credential"), cf. authRestaurant
-      // dans src/lib/auth.ts.
+      // dans src/lib/auth.ts et src/lib/comptes.ts.
       await prisma.restaurantContactAccount.create({
-        data: {
-          id: contactCree.id,
-          accountId: contactCree.id,
-          providerId: "credential",
-          userId: contactCree.id,
-          password: motDePasseHash,
-        },
+        data: nouveauCompteCredential(contactCree.id, motDePasseHash),
       });
       nombreContacts++;
     }
@@ -174,19 +319,13 @@ async function run() {
     const staffCree = await prisma.staff.create({ data: membre });
     // Compte de connexion du membre du staff — même mécanique que les
     // contacts restaurant (accountId = id du user, providerId "credential"),
-    // cf. authAdmin dans src/lib/auth.ts.
+    // cf. authAdmin dans src/lib/auth.ts et src/lib/comptes.ts.
     await prisma.staffAccount.create({
-      data: {
-        id: staffCree.id,
-        accountId: staffCree.id,
-        providerId: "credential",
-        userId: staffCree.id,
-        password: motDePasseHash,
-      },
+      data: nouveauCompteCredential(staffCree.id, motDePasseHash),
     });
   }
 
-  console.log(`${restaurants.length} restaurants créés, avec leur plat à la cuillère.`);
+  console.log(`${restaurants.length} restaurants créés, avec ${nombrePlats} plats à la cuillère au total.`);
   console.log(
     `${nombreContacts} contacts restaurant créés (mot de passe : "${MOT_DE_PASSE_CONTACT_DEV}"), connexion sur /connexion-restaurant.`,
   );
