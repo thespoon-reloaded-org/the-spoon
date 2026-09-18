@@ -1,14 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { EcranConnexion } from "@/components/EcranConnexion";
-import {
-  BoutonConnexion,
-  ChampConnexion,
-  ErreurConnexion,
-} from "@/components/FormulaireConnexion";
+import { BoutonConnexion, ChampConnexion, ErreurConnexion } from "@/components/FormulaireConnexion";
 import { authRestaurantClient } from "@/lib/auth-restaurant-client";
 import { UNIVERS } from "@/lib/univers";
 
@@ -66,7 +63,11 @@ export default function ConnexionRestaurantPage() {
       pied={
         <p>
           Pas encore partenaire ? Les comptes sont ouverts par TheSpoon lors du référencement de
-          votre établissement — il n&apos;y a pas d&apos;inscription en ligne.
+          votre établissement — il n&apos;y a pas d&apos;inscription en ligne.{" "}
+          <Link href="/devenir-partenaire" className="font-semibold underline">
+            Contactez-nous
+          </Link>{" "}
+          pour être référencé.
         </p>
       }
     >

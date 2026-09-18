@@ -134,26 +134,25 @@ export default async function RecherchePage({
 }) {
   const { ville, cuisine } = await searchParams;
 
-  const [restaurants, cuisines, platsCuillere, totalRestaurants, agregatAvis] =
-    await Promise.all([
-      prisma.restaurant.findMany({
-        where: {
-          ville: ville ? { equals: ville, mode: "insensitive" } : undefined,
-          cuisine: cuisine ? { equals: cuisine, mode: "insensitive" } : undefined,
-        },
-        orderBy: { nom: "asc" },
-      }),
-      prisma.restaurant
-        .findMany({ distinct: ["cuisine"], select: { cuisine: true }, orderBy: { cuisine: "asc" } })
-        .then((rows) => rows.map((r) => r.cuisine)),
-      prisma.platCuillere.findMany({
-        include: { restaurant: true },
-        orderBy: { createdAt: "desc" },
-        take: 8,
-      }),
-      prisma.restaurant.count(),
-      prisma.avis.aggregate({ _count: true, _avg: { noteCuilleres: true } }),
-    ]);
+  const [restaurants, cuisines, platsCuillere, totalRestaurants, agregatAvis] = await Promise.all([
+    prisma.restaurant.findMany({
+      where: {
+        ville: ville ? { equals: ville, mode: "insensitive" } : undefined,
+        cuisine: cuisine ? { equals: cuisine, mode: "insensitive" } : undefined,
+      },
+      orderBy: { nom: "asc" },
+    }),
+    prisma.restaurant
+      .findMany({ distinct: ["cuisine"], select: { cuisine: true }, orderBy: { cuisine: "asc" } })
+      .then((rows) => rows.map((r) => r.cuisine)),
+    prisma.platCuillere.findMany({
+      include: { restaurant: true },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    }),
+    prisma.restaurant.count(),
+    prisma.avis.aggregate({ _count: true, _avg: { noteCuilleres: true } }),
+  ]);
 
   const filtreActif = Boolean(ville || cuisine);
 
@@ -189,9 +188,9 @@ export default async function RecherchePage({
               Prends ta cuillère.
             </h1>
             <p className="mb-8 max-w-lg text-lg leading-relaxed text-[#ffe3e9]">
-              TheSpoon ne référence que les restaurants dont le meilleur plat se mange à la
-              cuillère — veloutés, mijotés, risottos, ramens. Tu réserves en deux tapes, tu notes
-              en cuillères.
+              TheSpoon ne référence que les restaurants dont le meilleur plat se mange à la cuillère
+              — veloutés, mijotés, risottos, ramens. Tu réserves en deux tapes, tu notes en
+              cuillères.
             </p>
 
             <form
@@ -568,16 +567,24 @@ export default async function RecherchePage({
               Votre salle, vos règles.
             </h2>
             <p className="max-w-md leading-relaxed text-[#b6cdc4]">
-              Réservations reçues, disponibilités, carte, fiche établissement et factures
-              mensuelles : tout se pilote depuis un seul espace.
+              Réservations reçues, disponibilités, carte, fiche établissement et factures mensuelles
+              : tout se pilote depuis un seul espace.
             </p>
-            <Link
-              href="/connexion-restaurant"
-              className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-pro-accent)] px-6 py-3.5 font-[family-name:var(--font-display)] text-[15px] font-bold text-[var(--color-pro-deep)] transition-transform hover:-translate-y-0.5"
-            >
-              Accéder à mon espace
-              <IconeFleche taille={18} />
-            </Link>
+            <div className="flex flex-wrap items-center gap-4">
+              <Link
+                href="/connexion-restaurant"
+                className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--color-pro-accent)] px-6 py-3.5 font-[family-name:var(--font-display)] text-[15px] font-bold text-[var(--color-pro-deep)] transition-transform hover:-translate-y-0.5"
+              >
+                Accéder à mon espace
+                <IconeFleche taille={18} />
+              </Link>
+              <Link
+                href="/devenir-partenaire"
+                className="text-sm font-semibold text-[#b6cdc4] hover:text-[var(--color-cream)] hover:underline"
+              >
+                Pas encore partenaire ? Contactez-nous
+              </Link>
+            </div>
           </div>
           <div className="relative min-h-[260px]">
             <Image

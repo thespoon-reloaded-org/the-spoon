@@ -13,6 +13,7 @@ const MENU: readonly EntreeMenu[] = [
   { href: "/admin/factures", label: "Facturation", icone: "facture" },
   { href: "/admin/litiges", label: "Litiges", icone: "litige" },
   { href: "/admin/contestation", label: "Réglages contestation", icone: "reglages" },
+  { href: "/admin/contacts-restaurateurs", label: "Demandes restaurateurs", icone: "message" },
 ];
 
 /** L'univers « staff » : encre bleutée, accent violet (cf. `src/lib/univers.ts`). */
