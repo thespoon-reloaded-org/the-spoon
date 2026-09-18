@@ -49,8 +49,11 @@ export function referenceFacture(facture: Pick<Facture, "id" | "mois">): string 
  * confondre dans un échange avec un restaurateur.
  */
 export function referenceAvoir(avoir: Pick<Avoir, "id" | "emisLe">): string {
-  const annee = avoir.emisLe.getUTCFullYear();
-  const moisIndex = String(avoir.emisLe.getUTCMonth() + 1).padStart(2, "0");
+  // Mois local, pas UTC : `emisLe` est un instant, et la référence doit
+  // désigner le même mois que la date affichée à côté d'elle. En UTC, un avoir
+  // émis le 1er octobre à 00h30 à Paris s'appellerait AV-202609.
+  const annee = avoir.emisLe.getFullYear();
+  const moisIndex = String(avoir.emisLe.getMonth() + 1).padStart(2, "0");
   return `AV-${annee}${moisIndex}-${avoir.id.slice(-6).toUpperCase()}`;
 }
 

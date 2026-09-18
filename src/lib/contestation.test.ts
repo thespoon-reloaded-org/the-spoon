@@ -157,11 +157,14 @@ describe("creerDossierContestation", () => {
   });
 
   afterAll(async () => {
-    await prisma.pieceJointeDossier.deleteMany({ where: { dossier: { factureId } } });
-    await prisma.ligneContestee.deleteMany({ where: { dossier: { factureId } } });
-    await prisma.dossier.deleteMany({ where: { factureId } });
-    await prisma.ligneFacture.deleteMany({ where: { factureId } });
-    await prisma.facture.delete({ where: { id: factureId } });
+    // Portée sur le restaurant, pas sur la seule facture du fixture : certains
+    // tests créent leur propre facture, et ce qui y reste bloque la suppression
+    // du contact en fin de describe.
+    await prisma.pieceJointeDossier.deleteMany({ where: { dossier: { facture: { restaurantId } } } });
+    await prisma.ligneContestee.deleteMany({ where: { dossier: { facture: { restaurantId } } } });
+    await prisma.dossier.deleteMany({ where: { facture: { restaurantId } } });
+    await prisma.ligneFacture.deleteMany({ where: { facture: { restaurantId } } });
+    await prisma.facture.deleteMany({ where: { restaurantId } });
     await prisma.restaurantContact.delete({ where: { id: restaurantContactId } });
     await prisma.booking.deleteMany({ where: { restaurantId } });
     await prisma.user.delete({ where: { id: userId } });
@@ -224,6 +227,61 @@ describe("creerDossierContestation", () => {
     const dossier = await prisma.dossier.findUniqueOrThrow({ where: { id: resultat.dossierId } });
     expect(dossier.statut).toBe("EN_ATTENTE_INSTRUCTION");
     expect(dossier.montantContesteCentimes).toBe(1500);
+  });
+
+  test("découper une contestation en petits dossiers ne contourne pas le seuil", async () => {
+    // Facture à part : le cumul se compte par facture, pas par restaurant.
+    const factureDecoupee = await prisma.facture.create({
+      data: { restaurantId, mois: new Date(Date.UTC(2026, 6, 1)), montantTotalCentimes: 1200 },
+    });
+    const lignes = [];
+    for (const [index, montantCentimes] of [600, 600].entries()) {
+      const booking = await prisma.booking.create({
+        data: {
+          restaurantId,
+          userId,
+          date: new Date(Date.UTC(2026, 6, 10 + index, 20, 0)),
+          couverts: 2,
+          statut: "HONOREE",
+          couvertsServis: 2,
+        },
+      });
+      lignes.push(
+        await prisma.ligneFacture.create({
+          data: { factureId: factureDecoupee.id, bookingId: booking.id, couvertsFactures: 2, montantCentimes },
+        }),
+      );
+    }
+
+    const depot = (ligneFactureId: string) =>
+      creerDossierContestation({
+        factureId: factureDecoupee.id,
+        restaurantId,
+        restaurantContactId,
+        lignes: [{ ligneFactureId, motif: "COUVERTS_SURCOMPTES" }],
+        commentaire: null,
+      });
+
+    // 6 € seul : sous le seuil de 10 €, crédité d'office.
+    const premier = await depot(lignes[0]!.id);
+    expect(premier.ok).toBe(true);
+    if (!premier.ok) return;
+    expect((await prisma.dossier.findUniqueOrThrow({ where: { id: premier.dossierId } })).statut).toBe(
+      "CREDITE_OFFICE",
+    );
+
+    // 6 € de plus sur la même facture : 12 € contestés au total, donc
+    // instruction — sinon il suffisait de découper pour tout faire créditer.
+    const second = await depot(lignes[1]!.id);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    const dossierSecond = await prisma.dossier.findUniqueOrThrow({
+      where: { id: second.dossierId },
+      include: { decisions: true },
+    });
+    expect(dossierSecond.statut).toBe("EN_ATTENTE_INSTRUCTION");
+    expect(dossierSecond.montantContesteCentimes).toBe(600); // le montant du dossier, pas le cumul
+    expect(dossierSecond.decisions).toHaveLength(0); // aucun avoir automatique
   });
 
   test("contester une ligne déjà contestée est refusé, sans créer de dossier fantôme", async () => {
@@ -729,5 +787,31 @@ describe("deciderDossier", () => {
     expect(relu.decisions).toHaveLength(2);
     expect(relu.decisions[0]?.montantAccordeCentimes).toBe(1500);
     expect(relu.decisions[0]?.avoir?.montantCentimes).toBe(1500);
+  });
+
+  test("une escalade libère le dossier de son instructeur", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+
+    await deciderDossier(dossier.id, staffAId, { issue: "ESCALADE", motif });
+
+    const relu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    // Escalader, c'est passer la main : afficher "instruit par" quelqu'un qui
+    // s'en est dessaisi tromperait celui qui reprend le dossier.
+    expect(relu.instructeurId).toBeNull();
+    expect(relu.priseEnChargeLe).toBeNull();
+  });
+
+  test("un dossier escaladé accepte encore une demande de complément", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+    await deciderDossier(dossier.id, staffAId, { issue: "ESCALADE", motif });
+
+    // Un dossier est souvent escaladé faute d'un élément manquant : interdire
+    // la demande obligerait le repreneur à trancher à l'aveugle.
+    const resultat = await demanderComplementDossier(dossier.id, staffBId, "Merci d'envoyer le ticket de caisse.");
+    expect(resultat.ok).toBe(true);
+
+    const relu = await prisma.dossier.findUniqueOrThrow({ where: { id: dossier.id } });
+    expect(relu.complementDemandeMessage).toMatch(/ticket de caisse/);
+    expect(relu.statut).toBe("ESCALADE"); // la demande ne referme rien
   });
 });

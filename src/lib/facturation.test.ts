@@ -4,7 +4,13 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { couvertsAFacturer, genererFacturesMois, joursRestantsContestation } from "./facturation";
+import {
+  couvertsAFacturer,
+  genererFacturesMois,
+  joursRestantsContestation,
+  montantAvoirsCentimes,
+  netAPayerCentimes,
+} from "./facturation";
 import { prisma } from "./prisma";
 
 describe("couvertsAFacturer", () => {
@@ -33,6 +39,26 @@ describe("joursRestantsContestation", () => {
  * Preuve de bout en bout du moteur de facturation — nécessite une vraie base
  * Postgres (`DATABASE_URL`), comme `reservation.concurrence.test.ts`.
  */
+describe("montantAvoirsCentimes / netAPayerCentimes", () => {
+  test("sans avoir, le net est le total facturé", () => {
+    expect(montantAvoirsCentimes([])).toBe(0);
+    expect(netAPayerCentimes(3250, [])).toBe(3250);
+  });
+
+  test("les avoirs se cumulent et se déduisent du total", () => {
+    const avoirs = [{ montantCentimes: 750 }, { montantCentimes: 1500 }];
+    expect(montantAvoirsCentimes(avoirs)).toBe(2250);
+    expect(netAPayerCentimes(3250, avoirs)).toBe(1000);
+  });
+
+  test("un avoir qui dépasse la facture ne rend pas le net négatif", () => {
+    // Inatteignable aujourd'hui (on ne peut pas contester plus que ce qui est
+    // facturé), mais un net négatif s'afficherait comme une dette de TheSpoon
+    // envers le restaurant, que rien ne sait traiter.
+    expect(netAPayerCentimes(1000, [{ montantCentimes: 1500 }])).toBe(0);
+  });
+});
+
 describe("genererFacturesMois", () => {
   let restaurantId: string;
   const userId = randomUUID();

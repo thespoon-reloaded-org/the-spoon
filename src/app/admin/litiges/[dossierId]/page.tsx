@@ -17,6 +17,7 @@ import {
   LABELS_ISSUE_DECISION,
   LABELS_MOTIF_CONTESTATION,
   LABELS_STATUT_DOSSIER,
+  peutInstruireDossier,
 } from "@/lib/contestation";
 import {
   formaterDateReservation,
@@ -81,10 +82,9 @@ export default async function InstructionDossierPage({
   });
 
   const enAttente = dossier.statut === "EN_ATTENTE_INSTRUCTION";
-  const peutDemanderComplement = enAttente && dossier.instructeurId === session.user.id;
-  // Un dossier escaladé est ouvert à tout le staff : escalader, c'est
-  // justement passer la main à quelqu'un d'autre.
-  const peutTrancher = dossier.statut === "ESCALADE" || peutDemanderComplement;
+  // Demander un complément et trancher sont deux gestes d'instruction : même
+  // règle pour les deux, celle de `peutInstruireDossier`.
+  const peutInstruire = peutInstruireDossier(dossier, session.user.id);
   const derniereDecision = dossier.decisions[0];
 
   return (
@@ -217,7 +217,7 @@ export default async function InstructionDossierPage({
         )}
       </section>
 
-      {peutDemanderComplement && (
+      {peutInstruire && (
         <section className="mt-10 max-w-3xl">
           <h2 className={`${TITRE_SECTION} mb-4`}>Demander un complément</h2>
           <div className={CARTE}>
@@ -271,7 +271,7 @@ export default async function InstructionDossierPage({
           </ul>
         )}
 
-        {peutTrancher ? (
+        {peutInstruire ? (
           <div className={CARTE}>
             <DeciderDossierForm
               dossierId={dossier.id}

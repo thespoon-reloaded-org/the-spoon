@@ -1,4 +1,5 @@
 import type {
+  Dossier,
   ImputationLitige,
   IssueDecision,
   LigneFacture,
@@ -37,9 +38,19 @@ export function calculerMontantConteste(lignes: Pick<LigneFacture, "montantCenti
  * En-dessous du seuil (strictement) : crédit d'office, le dossier n'entre pas
  * dans la file d'instruction et son avoir est émis dès le dépôt. Au seuil ou
  * au-dessus : instruction manuelle, tranchée par `deciderDossier`.
+ *
+ * Le montant comparé est le **cumul contesté sur la facture**, pas le dossier
+ * seul : sinon il suffisait de découper une contestation de 114 € en six
+ * dossiers de 19 € pour que tout soit crédité sans qu'un instructeur voie
+ * jamais le sujet. Le seuil dit « à partir de combien ça vaut le coût
+ * d'instruire », et ce coût se juge sur ce que le restaurant conteste, pas
+ * sur la façon dont il répartit ses dossiers.
  */
-export function decisionStatutDossier(montantContesteCentimes: number, seuilCentimes: number): StatutDossier {
-  return montantContesteCentimes < seuilCentimes ? "CREDITE_OFFICE" : "EN_ATTENTE_INSTRUCTION";
+export function decisionStatutDossier(
+  montantCumuleContesteCentimes: number,
+  seuilCentimes: number,
+): StatutDossier {
+  return montantCumuleContesteCentimes < seuilCentimes ? "CREDITE_OFFICE" : "EN_ATTENTE_INSTRUCTION";
 }
 
 /** Le délai de contestation de la facture est-il dépassé ? */
@@ -113,21 +124,33 @@ export async function creerDossierContestation(params: {
     return { ok: false, erreur: "Le délai de contestation de cette facture est dépassé." };
   }
 
-  // Les deux lectures ci-dessous ne dépendent l'une de l'autre que pour le
+  // Les trois lectures ci-dessous ne dépendent l'une de l'autre que pour le
   // calcul final (statut) : lancées en parallèle plutôt qu'en série, une
   // fois la facture validée.
-  const [lignesFacture, config] = await Promise.all([
+  const [lignesFacture, config, dejaConteste] = await Promise.all([
     prisma.ligneFacture.findMany({
       where: { id: { in: params.lignes.map((l) => l.ligneFactureId) }, factureId: params.factureId },
     }),
     getConfigContestation(),
+    prisma.dossier.aggregate({
+      where: { factureId: params.factureId },
+      _sum: { montantContesteCentimes: true },
+    }),
   ]);
   if (lignesFacture.length !== params.lignes.length) {
     return { ok: false, erreur: "Une des lignes sélectionnées est introuvable sur cette facture." };
   }
 
   const montantContesteCentimes = calculerMontantConteste(lignesFacture);
-  const statut = decisionStatutDossier(montantContesteCentimes, config.seuilCreditOfficeCentimes);
+  // Cumul avec ce qui a déjà été contesté sur cette facture, dossiers réglés
+  // compris — voir `decisionStatutDossier`. Deux dépôts rigoureusement
+  // simultanés peuvent lire le même cumul et passer tous les deux : le risque
+  // est borné (un dossier de plus sous le seuil) et ne justifie pas de
+  // sérialiser les dépôts de toute une facture.
+  const statut = decisionStatutDossier(
+    (dejaConteste._sum.montantContesteCentimes ?? 0) + montantContesteCentimes,
+    config.seuilCreditOfficeCentimes,
+  );
   const motifParLigne = new Map(params.lignes.map((l) => [l.ligneFactureId, l.motif]));
 
   try {
@@ -156,11 +179,12 @@ export async function creerDossierContestation(params: {
               issue: "ACCORDE",
               montantAccordeCentimes: montantContesteCentimes,
               imputation: "THESPOON",
+              // Le montant est celui que le restaurant a lui-même contesté ;
+              // le seuil, lui, reste interne — l'écrire ici reviendrait à
+              // publier la limite sous laquelle un dossier passe sans examen.
               motif: `Crédit d'office : ${formaterMontant(
                 montantContesteCentimes,
-              )} contestés, sous le seuil d'instruction de ${formaterMontant(
-                config.seuilCreditOfficeCentimes,
-              )}.`,
+              )} contestés, sous le seuil d'instruction.`,
               avoir: {
                 create: { factureId: params.factureId, montantCentimes: montantContesteCentimes },
               },
@@ -208,14 +232,38 @@ export async function prendreEnChargeDossier(
   return { ok: true };
 }
 
+/** Les deux statuts depuis lesquels un dossier peut encore être tranché. */
+export const STATUTS_A_TRANCHER = ["EN_ATTENTE_INSTRUCTION", "ESCALADE"] as const;
+
+export function dossierATrancher(statut: StatutDossier): boolean {
+  return (STATUTS_A_TRANCHER as readonly StatutDossier[]).includes(statut);
+}
+
+/**
+ * Qui a la main sur un dossier : l'instructeur qui l'a pris en charge, et lui
+ * seul, tant qu'il est en attente. Un dossier escaladé n'a plus d'instructeur
+ * assigné (l'escalade le libère) et redevient ouvert à tout le staff — c'est
+ * le sens de l'escalade, passer la main.
+ *
+ * Même règle pour demander un complément et pour trancher : les deux sont des
+ * gestes d'instruction, il n'y a aucune raison qu'ils divergent.
+ */
+export function peutInstruireDossier(
+  dossier: Pick<Dossier, "statut" | "instructeurId">,
+  staffId: string,
+): boolean {
+  if (!dossierATrancher(dossier.statut)) return false;
+  return dossier.statut === "ESCALADE" || dossier.instructeurId === staffId;
+}
+
 export type ResultatDemandeComplement = { ok: true } | { ok: false; erreur: string };
 
 /**
  * Demande de complément de l'instructeur au restaurant, depuis "Instruction
- * d'un dossier" — ne clôture pas le dossier (reste EN_ATTENTE_INSTRUCTION),
- * juste un message et un horodatage. Réservé à l'instructeur assigné : il
- * faut avoir pris en charge le dossier avant de pouvoir l'instruire, même
- * logique que le reste de l'epic.
+ * d'un dossier" — ne clôture pas le dossier, juste un message et un
+ * horodatage. Possible sur un dossier escaladé : il est souvent escaladé
+ * faute d'un élément que le premier instructeur n'a pas su obtenir, et
+ * interdire la demande obligerait son repreneur à trancher à l'aveugle.
  */
 export async function demanderComplementDossier(
   dossierId: string,
@@ -223,10 +271,10 @@ export async function demanderComplementDossier(
   message: string,
 ): Promise<ResultatDemandeComplement> {
   const dossier = await prisma.dossier.findUnique({ where: { id: dossierId } });
-  if (!dossier || dossier.statut !== "EN_ATTENTE_INSTRUCTION") {
+  if (!dossier || !dossierATrancher(dossier.statut)) {
     return { ok: false, erreur: "Dossier introuvable." };
   }
-  if (dossier.instructeurId !== staffId) {
+  if (!peutInstruireDossier(dossier, staffId)) {
     return { ok: false, erreur: "Seul l'instructeur assigné à ce dossier peut demander un complément." };
   }
 
@@ -235,13 +283,6 @@ export async function demanderComplementDossier(
     data: { complementDemandeLe: new Date(), complementDemandeMessage: message },
   });
   return { ok: true };
-}
-
-/** Les deux statuts depuis lesquels un dossier peut encore être tranché. */
-export const STATUTS_A_TRANCHER = ["EN_ATTENTE_INSTRUCTION", "ESCALADE"] as const;
-
-export function dossierATrancher(statut: StatutDossier): boolean {
-  return (STATUTS_A_TRANCHER as readonly StatutDossier[]).includes(statut);
 }
 
 /** Ce que l'instructeur saisit ; ce qui est enregistré passe par `normaliserDecision`. */
@@ -367,12 +408,11 @@ export type ResultatDecision = { ok: true; avoirEmis: boolean } | { ok: false; e
  * statut et repart sans rien écrire. Deuxième verrou en base : `decisionId`
  * est unique sur Avoir, donc une décision ne peut pas porter deux avoirs.
  *
- * Qui peut trancher : l'instructeur qui a pris le dossier en charge, et lui
- * seul, tant que le dossier est EN_ATTENTE_INSTRUCTION. Un dossier escaladé
- * est ouvert à tout le staff — c'est le sens de l'escalade, passer la main —
- * faute de rôles (la double validation d'un responsable au-dessus d'un seuil
- * est le ticket "Validation des avoirs au-dessus du seuil", qui attend
- * "Auth staff TheSpoon & permissions").
+ * Qui peut trancher : `peutInstruireDossier`. Une escalade libère le dossier
+ * de son instructeur — il repart sans personne assigné, ouvert à tout le
+ * staff. Pas de rôles pour l'instant : la double validation d'un responsable
+ * au-dessus d'un seuil est le ticket "Validation des avoirs au-dessus du
+ * seuil", qui attend "Auth staff TheSpoon & permissions".
  */
 export async function deciderDossier(
   dossierId: string,
@@ -384,7 +424,7 @@ export async function deciderDossier(
   if (!dossierATrancher(dossier.statut)) {
     return { ok: false, erreur: "Ce dossier est déjà tranché." };
   }
-  if (dossier.statut === "EN_ATTENTE_INSTRUCTION" && dossier.instructeurId !== staffId) {
+  if (!peutInstruireDossier(dossier, staffId)) {
     return { ok: false, erreur: "Seul l'instructeur assigné à ce dossier peut le trancher." };
   }
 
@@ -395,8 +435,15 @@ export async function deciderDossier(
   try {
     await prisma.$transaction(async (tx) => {
       const transition = await tx.dossier.updateMany({
-        where: { id: dossierId, statut: dossier.statut },
-        data: { statut: statutDossier },
+        // `instructeurId` fait partie de la garde, pas seulement le statut :
+        // sans lui, deux escalades simultanées passeraient toutes les deux
+        // (ESCALADE attendu, ESCALADE écrit) et le dossier porterait deux
+        // délibérations qui n'ont pas eu lieu.
+        where: { id: dossierId, statut: dossier.statut, instructeurId: dossier.instructeurId },
+        data:
+          statutDossier === "ESCALADE"
+            ? { statut: statutDossier, instructeurId: null, priseEnChargeLe: null }
+            : { statut: statutDossier },
       });
       if (transition.count === 0) throw new DossierDejaTrancheError();
 
