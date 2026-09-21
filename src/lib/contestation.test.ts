@@ -12,6 +12,7 @@ import {
   delaiContestationExpire,
   demanderComplementDossier,
   formaterAnciennete,
+  lireJournalDossier,
   formaterDelaiSignalement,
   normaliserDecision,
   prendreEnChargeDossier,
@@ -203,10 +204,10 @@ describe("creerDossierContestation", () => {
     // Le journal s'ouvre avec le dossier, et un crédit d'office y écrit aussi
     // sa décision et son avoir : sinon la frise s'arrêterait au dépôt alors
     // que l'argent a bougé.
-    const evenements = await prisma.evenementDossier.findMany({
-      where: { dossierId: resultat.dossierId },
-      orderBy: { createdAt: "asc" },
-    });
+    // Par la lecture des écrans, pas par un tri sur `createdAt` seul : les
+    // trois lignes sont écrites dans la même transaction, donc datées du même
+    // instant à la microseconde.
+    const evenements = await lireJournalDossier(resultat.dossierId);
     expect(evenements.map((e) => e.type)).toEqual(["DEPOT", "DECISION", "AVOIR_EMIS"]);
     expect(evenements.every((e) => e.auteurStaffId === null)).toBe(true);
     expect(evenements.every((e) => e.interne === false)).toBe(true);
@@ -835,10 +836,7 @@ describe("deciderDossier", () => {
 
     await deciderDossier(dossier.id, staffAId, { issue: "ACCORDE", imputation: "THESPOON", motif });
 
-    const evenements = await prisma.evenementDossier.findMany({
-      where: { dossierId: dossier.id },
-      orderBy: { createdAt: "asc" },
-    });
+    const evenements = await lireJournalDossier(dossier.id);
     // Le fixture assigne l'instructeur directement, sans passer par la prise
     // en charge : le journal commence donc à la décision.
     expect(evenements.map((e) => e.type)).toEqual(["DECISION", "AVOIR_EMIS"]);
@@ -859,6 +857,20 @@ describe("deciderDossier", () => {
     expect(evenements).toHaveLength(1); // rien n'est crédité, donc pas d'avoir
     // Escalader est une affaire d'organisation : le partenaire n'en voit rien.
     expect(evenements[0]?.interne).toBe(true);
+  });
+
+  test("le journal du partenaire écarte les gestes internes", async () => {
+    const dossier = await creerDossierPrisEnCharge(4000, staffAId);
+    await deciderDossier(dossier.id, staffAId, { issue: "ESCALADE", motif });
+
+    const cotéStaff = await lireJournalDossier(dossier.id);
+    expect(cotéStaff.some((evenement) => evenement.interne)).toBe(true);
+
+    // C'est la seule barrière entre une délibération interne et l'écran d'un
+    // restaurateur : elle se teste ici, une fois, plutôt que dans chaque page.
+    const cotéPartenaire = await lireJournalDossier(dossier.id, { pourLePartenaire: true });
+    expect(cotéPartenaire.every((evenement) => evenement.interne === false)).toBe(true);
+    expect(cotéPartenaire.map((evenement) => evenement.type)).not.toContain("DECISION");
   });
 
   test("une escalade libère le dossier de son instructeur", async () => {

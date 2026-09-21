@@ -152,6 +152,13 @@ export async function creerDossierContestation(params: {
     config.seuilCreditOfficeCentimes,
   );
   const motifParLigne = new Map(params.lignes.map((l) => [l.ligneFactureId, l.motif]));
+  // Décrite une fois, écrite deux fois : sur la décision et dans le journal.
+  // Deux blocs séparés finiraient par diverger le jour où la règle change.
+  const decisionOffice = {
+    issue: "ACCORDE",
+    montantAccordeCentimes: montantContesteCentimes,
+    imputation: "THESPOON",
+  } as const;
 
   try {
     const dossier = await prisma.dossier.create({
@@ -179,14 +186,7 @@ export async function creerDossierContestation(params: {
             },
             ...(statut === "CREDITE_OFFICE"
               ? [
-                  {
-                    type: "DECISION" as const,
-                    details: {
-                      issue: "ACCORDE",
-                      montantAccordeCentimes: montantContesteCentimes,
-                      imputation: "THESPOON",
-                    },
-                  },
+                  { type: "DECISION" as const, details: decisionOffice },
                   {
                     type: "AVOIR_EMIS" as const,
                     details: { montantCentimes: montantContesteCentimes },
@@ -203,9 +203,7 @@ export async function creerDossierContestation(params: {
         ...(statut === "CREDITE_OFFICE" && {
           decisions: {
             create: {
-              issue: "ACCORDE",
-              montantAccordeCentimes: montantContesteCentimes,
-              imputation: "THESPOON",
+              ...decisionOffice,
               // Le montant est celui que le restaurant a lui-même contesté ;
               // le seuil, lui, reste interne — l'écrire ici reviendrait à
               // publier la limite sous laquelle un dossier passe sans examen.
@@ -227,6 +225,29 @@ export async function creerDossierContestation(params: {
     }
     throw erreur;
   }
+}
+
+/**
+ * Le journal d'un dossier, dans l'ordre. Une seule lecture pour les deux
+ * écrans : le filtre qui protège le partenaire est une règle produit, pas un
+ * détail de page — recopié à chaque écran, il finirait par être oublié sur le
+ * prochain.
+ *
+ * Le type départage les événements d'un même instant : Postgres date les
+ * lignes d'une transaction à son ouverture, donc le dépôt d'un dossier
+ * crédité d'office et sa décision partagent leur `createdAt` à la
+ * microseconde. L'enum `TypeEvenementDossier` est déclaré dans l'ordre
+ * chronologique exprès.
+ */
+export async function lireJournalDossier(
+  dossierId: string,
+  { pourLePartenaire = false }: { pourLePartenaire?: boolean } = {},
+) {
+  return prisma.evenementDossier.findMany({
+    where: { dossierId, ...(pourLePartenaire && { interne: false }) },
+    include: { auteurStaff: { select: { nom: true } } },
+    orderBy: [{ createdAt: "asc" }, { type: "asc" }],
+  });
 }
 
 export type ResultatPriseEnCharge = { ok: true } | { ok: false; erreur: string };
@@ -514,25 +535,29 @@ export async function deciderDossier(
 
       // Décision et avoir sont deux lignes de journal distinctes : un refus
       // n'émet rien, et une escalade ne regarde que l'équipe Partenaires.
-      await tx.evenementDossier.create({
-        data: {
-          dossierId,
-          type: "DECISION",
-          details: { issue, montantAccordeCentimes, imputation },
-          auteurStaffId: staffId,
-          interne: issue === "ESCALADE",
-        },
-      });
-      if (montantAccordeCentimes > 0) {
-        await tx.evenementDossier.create({
-          data: {
+      // Écrites en une fois — la transaction tient un verrou sur le dossier,
+      // que deux instructeurs simultanés se disputent justement.
+      await tx.evenementDossier.createMany({
+        data: [
+          {
             dossierId,
-            type: "AVOIR_EMIS",
-            details: { montantCentimes: montantAccordeCentimes },
+            type: "DECISION",
+            details: { issue, montantAccordeCentimes, imputation },
             auteurStaffId: staffId,
+            interne: issue === "ESCALADE",
           },
-        });
-      }
+          ...(montantAccordeCentimes > 0
+            ? [
+                {
+                  dossierId,
+                  type: "AVOIR_EMIS" as const,
+                  details: { montantCentimes: montantAccordeCentimes },
+                  auteurStaffId: staffId,
+                },
+              ]
+            : []),
+        ],
+      });
     });
   } catch (erreur) {
     if (erreur instanceof DossierDejaTrancheError) return { ok: false, erreur: erreur.message };

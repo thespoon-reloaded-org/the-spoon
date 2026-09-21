@@ -6,7 +6,9 @@ import { decrireEvenement, formaterHorodatage, type EvenementAvecAuteur } from "
 // étroite, invisible à la relecture d'un test mais pas à la comparaison.
 import { formaterMontant } from "./montants";
 
-const LE_18_A_14H32 = new Date(2026, 8, 18, 14, 32);
+// Instant absolu plutôt qu'heure locale : le rendu impose le fuseau de Paris,
+// et ce test doit dire la même chose sur le poste d'Elsa et sur la CI (en UTC).
+const LE_18_A_14H32_A_PARIS = new Date("2026-09-18T12:32:00Z");
 
 function evenement(champs: Partial<EvenementAvecAuteur>): EvenementAvecAuteur {
   return {
@@ -17,14 +19,16 @@ function evenement(champs: Partial<EvenementAvecAuteur>): EvenementAvecAuteur {
     auteurStaffId: null,
     auteurStaff: null,
     interne: false,
-    createdAt: LE_18_A_14H32,
+    createdAt: LE_18_A_14H32_A_PARIS,
     ...champs,
   };
 }
 
 describe("formaterHorodatage", () => {
-  test("date et heure, à la minute", () => {
-    expect(formaterHorodatage(LE_18_A_14H32)).toBe("18 sept. à 14:32");
+  test("date et heure de Paris, à la minute, quel que soit le fuseau du serveur", () => {
+    // En production le serveur tourne en UTC : sans fuseau imposé, ce geste
+    // serait daté de 12:32.
+    expect(formaterHorodatage(LE_18_A_14H32_A_PARIS)).toBe("18 sept. à 14:32");
   });
 });
 
@@ -88,6 +92,16 @@ describe("decrireEvenement", () => {
     const ligne = decrireEvenement(evenement({ type: "AVOIR_EMIS", details: { montantCentimes: 750 } }));
     expect(ligne.titre).toBe("Avoir émis");
     expect(ligne.detail).toBe(`${formaterMontant(750)} en déduction de la facture`);
+  });
+
+  test("une valeur d'enum inconnue ne produit pas « undefined » à l'écran", () => {
+    // Une ligne écrite par une version antérieure du code, ou portant une
+    // valeur retirée de l'enum depuis.
+    const ligne = decrireEvenement(
+      evenement({ type: "DECISION", details: { issue: "ANNULE", imputation: "AUTRE_CHOSE" } }),
+    );
+    expect(ligne.titre).toBe("Décision");
+    expect(ligne.detail).toBeUndefined();
   });
 
   test("des détails absents ou d'une autre forme ne cassent pas la ligne", () => {

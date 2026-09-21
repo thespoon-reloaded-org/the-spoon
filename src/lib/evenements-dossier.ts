@@ -1,4 +1,4 @@
-import type { EvenementDossier, ImputationLitige, IssueDecision, Staff } from "@/generated/prisma";
+import type { EvenementDossier, Staff } from "@/generated/prisma";
 
 import { LABELS_IMPUTATION_LITIGE, LABELS_ISSUE_DECISION } from "./contestation-labels";
 import { formaterMontant } from "./montants";
@@ -32,10 +32,32 @@ function texte(details: unknown, cle: string): string | null {
   return typeof valeur === "string" ? valeur : null;
 }
 
+/**
+ * Libellé d'une valeur d'enum lue dans le JSON — `null` si elle n'est pas (ou
+ * n'est plus) dans la table. Un cast direct donnerait « Décision : undefined »
+ * sur une ligne écrite par une version antérieure du code.
+ */
+function libelle<Cle extends string>(table: Record<Cle, string>, valeur: string | null): string | null {
+  if (valeur === null) return null;
+  return Object.prototype.hasOwnProperty.call(table, valeur) ? table[valeur as Cle] : null;
+}
+
+/**
+ * Fuseau imposé, pas celui du serveur : en production le code tourne en UTC
+ * (Netlify), et un journal qui daterait à 12:32 un geste fait à 14:32 à Paris
+ * serait faux là où il doit justement faire foi. Les partenaires et l'équipe
+ * sont en France, il n'y a pas d'autre fuseau à gérer aujourd'hui.
+ */
+const FUSEAU = "Europe/Paris";
+
 /** "18 sept. à 14:32" — un journal se lit à la minute, pas au jour près. */
 export function formaterHorodatage(date: Date): string {
-  const jour = date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-  const heure = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const jour = date.toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: FUSEAU });
+  const heure = date.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: FUSEAU,
+  });
   return `${jour} à ${heure}`;
 }
 
@@ -56,14 +78,18 @@ export function decrireEvenement(
   { pourLePartenaire = false }: { pourLePartenaire?: boolean } = {},
 ): LigneJournal {
   const horodatage = formaterHorodatage(evenement.createdAt);
-  // Côté partenaire, l'auteur se lit du type et non de `auteurStaff` : un
-  // crédit d'office n'a pas d'auteur en base, et l'attribuer au restaurant
-  // ("Vous avez accordé un avoir") serait faux. Seul le dépôt est de lui.
-  const auteur = pourLePartenaire
-    ? evenement.type === "DEPOT"
-      ? "Vous"
-      : "TheSpoon"
-    : (evenement.auteurStaff?.nom ?? "Traitement automatique");
+  // L'auteur se lit du type et non de `auteurStaff` pour le dépôt (il vient du
+  // restaurant) et pour tout ce que voit le partenaire : un crédit d'office
+  // n'a pas d'auteur en base, et l'attribuer au restaurant ("Vous avez accordé
+  // un avoir") serait faux.
+  const auteur =
+    evenement.type === "DEPOT"
+      ? pourLePartenaire
+        ? "Vous"
+        : "Le restaurant"
+      : pourLePartenaire
+        ? "TheSpoon"
+        : (evenement.auteurStaff?.nom ?? "Traitement automatique");
 
   switch (evenement.type) {
     case "DEPOT": {
@@ -78,7 +104,7 @@ export function decrireEvenement(
             : `${formaterMontant(montant)} contestés${
                 lignes === null ? "" : ` sur ${lignes} réservation${lignes > 1 ? "s" : ""}`
               }`,
-        auteur: pourLePartenaire ? "Vous" : "Le restaurant",
+        auteur,
       };
     }
     case "PRISE_EN_CHARGE":
@@ -91,16 +117,16 @@ export function decrireEvenement(
         auteur,
       };
     case "DECISION": {
-      const issue = texte(evenement.details, "issue") as IssueDecision | null;
+      const issue = libelle(LABELS_ISSUE_DECISION, texte(evenement.details, "issue"));
       const montant = nombre(evenement.details, "montantAccordeCentimes");
-      const imputation = texte(evenement.details, "imputation") as ImputationLitige | null;
+      const imputation = libelle(LABELS_IMPUTATION_LITIGE, texte(evenement.details, "imputation"));
       const morceaux = [
         montant !== null && montant > 0 ? `${formaterMontant(montant)} accordés` : null,
-        !pourLePartenaire && imputation ? LABELS_IMPUTATION_LITIGE[imputation] : null,
+        pourLePartenaire ? null : imputation,
       ].filter((morceau): morceau is string => morceau !== null);
       return {
         horodatage,
-        titre: issue ? `Décision : ${LABELS_ISSUE_DECISION[issue].toLowerCase()}` : "Décision",
+        titre: issue ? `Décision : ${issue.toLowerCase()}` : "Décision",
         detail: morceaux.length > 0 ? morceaux.join(" · ") : undefined,
         auteur,
       };

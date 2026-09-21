@@ -12,6 +12,7 @@ import {
   ETAT_ISSUE_DECISION,
   LABELS_ISSUE_DECISION,
   LABELS_MOTIF_CONTESTATION,
+  lireJournalDossier,
   STATUT_DOSSIER_COTE_RESTAURANT,
 } from "@/lib/contestation";
 import { formaterDateReservation, formaterMontant, referenceAvoir } from "@/lib/facturation";
@@ -50,20 +51,13 @@ export default async function RecapitulatifDossierPage({
       lignes: { include: { ligneFacture: { include: { booking: true } } } },
       piecesJointes: true,
       decisions: { include: { avoir: true }, orderBy: { createdAt: "desc" } },
-      // Les gestes d'organisation interne (prise en charge, escalade) ne sont
-      // pas filtrés à l'affichage mais dès la requête : ce qui n'est pas
-      // envoyé au navigateur ne peut pas fuiter.
-      evenements: {
-        where: { interne: false },
-        include: { auteurStaff: { select: { nom: true } } },
-        // Le type départage les événements d'un même instant (dépôt et
-        // crédit d'office partagent leur horodatage) — l'enum est déclaré
-        // dans l'ordre chronologique exprès.
-        orderBy: [{ createdAt: "asc" }, { type: "asc" }],
-      },
     },
   });
   if (!dossier) notFound();
+
+  // Les gestes d'organisation interne (prise en charge, escalade) sont écartés
+  // dès la requête : ce qui n'est pas envoyé au navigateur ne peut pas fuiter.
+  const journal = await lireJournalDossier(dossier.id, { pourLePartenaire: true });
 
   // Seule la dernière décision est montrée, et seulement si elle conclut : les
   // réinstructions successives et les escalades regardent l'équipe
@@ -122,10 +116,10 @@ export default async function RecapitulatifDossierPage({
         </div>
       )}
 
-      {dossier.evenements.length > 0 && (
+      {journal.length > 0 && (
         <div className={`${CARTE} mb-5 max-w-2xl`}>
           <p className={`${EYEBROW} mb-4`}>Suivi du dossier</p>
-          <JournalDossier evenements={dossier.evenements} pourLePartenaire />
+          <JournalDossier evenements={journal} pourLePartenaire />
         </div>
       )}
 

@@ -18,6 +18,7 @@ import {
   LABELS_ISSUE_DECISION,
   LABELS_MOTIF_CONTESTATION,
   LABELS_STATUT_DOSSIER,
+  lireJournalDossier,
   peutInstruireDossier,
 } from "@/lib/contestation";
 import {
@@ -71,16 +72,11 @@ export default async function InstructionDossierPage({
         include: { avoir: true, decidePar: { select: { nom: true } } },
         orderBy: { createdAt: "desc" },
       },
-      evenements: {
-        include: { auteurStaff: { select: { nom: true } } },
-        // Le type départage les événements d'un même instant (dépôt et
-        // crédit d'office partagent leur horodatage) — l'enum est déclaré
-        // dans l'ordre chronologique exprès.
-        orderBy: [{ createdAt: "asc" }, { type: "asc" }],
-      },
     },
   });
   if (!dossier) notFound();
+
+  const journal = await lireJournalDossier(dossier.id);
 
   const autresDossiers = await prisma.dossier.findMany({
     where: { facture: { restaurantId: dossier.facture.restaurant.id }, id: { not: dossier.id } },
@@ -297,7 +293,7 @@ export default async function InstructionDossierPage({
         )}
       </section>
 
-      {dossier.evenements.length > 0 && (
+      {journal.length > 0 && (
         <section className="mt-10 max-w-3xl">
           <h2 className={`${TITRE_SECTION} mb-1`}>Journal du dossier</h2>
           <p className="mb-5 text-sm text-[var(--color-ink-muted)]">
@@ -305,7 +301,7 @@ export default async function InstructionDossierPage({
             modifie ni ne s&apos;en supprime.
           </p>
           <div className={CARTE}>
-            <JournalDossier evenements={dossier.evenements} />
+            <JournalDossier evenements={journal} />
           </div>
         </section>
       )}
