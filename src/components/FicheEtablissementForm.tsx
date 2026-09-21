@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { mettreAJourFiche, type EtatFiche } from "@/app/espace-restaurant/fiche/actions";
@@ -17,7 +18,6 @@ export function FicheEtablissementForm({
     ville: string;
     cuisine: string;
     adresse: string;
-    horaires: string | null;
     description: string | null;
     capacite: number | null;
     delaiAnnulationHeures: number | null;
@@ -93,17 +93,18 @@ export function FicheEtablissementForm({
       <div className={`${CARTE} flex flex-col gap-4`}>
         <h2 className={EYEBROW}>Fonctionnement</h2>
 
+        <p className="text-sm text-[var(--color-ink-muted)]">
+          Vos horaires d&apos;ouverture ne se saisissent plus ici : ils se déclarent sur{" "}
+          <Link
+            href="/espace-restaurant/disponibilites"
+            className="font-semibold text-[var(--color-ink)] underline"
+          >
+            Mes disponibilités
+          </Link>
+          , d&apos;où ils décident aussi des créneaux réservables.
+        </p>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className={LABEL_CHAMP}>
-            Horaires (texte affiché aux dîneurs)
-            <input
-              type="text"
-              name="horaires"
-              defaultValue={fiche.horaires ?? ""}
-              placeholder="Mar-Sam 12h-14h, 19h-22h30"
-              className={CHAMP}
-            />
-          </label>
           <label className={LABEL_CHAMP}>
             Capacité (couverts)
             <input

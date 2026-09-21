@@ -6,12 +6,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
-import {
-  construireDateCreneau,
-  estDansLaFenetreReservable,
-  jourSemaineIso,
-  TAILLES_TABLE,
-} from "@/lib/creneaux";
+import { construireDateCreneau, estDansLaFenetreReservable, TAILLES_TABLE } from "@/lib/creneaux";
+import { creneauEstOuvert } from "@/lib/disponibilites";
 import { prisma } from "@/lib/prisma";
 import { CreneauCompletError, reserverCreneau } from "@/lib/reservation";
 
@@ -58,35 +54,12 @@ export async function creerReservation(
     return { erreur: "Restaurant introuvable." };
   }
 
-  // État effectif du créneau : le planning récurrent (voir "Mes
-  // disponibilités") donne l'état par défaut pour ce jour de semaine, une
-  // exception ponctuelle pour cette date précise le recouvre s'il y en a
-  // une (dans un sens ou l'autre — elle peut aussi bien ouvrir un créneau
-  // que le récurrent ferme que fermer un créneau qu'il laisse ouvert).
-  const exception = await prisma.exceptionHoraire.findUnique({
-    where: {
-      restaurantId_jour_creneau: {
-        restaurantId,
-        jour: donnees.data.jourIso,
-        creneau: donnees.data.creneau,
-      },
-    },
-  });
-
-  let ferme: boolean;
-  if (exception) {
-    ferme = !exception.ouvert;
-  } else {
-    const fermeHebdo = await prisma.horaireFermeture.findFirst({
-      where: {
-        restaurantId,
-        jourSemaine: jourSemaineIso(date),
-        OR: [{ creneau: null }, { creneau: donnees.data.creneau }],
-      },
-    });
-    ferme = !!fermeHebdo;
-  }
-  if (ferme) {
+  // Même lecture que celle qui a construit la carte de réservation (horaires
+  // habituels recouverts par les exceptions datées) : le dîneur ne peut pas
+  // se voir refuser un créneau qu'on venait de lui proposer, ni en obtenir
+  // un qu'on ne lui proposait pas.
+  const ouvert = await creneauEstOuvert(restaurantId, donnees.data.jourIso, donnees.data.creneau);
+  if (!ouvert) {
     return { erreur: "Ce restaurant est fermé sur ce créneau, choisis-en un autre." };
   }
 

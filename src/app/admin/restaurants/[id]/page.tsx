@@ -10,6 +10,7 @@ import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { LIBELLE_ROLE_CONTACT } from "@/lib/contacts";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import { photoRestaurant } from "@/lib/images";
+import { formaterHoraires } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
 import {
   BOUTON_SECONDAIRE,
@@ -32,6 +33,7 @@ const lireRestaurant = cache((id: string) =>
     where: { id },
     include: {
       contacts: { orderBy: { nom: "asc" } },
+      plagesOuverture: true,
       bookings: { include: { user: true }, orderBy: { date: "desc" }, take: 10 },
       journalAudit: { include: { staff: true }, orderBy: { createdAt: "desc" }, take: 20 },
     },
@@ -103,6 +105,10 @@ export default async function FicheRestaurantAdminPage({
   const restaurant = await lireRestaurant(id);
   if (!restaurant) notFound();
 
+  // Déclarés par le partenaire sur "Mes disponibilités" — la Console staff les
+  // lit, elle ne les écrit pas (voir `CHAMPS_SUIVIS` côté actions).
+  const horaires = formaterHoraires(restaurant.plagesOuverture);
+
   return (
     <>
       <Link
@@ -138,7 +144,11 @@ export default async function FicheRestaurantAdminPage({
 
         <dl className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
           <Info libelle="Adresse">{restaurant.adresse}</Info>
-          <Info libelle="Horaires">{restaurant.horaires ?? "—"}</Info>
+          <Info libelle="Horaires">
+            {horaires.length > 0
+              ? horaires.map((ligne) => <span key={ligne} className="block">{ligne}</span>)
+              : "Non déclarés — tous les créneaux sont proposés"}
+          </Info>
           <Info libelle="Capacité">
             {restaurant.capacite ? `${restaurant.capacite} couverts` : "—"}
           </Info>

@@ -10,12 +10,9 @@ import { MarqueIllustration } from "@/components/MarqueIllustration";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { auth } from "@/lib/auth";
-import {
-  CRENEAUX_HORAIRES,
-  cleCreneau,
-  construireDateCreneau,
-  genererJoursReservables,
-} from "@/lib/creneaux";
+import { cleCreneau, construireDateCreneau, genererJoursReservables } from "@/lib/creneaux";
+import { lireOuvertures } from "@/lib/disponibilites";
+import { formaterHoraires } from "@/lib/horaires";
 import { estPhotoReelle, photoPlat, photoRestaurant } from "@/lib/images";
 import { LIBELLE_CATEGORIE } from "@/lib/plats";
 import { prisma } from "@/lib/prisma";
@@ -33,6 +30,7 @@ const lireRestaurant = cache((id: string) =>
     include: {
       platsCuillere: { orderBy: { createdAt: "desc" } },
       avis: { include: { user: true }, orderBy: { createdAt: "desc" } },
+      plagesOuverture: true,
     },
   }),
 );
@@ -52,11 +50,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 function Repere({
   Icone,
   libelle,
-  valeur,
+  lignes,
 }: {
   Icone: typeof IconeLieu;
   libelle: string;
-  valeur: string;
+  lignes: string[];
 }) {
   return (
     <div className="flex items-start gap-3">
@@ -67,7 +65,11 @@ function Repere({
         <span className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[var(--color-ink-muted)]">
           {libelle}
         </span>
-        <span className="text-[15px] text-[var(--color-ink)]">{valeur}</span>
+        {lignes.map((ligne) => (
+          <span key={ligne} className="text-[15px] text-[var(--color-ink)]">
+            {ligne}
+          </span>
+        ))}
       </span>
     </div>
   );
@@ -102,11 +104,19 @@ export default async function FicheRestaurantPage({
 
   const avisExistant = session ? (restaurant.avis.find((a) => a.userId === session.user.id) ?? null) : null;
 
-  // Occupation des créneaux des prochains jours, pour ne pas proposer au
-  // dîneur un créneau déjà complet (voir "Capacité & conflits de réservation").
+  // Ce que le restaurant ouvre (ses horaires, recouverts par ses exceptions
+  // datées) puis, dans ces créneaux-là seulement, ce qu'il lui reste de place
+  // (voir "Capacité & conflits de réservation") : un créneau fermé n'a pas à
+  // être proposé, et un créneau complet non plus.
   const joursReservables = genererJoursReservables();
+  const ouvertures = await lireOuvertures(
+    restaurant.id,
+    joursReservables.map((jour) => jour.iso),
+  );
   const datesCreneaux = joursReservables
-    .flatMap((jour) => CRENEAUX_HORAIRES.map((creneau) => construireDateCreneau(jour.iso, creneau)))
+    .flatMap((jour) =>
+      (ouvertures[jour.iso] ?? []).map((creneau) => construireDateCreneau(jour.iso, creneau)),
+    )
     .filter((date): date is Date => date !== null);
   const occupationParCreneau = await prisma.booking.groupBy({
     by: ["date"],
@@ -116,6 +126,10 @@ export default async function FicheRestaurantPage({
   const occupation = Object.fromEntries(
     occupationParCreneau.map((ligne) => [cleCreneau(ligne.date), ligne._sum.couverts ?? 0]),
   );
+
+  // Les mêmes horaires que ceux qui décident des créneaux ci-dessus — la
+  // fiche ne peut plus annoncer une chose et en proposer une autre.
+  const horaires = formaterHoraires(restaurant.plagesOuverture);
 
   return (
     <main>
@@ -173,15 +187,19 @@ export default async function FicheRestaurantPage({
               )}
 
               <div className="mt-6 grid gap-5 rounded-[24px] border border-[var(--color-line-strong)] bg-white p-6 sm:grid-cols-3">
-                <Repere Icone={IconeLieu} libelle="Adresse" valeur={restaurant.adresse} />
-                {restaurant.horaires && (
-                  <Repere Icone={IconeHorloge} libelle="Horaires" valeur={restaurant.horaires} />
-                )}
+                <Repere Icone={IconeLieu} libelle="Adresse" lignes={[restaurant.adresse]} />
+                <Repere
+                  Icone={IconeHorloge}
+                  libelle="Horaires"
+                  lignes={
+                    horaires.length > 0 ? horaires : ["Horaires non communiqués par le restaurant"]
+                  }
+                />
                 {restaurant.capacite && (
                   <Repere
                     Icone={IconeCouverts}
                     libelle="Capacité"
-                    valeur={`${restaurant.capacite} couverts`}
+                    lignes={[`${restaurant.capacite} couverts`]}
                   />
                 )}
               </div>
@@ -300,6 +318,7 @@ export default async function FicheRestaurantPage({
               restaurantId={restaurant.id}
               estConnecte={!!session}
               jours={joursReservables}
+              ouvertures={ouvertures}
               occupation={occupation}
               capacite={capaciteEffective(restaurant.capacite)}
             />

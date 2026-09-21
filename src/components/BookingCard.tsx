@@ -19,12 +19,22 @@ const CHIP =
 const CHIP_INACTIF = `${CHIP} cursor-pointer border-[var(--color-line-strong)] bg-white text-[var(--color-ink)] hover:border-[var(--color-ink-muted)]`;
 const CHIP_ACTIF = `${CHIP} cursor-pointer border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-cream)]`;
 const CHIP_COMPLET = `${CHIP} cursor-not-allowed border-[var(--color-line)] text-[var(--color-ink-muted)] opacity-50 line-through`;
+// Fermé et complet ne disent pas la même chose au dîneur : l'un ne rouvrira
+// pas ce jour-là, l'autre peut se libérer. Deux rendus distincts.
+const CHIP_FERME = `${CHIP} cursor-not-allowed border-dashed border-[var(--color-line)] text-[var(--color-ink-muted)] opacity-60`;
 const BOUTON_CONFIRMER =
   "block w-full rounded-full bg-[var(--color-accent)] px-7 py-4 text-center font-[family-name:var(--font-display)] text-[15px] font-bold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const CARTE_RESA = "rounded-[28px] border border-[var(--color-line-strong)] bg-white p-6 shadow-[var(--shadow-carte)] sm:p-7";
 
 const ETAT_INITIAL: EtatReservation = {};
+
+/** Le créneau proposé d'emblée quand le restaurant l'ouvre — l'heure de dîner la plus demandée. */
+const CRENEAU_PREFERE = CRENEAUX_SOIR[3];
+
+function creneauParDefaut(ouverts: readonly string[]): string {
+  return ouverts.includes(CRENEAU_PREFERE) ? CRENEAU_PREFERE : (ouverts[0] ?? CRENEAU_PREFERE);
+}
 
 function Groupe({ libelle, children }: { libelle: string; children: React.ReactNode }) {
   return (
@@ -41,19 +51,25 @@ export function BookingCard({
   restaurantId,
   estConnecte,
   jours,
+  ouvertures,
   occupation,
   capacite,
 }: {
   restaurantId: string;
   estConnecte: boolean;
   jours: JourReservable[];
+  /** Créneaux ouverts par jour (clé : jour ISO) — voir `src/lib/disponibilites.ts`. */
+  ouvertures: Record<string, string[]>;
   /** Couverts déjà confirmés par créneau, clé `cleCreneau` — voir `src/lib/reservation.ts`. */
   occupation: Record<string, number>;
   capacite: number;
 }) {
+  const joursOuverts = jours.filter((jour) => (ouvertures[jour.iso] ?? []).length > 0);
   const [couverts, setCouverts] = useState<number>(TAILLES_TABLE[1].valeur);
-  const [jourIso, setJourIso] = useState(jours[0]?.iso ?? "");
-  const [creneau, setCreneau] = useState<string>(CRENEAUX_SOIR[3]);
+  const [jourIso, setJourIso] = useState(joursOuverts[0]?.iso ?? jours[0]?.iso ?? "");
+  const [creneau, setCreneau] = useState<string>(() =>
+    creneauParDefaut(ouvertures[joursOuverts[0]?.iso ?? ""] ?? []),
+  );
   const [etat, action, enCours] = useActionState(
     creerReservation.bind(null, restaurantId),
     ETAT_INITIAL,
@@ -67,8 +83,18 @@ export function BookingCard({
     return capacite - (occupation[cleCreneau(date)] ?? 0);
   }
 
+  const creneauxOuverts = ouvertures[jourIso] ?? [];
+
+  /** Changer de jour peut fermer le créneau choisi : on en reprend un que ce jour-là ouvre. */
+  function choisirJour(iso: string) {
+    setJourIso(iso);
+    const ouverts = ouvertures[iso] ?? [];
+    if (!ouverts.includes(creneau)) setCreneau(creneauParDefaut(ouverts));
+  }
+
   const restantSurCreneau = placesRestantes(jourIso, creneau);
-  const creneauIndisponible = restantSurCreneau < couverts;
+  const creneauFerme = !creneauxOuverts.includes(creneau);
+  const creneauIndisponible = creneauFerme || restantSurCreneau < couverts;
 
   if (etat.ok) {
     const jour = jours.find((j) => j.iso === jourIso);
@@ -91,6 +117,22 @@ export function BookingCard({
           <IconeCalendrier taille={16} />
           Voir mes réservations
         </Link>
+      </div>
+    );
+  }
+
+  // Fermé sur toute la fenêtre réservable : mieux vaut le dire que présenter
+  // un formulaire dont chaque bouton est désactivé.
+  if (joursOuverts.length === 0) {
+    return (
+      <div className={`${CARTE_RESA} flex flex-col gap-3`}>
+        <h2 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-[var(--color-ink)]">
+          Réserver une table
+        </h2>
+        <p className="text-sm text-[var(--color-ink-muted)]">
+          Ce restaurant ne prend pas de réservation sur les prochains jours. Ses horaires
+          d&apos;ouverture sont indiqués plus haut.
+        </p>
       </div>
     );
   }
@@ -129,20 +171,26 @@ export function BookingCard({
 
         <Groupe libelle="DATE">
           <div className="flex gap-2" role="group" aria-label="Jour de la réservation">
-            {jours.map((j) => (
-              <button
-                key={j.iso}
-                type="button"
-                aria-pressed={jourIso === j.iso}
-                onClick={() => setJourIso(j.iso)}
-                className={`flex-1 ${jourIso === j.iso ? CHIP_ACTIF : CHIP_INACTIF}`}
-              >
-                <span className="block text-[10px] uppercase opacity-70">{j.jourSemaine}</span>
-                <span className="block font-[family-name:var(--font-display)] text-base">
-                  {j.numero}
-                </span>
-              </button>
-            ))}
+            {jours.map((j) => {
+              const ferme = (ouvertures[j.iso] ?? []).length === 0;
+              return (
+                <button
+                  key={j.iso}
+                  type="button"
+                  disabled={ferme}
+                  aria-pressed={jourIso === j.iso}
+                  aria-label={ferme ? `${j.jourSemaine} ${j.numero} — fermé` : undefined}
+                  onClick={() => choisirJour(j.iso)}
+                  title={ferme ? "Fermé" : undefined}
+                  className={`flex-1 ${ferme ? CHIP_FERME : jourIso === j.iso ? CHIP_ACTIF : CHIP_INACTIF}`}
+                >
+                  <span className="block text-[10px] uppercase opacity-70">{j.jourSemaine}</span>
+                  <span className="block font-[family-name:var(--font-display)] text-base">
+                    {j.numero}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </Groupe>
 
@@ -160,17 +208,26 @@ export function BookingCard({
                 </span>
                 <div className="grid grid-cols-4 gap-2">
                   {creneaux.map((c) => {
-                    const complet = placesRestantes(jourIso, c) < couverts;
+                    const ferme = !creneauxOuverts.includes(c);
+                    const complet = !ferme && placesRestantes(jourIso, c) < couverts;
+                    const etiquette = ferme ? "Fermé" : complet ? "Complet" : undefined;
                     return (
                       <button
                         key={c}
                         type="button"
-                        disabled={complet}
+                        disabled={ferme || complet}
                         aria-pressed={creneau === c}
+                        aria-label={etiquette ? `${c} — ${etiquette.toLowerCase()}` : undefined}
                         onClick={() => setCreneau(c)}
-                        title={complet ? "Complet" : undefined}
+                        title={etiquette}
                         className={
-                          complet ? CHIP_COMPLET : creneau === c ? CHIP_ACTIF : CHIP_INACTIF
+                          ferme
+                            ? CHIP_FERME
+                            : complet
+                              ? CHIP_COMPLET
+                              : creneau === c
+                                ? CHIP_ACTIF
+                                : CHIP_INACTIF
                         }
                       >
                         {c}
@@ -193,8 +250,9 @@ export function BookingCard({
         )}
         {!etat.erreur && creneauIndisponible && (
           <p className="rounded-xl bg-[var(--color-warning-tint)] px-3.5 py-2.5 text-sm text-[var(--color-warning)]">
-            Ce créneau est complet pour {couverts} personne{couverts > 1 ? "s" : ""}, choisis-en
-            un autre.
+            {creneauFerme
+              ? "Le restaurant est fermé sur ce créneau, choisis-en un autre."
+              : `Ce créneau est complet pour ${couverts} personne${couverts > 1 ? "s" : ""}, choisis-en un autre.`}
           </p>
         )}
         {!etat.erreur && !creneauIndisponible && restantSurCreneau <= 6 && (
