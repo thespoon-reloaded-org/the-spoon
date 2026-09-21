@@ -3,6 +3,10 @@ import { Prisma } from "@/generated/prisma";
 
 import { prisma } from "./prisma";
 
+// Réexporté pour que les écrans continuent d'importer leur formatage de
+// montant depuis le module de facturation, là où ils le cherchent.
+export { formaterMontant } from "./montants";
+
 /**
  * TheSpoon ne facture pas la réservation, elle facture le couvert servi (voir
  * le ticket Notion "Génération de la facture mensuelle") — taux unique pour
@@ -74,10 +78,6 @@ export function netAPayerCentimes(
   avoirs: Pick<Avoir, "montantCentimes">[],
 ): number {
   return Math.max(0, montantTotalCentimes - montantAvoirsCentimes(avoirs));
-}
-
-export function formaterMontant(centimes: number): string {
-  return (centimes / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 }
 
 export function formaterMoisFacture(mois: Date): string {

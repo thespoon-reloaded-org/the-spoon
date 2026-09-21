@@ -5,12 +5,14 @@ import Link from "next/link";
 
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { IconeValide } from "@/components/Icones";
+import { JournalDossier } from "@/components/JournalDossier";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { authRestaurant } from "@/lib/auth";
 import {
   ETAT_ISSUE_DECISION,
   LABELS_ISSUE_DECISION,
   LABELS_MOTIF_CONTESTATION,
+  lireJournalDossier,
   STATUT_DOSSIER_COTE_RESTAURANT,
 } from "@/lib/contestation";
 import { formaterDateReservation, formaterMontant, referenceAvoir } from "@/lib/facturation";
@@ -52,6 +54,10 @@ export default async function RecapitulatifDossierPage({
     },
   });
   if (!dossier) notFound();
+
+  // Les gestes d'organisation interne (prise en charge, escalade) sont écartés
+  // dès la requête : ce qui n'est pas envoyé au navigateur ne peut pas fuiter.
+  const journal = await lireJournalDossier(dossier.id, { pourLePartenaire: true });
 
   // Seule la dernière décision est montrée, et seulement si elle conclut : les
   // réinstructions successives et les escalades regardent l'équipe
@@ -107,6 +113,13 @@ export default async function RecapitulatifDossierPage({
             )}
           </div>
           <p className="text-sm leading-relaxed text-[var(--color-ink)]">{decision.motif}</p>
+        </div>
+      )}
+
+      {journal.length > 0 && (
+        <div className={`${CARTE} mb-5 max-w-2xl`}>
+          <p className={`${EYEBROW} mb-4`}>Suivi du dossier</p>
+          <JournalDossier evenements={journal} pourLePartenaire />
         </div>
       )}
 

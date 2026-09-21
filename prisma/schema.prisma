@@ -195,6 +195,7 @@ model Staff {
   journalAudit      JournalAuditRestaurant[]
   dossiersInstruits Dossier[]
   decisionsPrises   DecisionDossier[]
+  evenementsDossier EvenementDossier[]
 }
 
 /// Action tracée dans le journal d'audit d'un restaurant partenaire.
@@ -489,6 +490,7 @@ model Dossier {
   complementDemandeMessage String?
   lignes                   LigneContestee[]
   piecesJointes            PieceJointeDossier[]
+  evenements               EvenementDossier[]
   /// Toutes les instructions tranchées de ce dossier, la plus récente faisant
   /// foi — une réinstruction ajoute une ligne, elle n'écrase pas la première.
   decisions                DecisionDossier[]
@@ -544,6 +546,54 @@ model ConfigContestation {
   id                        String   @id @default("singleton")
   seuilCreditOfficeCentimes Int
   updatedAt                 DateTime @updatedAt
+}
+
+/// Étape d'un dossier de contestation, telle qu'elle apparaît dans son
+/// journal. Une décision et l'avoir qu'elle émet sont deux événements
+/// distincts : un accord partiel refusé en relecture laisserait sinon croire
+/// que rien n'a été crédité.
+///
+/// Les valeurs sont déclarées dans leur ordre chronologique, et les écrans
+/// s'en servent : plusieurs événements d'un même dossier peuvent partager
+/// l'horodatage à la milliseconde près (dépôt et crédit d'office sont écrits
+/// dans la même transaction), et Postgres trie un enum selon cet ordre de
+/// déclaration. Ne pas réordonner cette liste.
+enum TypeEvenementDossier {
+  DEPOT
+  PRISE_EN_CHARGE
+  COMPLEMENT_DEMANDE
+  DECISION
+  AVOIR_EMIS
+}
+
+/// Journal d'un dossier : qui a fait quoi, quand. En ajout seul — rien dans
+/// le produit ne modifie ni ne supprime une ligne, c'est ce qui en fait une
+/// preuve. Il rend le délai d'instruction mesurable, et il est la seule trace
+/// complète des demandes de complément : le dossier, lui, n'en garde que la
+/// dernière.
+model EvenementDossier {
+  id            String               @id @default(cuid())
+  dossierId     String
+  dossier       Dossier              @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  type          TypeEvenementDossier
+  /// Ce qui varie d'un type à l'autre (montant, issue, message), figé à
+  /// l'écriture : un journal se relit des mois plus tard et ne doit pas
+  /// dépendre de l'état courant du dossier. Même approche que
+  /// `JournalAuditRestaurant.champsModifies`.
+  details       Json?
+  /// Membre du staff auteur du geste. `null` quand il vient du restaurant
+  /// (dépôt) ou d'un traitement automatique (crédit d'office).
+  auteurStaffId String?
+  auteurStaff   Staff?               @relation(fields: [auteurStaffId], references: [id])
+  /// Geste d'organisation interne, invisible côté partenaire : la prise en
+  /// charge et l'escalade regardent l'équipe Partenaires, pas lui. La règle
+  /// est posée à l'écriture plutôt que déduite du type à l'affichage — une
+  /// décision est visible, sauf quand elle escalade.
+  interne       Boolean              @default(false)
+  createdAt     DateTime             @default(now())
+
+  @@index([dossierId])
+  @@index([auteurStaffId])
 }
 
 /// Issue d'une instruction, reprise du CANON métier. ESCALADE n'est pas une

@@ -5,6 +5,7 @@ import { DeciderDossierForm } from "@/components/DeciderDossierForm";
 import { DemanderComplementForm } from "@/components/DemanderComplementForm";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { FactureDocument } from "@/components/FactureDocument";
+import { JournalDossier } from "@/components/JournalDossier";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
 import { PrendreEnChargeBouton } from "@/components/PrendreEnChargeBouton";
 import {
@@ -17,6 +18,7 @@ import {
   LABELS_ISSUE_DECISION,
   LABELS_MOTIF_CONTESTATION,
   LABELS_STATUT_DOSSIER,
+  lireJournalDossier,
   peutInstruireDossier,
 } from "@/lib/contestation";
 import {
@@ -73,6 +75,8 @@ export default async function InstructionDossierPage({
     },
   });
   if (!dossier) notFound();
+
+  const journal = await lireJournalDossier(dossier.id);
 
   const autresDossiers = await prisma.dossier.findMany({
     where: { facture: { restaurantId: dossier.facture.restaurant.id }, id: { not: dossier.id } },
@@ -288,6 +292,19 @@ export default async function InstructionDossierPage({
           )
         )}
       </section>
+
+      {journal.length > 0 && (
+        <section className="mt-10 max-w-3xl">
+          <h2 className={`${TITRE_SECTION} mb-1`}>Journal du dossier</h2>
+          <p className="mb-5 text-sm text-[var(--color-ink-muted)]">
+            Tout ce qui a été fait sur ce dossier, dans l&apos;ordre. En ajout seul : rien ne s&apos;y
+            modifie ni ne s&apos;en supprime.
+          </p>
+          <div className={CARTE}>
+            <JournalDossier evenements={journal} />
+          </div>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className={`${TITRE_SECTION} mb-4`}>La facture contestée</h2>
