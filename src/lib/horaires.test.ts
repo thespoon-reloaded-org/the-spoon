@@ -7,6 +7,7 @@ import {
   formaterMinutes,
   fusionnerPlages,
   horairesDeclares,
+  MINUIT,
   minutesDepuisCreneau,
   type Plage,
 } from "./horaires";
@@ -32,6 +33,20 @@ describe("lecture et écriture d'une heure", () => {
   test("l'affichage suit l'usage français, sans minutes à l'heure pile", () => {
     expect(formaterMinutes(720)).toBe("12h");
     expect(formaterMinutes(1350)).toBe("22h30");
+  });
+
+  /** Des fiches ferment "à minuit" — 24h ne se dit pas, et 0h dirait le matin. */
+  test("la fermeture à minuit se dit minuit", () => {
+    expect(formaterMinutes(MINUIT)).toBe("minuit");
+    expect(formaterHoraires([{ jourSemaine: 0, debutMinutes: 1110, finMinutes: MINUIT }])[0]).toBe(
+      "Lundi : 18h30 – minuit",
+    );
+  });
+
+  test("un service qui va jusqu'à minuit ouvre le dernier créneau du soir", () => {
+    const tardif = [{ jourSemaine: 0, debutMinutes: 1110, finMinutes: MINUIT }];
+    expect(creneauDansLesHoraires(tardif, 0, "22:00")).toBe(true);
+    expect(creneauDansLesHoraires(tardif, 0, "12:00")).toBe(false);
   });
 });
 

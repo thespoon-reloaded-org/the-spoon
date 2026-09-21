@@ -87,18 +87,26 @@ GROUP BY "restaurantId", "jourSemaine", plage;
 
 -- Reprise 2/2 — le champ texte libre `Restaurant.horaires`, seule trace des
 -- vrais horaires pour les restaurants dont personne n'a réglé le planning.
--- Format écrit par les fiches existantes : "Mar-Sam 12h-14h, 19h-22h30",
--- soit une plage de jours suivie d'un ou plusieurs services. Un texte d'une
--- autre forme ne correspond à rien ici et laisse simplement le restaurant
--- sans horaires déclarés.
+-- Forme dominante : "Mar-Sam 12h-14h, 19h-22h30", une plage de jours suivie
+-- d'un ou plusieurs services. Les fiches de production en pratiquent deux
+-- variantes, prises en compte ici : "Tous les jours ..." au lieu d'une plage
+-- de jours, et "...-minuit" au lieu d'une heure de fermeture. Un texte
+-- d'une autre forme ne correspond à rien et laisse simplement le restaurant
+-- sans horaires déclarés — son texte reste en base, voir plus bas.
 WITH jours (abrev, "jourSemaine") AS (
     VALUES ('lun', 0), ('mar', 1), ('mer', 2), ('jeu', 3), ('ven', 4), ('sam', 5), ('dim', 6)
 ),
 sources AS (
     SELECT
         r.id,
-        lower(substring(r.horaires from '^([A-Za-z]{3})')) AS jour_debut,
-        lower(substring(r.horaires from '^[A-Za-z]{3}\s*-\s*([A-Za-z]{3})')) AS jour_fin,
+        CASE
+            WHEN r.horaires ~* '^\s*(tous les jours|7j\s*/\s*7)' THEN 'lun'
+            ELSE lower(substring(r.horaires from '^([A-Za-z]{3})'))
+        END AS jour_debut,
+        CASE
+            WHEN r.horaires ~* '^\s*(tous les jours|7j\s*/\s*7)' THEN 'dim'
+            ELSE lower(substring(r.horaires from '^[A-Za-z]{3}\s*-\s*([A-Za-z]{3})'))
+        END AS jour_fin,
         r.horaires
     FROM "Restaurant" r
     WHERE r.horaires IS NOT NULL
@@ -111,7 +119,13 @@ sources AS (
 services AS (
     SELECT s.id, s.jour_debut, s.jour_fin, bornes
     FROM sources s
-    CROSS JOIN LATERAL regexp_matches(s.horaires, '(\d{1,2})h(\d{2})?\s*-\s*(\d{1,2})h(\d{2})?', 'g') AS bornes
+    -- Groupes : 1/2 = heure et minutes d'ouverture, 3/4 = de fermeture,
+    -- 5 = "minuit" quand la fermeture est écrite ainsi (1440 minutes).
+    CROSS JOIN LATERAL regexp_matches(
+        s.horaires,
+        '(\d{1,2})h(\d{2})?\s*-\s*(?:(\d{1,2})h(\d{2})?|(minuit))',
+        'gi'
+    ) AS bornes
 )
 INSERT INTO "PlageOuverture" ("id", "restaurantId", "jourSemaine", "debutMinutes", "finMinutes")
 SELECT
@@ -119,7 +133,10 @@ SELECT
     s.id,
     j."jourSemaine",
     s.bornes[1]::int * 60 + coalesce(s.bornes[2], '0')::int,
-    s.bornes[3]::int * 60 + coalesce(s.bornes[4], '0')::int
+    CASE
+        WHEN s.bornes[5] IS NOT NULL THEN 24 * 60
+        ELSE s.bornes[3]::int * 60 + coalesce(s.bornes[4], '0')::int
+    END
 FROM services s
 JOIN jours premier ON premier.abrev = s.jour_debut
 JOIN jours dernier ON dernier.abrev = s.jour_fin

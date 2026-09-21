@@ -34,11 +34,16 @@ export function minutesDepuisCreneau(creneau: string): number | null {
   return heures * 60 + minutes;
 }
 
+/** Fermeture à minuit : 24h00 en minutes, borne haute légitime d'une plage. */
+export const MINUIT = 24 * 60;
+
 /**
  * Format français compact, celui que les restaurants écrivaient déjà
  * eux-mêmes dans l'ancien champ texte : "12h" à l'heure pile, "22h30" sinon.
+ * Et "minuit" plutôt que "24h", qui ne se dit pas.
  */
 export function formaterMinutes(minutes: number): string {
+  if (minutes === MINUIT) return "minuit";
   const heures = Math.floor(minutes / 60);
   const reste = minutes % 60;
   return reste === 0 ? `${heures}h` : `${heures}h${String(reste).padStart(2, "0")}`;
