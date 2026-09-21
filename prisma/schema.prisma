@@ -24,6 +24,13 @@ model Restaurant {
   ville                 String
   cuisine               String
   adresse               String
+  /// Ancien champ texte des horaires ("Mar-Sam 12h-14h, 19h-22h30"), remplacé
+  /// par `PlageOuverture` : plus aucun écran ne le lit ni ne l'écrit. Il
+  /// survit en base le temps de vérifier qu'aucune fiche de production ne
+  /// portait un format que la migration de reprise n'a pas su relire — le
+  /// supprimer à l'aveugle effacerait des horaires irrécupérables. Voir le
+  /// ticket « Supprimer Restaurant.horaires ».
+  horaires              String?
   description           String?
   capacite              Int?
   /// Délai (en heures) avant le créneau au-delà duquel une annulation est

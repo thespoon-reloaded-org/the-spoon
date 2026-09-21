@@ -11,7 +11,8 @@
 -- le planning de fermetures réglé par un partenaire (plus récent, plus sûr),
 -- puis le texte libre pour les restaurants auxquels personne n'avait touché.
 -- Un restaurant dont rien n'est récupérable finit sans aucune plage : pas
--- d'horaires déclarés, tous les créneaux restent proposés comme aujourd'hui.
+-- d'horaires déclarés, tous les créneaux restent proposés comme aujourd'hui,
+-- et son texte est nommé dans le journal de déploiement (voir plus bas).
 
 -- CreateTable
 CREATE TABLE "PlageOuverture" (
@@ -128,27 +129,32 @@ JOIN jours j ON CASE
     ELSE j."jourSemaine" >= premier."jourSemaine" OR j."jourSemaine" <= dernier."jourSemaine"
 END;
 
--- Garde-fou avant la suppression du texte libre : si un restaurant avait des
--- horaires écrits sous une forme qu'aucune des deux reprises n'a su lire, les
--- perdre en silence remettrait sa fiche à "horaires non communiqués" et
--- rouvrirait tous ses créneaux sans que personne ne le voie. On préfère
--- arrêter la migration et nommer les fiches concernées : rien n'est appliqué
--- (Prisma joue chaque migration dans une transaction), le texte est encore
--- là, il suffit de le corriger ou de compléter la reprise avant de rejouer.
+-- `Restaurant.horaires` n'est pas supprimé ici : plus aucun écran ne le lit,
+-- mais l'effacer à l'aveugle emporterait des horaires irrécupérables, et on
+-- ne voit pas d'ici ce que contiennent les fiches de production. La colonne
+-- part dans une migration séparée, une fois qu'on aura regardé ce qui n'a
+-- pas été repris :
+--
+--   SELECT nom, horaires FROM "Restaurant" r
+--   WHERE horaires IS NOT NULL
+--     AND NOT EXISTS (SELECT 1 FROM "PlageOuverture" p WHERE p."restaurantId" = r.id);
+--
+-- Le WARNING ci-dessous dit la même chose pour qui rejoue ce fichier à la
+-- main ; rien ne garantit que Prisma le fasse remonter dans un déploiement.
 -- Un restaurant dont un partenaire avait réglé le planning ne compte pas :
 -- la reprise 1 a parlé pour lui, y compris quand elle dit "tout fermé".
 DO $$
-DECLARE perdus text;
+DECLARE non_repris text;
 BEGIN
     SELECT string_agg(format('%s (%s)', r.nom, r.horaires), ', ')
-    INTO perdus
+    INTO non_repris
     FROM "Restaurant" r
     WHERE r.horaires IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM "PlageOuverture" p WHERE p."restaurantId" = r.id)
       AND NOT EXISTS (SELECT 1 FROM "HoraireFermeture" h WHERE h."restaurantId" = r.id);
 
-    IF perdus IS NOT NULL THEN
-        RAISE EXCEPTION 'Horaires non repris, migration interrompue : %', perdus;
+    IF non_repris IS NOT NULL THEN
+        RAISE WARNING 'Horaires non repris, texte conservé en base : %', non_repris;
     END IF;
 END $$;
 
@@ -157,6 +163,3 @@ ALTER TABLE "HoraireFermeture" DROP CONSTRAINT "HoraireFermeture_restaurantId_fk
 
 -- DropTable
 DROP TABLE "HoraireFermeture";
-
--- AlterTable
-ALTER TABLE "Restaurant" DROP COLUMN "horaires";
