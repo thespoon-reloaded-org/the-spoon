@@ -102,6 +102,10 @@ sources AS (
     FROM "Restaurant" r
     WHERE r.horaires IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM "PlageOuverture" p WHERE p."restaurantId" = r.id)
+      -- Un restaurant dont un partenaire avait réglé le planning a déjà été
+      -- traité ci-dessus, y compris s'il avait tout fermé : le texte libre,
+      -- plus ancien, n'a pas à le rouvrir.
+      AND NOT EXISTS (SELECT 1 FROM "HoraireFermeture" h WHERE h."restaurantId" = r.id)
 ),
 services AS (
     SELECT s.id, s.jour_debut, s.jour_fin, bornes
@@ -123,6 +127,30 @@ JOIN jours j ON CASE
     THEN j."jourSemaine" BETWEEN premier."jourSemaine" AND dernier."jourSemaine"
     ELSE j."jourSemaine" >= premier."jourSemaine" OR j."jourSemaine" <= dernier."jourSemaine"
 END;
+
+-- Garde-fou avant la suppression du texte libre : si un restaurant avait des
+-- horaires écrits sous une forme qu'aucune des deux reprises n'a su lire, les
+-- perdre en silence remettrait sa fiche à "horaires non communiqués" et
+-- rouvrirait tous ses créneaux sans que personne ne le voie. On préfère
+-- arrêter la migration et nommer les fiches concernées : rien n'est appliqué
+-- (Prisma joue chaque migration dans une transaction), le texte est encore
+-- là, il suffit de le corriger ou de compléter la reprise avant de rejouer.
+-- Un restaurant dont un partenaire avait réglé le planning ne compte pas :
+-- la reprise 1 a parlé pour lui, y compris quand elle dit "tout fermé".
+DO $$
+DECLARE perdus text;
+BEGIN
+    SELECT string_agg(format('%s (%s)', r.nom, r.horaires), ', ')
+    INTO perdus
+    FROM "Restaurant" r
+    WHERE r.horaires IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM "PlageOuverture" p WHERE p."restaurantId" = r.id)
+      AND NOT EXISTS (SELECT 1 FROM "HoraireFermeture" h WHERE h."restaurantId" = r.id);
+
+    IF perdus IS NOT NULL THEN
+        RAISE EXCEPTION 'Horaires non repris, migration interrompue : %', perdus;
+    END IF;
+END $$;
 
 -- DropForeignKey
 ALTER TABLE "HoraireFermeture" DROP CONSTRAINT "HoraireFermeture_restaurantId_fkey";

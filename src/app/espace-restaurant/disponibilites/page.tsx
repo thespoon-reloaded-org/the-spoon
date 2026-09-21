@@ -18,7 +18,7 @@ import {
 import { creneauOuvert } from "@/lib/disponibilites";
 import { formaterMinutes, horairesDeclares } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
-import { BOUTON_SECONDAIRE, CARTE, TITRE_SECTION } from "@/lib/ui";
+import { BOUTON_SECONDAIRE, CARTE, CHAMP_BASE, TITRE_SECTION } from "@/lib/ui";
 
 import {
   ajouterPlage,
@@ -27,6 +27,7 @@ import {
   fermerJour,
   retirerPlage,
 } from "./actions";
+import { MESSAGES_ERREUR } from "./erreurs";
 
 export const metadata: Metadata = { title: "Disponibilités" };
 
@@ -43,12 +44,11 @@ const CARTE_FERMEE =
   "rounded-2xl border-[1.5px] border-[var(--color-accent)] bg-[var(--color-accent-tint)] p-5";
 const PASTILLE_SERVICE =
   "flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--color-line-strong)] bg-white py-1.5 pl-3.5 pr-1.5 text-sm font-semibold text-[var(--color-ink)]";
-// Volontairement pas `${CHAMP} w-auto` : `CHAMP` porte `w-full`, et Tailwind
+// `CHAMP_BASE` et pas `${CHAMP} w-auto` : `CHAMP` porte `w-full`, et Tailwind
 // tranche les classes en conflit par l'ordre de la feuille générée, pas par
-// celui du texte (voir le commentaire de `CARTE_FERMEE` ci-dessous). Une
-// variante complète, donc — un champ d'heure n'a pas à occuper la ligne.
-const CHAMP_HEURE =
-  "rounded-xl border-[1.5px] border-[var(--color-line-strong)] bg-white px-3 py-2 text-[15px] text-[var(--color-ink)] transition-colors hover:border-[var(--color-ink-muted)] focus:border-[var(--color-ink)]";
+// celui du texte (voir le commentaire de `CARTE_FERMEE` ci-dessous). Un champ
+// d'heure n'a pas à occuper la ligne.
+const CHAMP_HEURE = CHAMP_BASE;
 const JOUR_ISO_LETTRES = ["L", "M", "M", "J", "V", "S", "D"];
 const REGEX_JOUR_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -110,7 +110,7 @@ function Legende() {
 export default async function DisponibilitesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mois?: string; jour?: string }>;
+  searchParams: Promise<{ mois?: string; jour?: string; erreur?: string }>;
 }) {
   const session = await authRestaurant.api.getSession({ headers: await headers() });
   if (!session) return null;
@@ -121,6 +121,7 @@ export default async function DisponibilitesPage({
   const moisActuel =
     params.mois && /^\d{4}-\d{2}$/.test(params.mois) ? params.mois : calculerMoisIso();
   const jourSelectionne = params.jour && REGEX_JOUR_ISO.test(params.jour) ? params.jour : null;
+  const messageErreur = params.erreur ? MESSAGES_ERREUR[params.erreur] : undefined;
   const grille = genererGrilleMois(moisActuel);
 
   const [plages, exceptions] = await Promise.all([
@@ -153,6 +154,15 @@ export default async function DisponibilitesPage({
         titre="Mes disponibilités"
         description="Ce que vous déclarez ici s'affiche sur votre fiche et décide des créneaux réservables. Deux plannings se superposent : vos horaires habituels, et les exceptions posées sur une date précise."
       />
+
+      {messageErreur && (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl bg-[var(--color-danger-tint)] px-4 py-3 text-sm font-medium text-[var(--color-danger)]"
+        >
+          {messageErreur}
+        </p>
+      )}
 
       <Legende />
 

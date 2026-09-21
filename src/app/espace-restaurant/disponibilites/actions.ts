@@ -2,12 +2,15 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { authRestaurant } from "@/lib/auth";
 import { CRENEAUX_HORAIRES, formatIso } from "@/lib/creneaux";
 import { creneauOuvert, lirePlanning } from "@/lib/disponibilites";
 import { fusionnerPlages, minutesDepuisHeureInput } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
+
+import { ERREURS_DISPONIBILITES } from "./erreurs";
 
 const REGEX_JOUR_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -28,6 +31,27 @@ function revaliderEcransConcernes(restaurantId: string) {
   revalidatePath(`/restaurants/${restaurantId}`);
 }
 
+function refuser(erreur: string): never {
+  redirect(`/espace-restaurant/disponibilites?erreur=${erreur}`);
+}
+
+/**
+ * Sérialise les écritures sur les horaires d'un restaurant : toutes lisent
+ * l'état courant avant de le réécrire, et deux contacts du même
+ * établissement peuvent cliquer en même temps. Même verrou que
+ * `reserverCreneau` (src/lib/reservation.ts), pour la même raison : c'est la
+ * base qui garantit, pas l'ordre d'exécution du code applicatif.
+ */
+async function avecHorairesVerrouilles<T>(
+  restaurantId: string,
+  ecrire: (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Restaurant" WHERE id = ${restaurantId} FOR UPDATE`;
+    return ecrire(tx);
+  });
+}
+
 /**
  * Ajoute un service (12h – 14h, 19h – 22h30…) aux horaires habituels d'un
  * jour de semaine. Les plages du jour sont réécrites fusionnées : deux
@@ -40,22 +64,54 @@ export async function ajouterPlage(jourSemaine: number, formData: FormData) {
 
   const debutMinutes = minutesDepuisHeureInput(formData.get("debut"));
   const finMinutes = minutesDepuisHeureInput(formData.get("fin"));
-  if (debutMinutes === null || finMinutes === null || debutMinutes >= finMinutes) return;
+  if (debutMinutes === null || finMinutes === null || debutMinutes >= finMinutes) {
+    refuser(ERREURS_DISPONIBILITES.serviceInvalide);
+  }
 
   const restaurantId = session.user.restaurantId;
-  const existantes = await prisma.plageOuverture.findMany({
-    where: { restaurantId, jourSemaine },
-    select: { debutMinutes: true, finMinutes: true },
-  });
-  const fusionnees = fusionnerPlages([...existantes, { debutMinutes, finMinutes }]);
+  await avecHorairesVerrouilles(restaurantId, async (tx) => {
+    const existantes = await tx.plageOuverture.findMany({
+      where: { restaurantId, jourSemaine },
+      select: { debutMinutes: true, finMinutes: true },
+    });
+    const fusionnees = fusionnerPlages([...existantes, { debutMinutes, finMinutes }]);
 
-  await prisma.$transaction([
-    prisma.plageOuverture.deleteMany({ where: { restaurantId, jourSemaine } }),
-    prisma.plageOuverture.createMany({
+    await tx.plageOuverture.deleteMany({ where: { restaurantId, jourSemaine } });
+    await tx.plageOuverture.createMany({
       data: fusionnees.map((plage) => ({ restaurantId, jourSemaine, ...plage })),
-    }),
-  ]);
+    });
+  });
 
+  revaliderEcransConcernes(restaurantId);
+}
+
+/**
+ * Retire des services, en refusant de vider complètement les horaires.
+ *
+ * "Aucune plage nulle part" veut dire "ce restaurant n'a jamais déclaré ses
+ * horaires", et cet état rouvre tous les créneaux (voir `horairesDeclares`).
+ * Laisser un partenaire y retomber en retirant son dernier service ferait
+ * exactement l'inverse de ce qu'il demande : sa fiche repasserait en "ouvert
+ * midi et soir, 7j/7". Une fermeture longue se pose sur des dates, dans la
+ * section suivante de l'écran.
+ */
+async function retirerServices(
+  restaurantId: string,
+  cible: { id: string } | { jourSemaine: number },
+) {
+  const supprimeTout = await avecHorairesVerrouilles(restaurantId, async (tx) => {
+    // Filtré sur le restaurant de la session : un identifiant de plage seul
+    // ne dit pas à qui elle appartient.
+    const restantes = await tx.plageOuverture.count({
+      where: { restaurantId, NOT: cible },
+    });
+    if (restantes === 0) return true;
+
+    await tx.plageOuverture.deleteMany({ where: { restaurantId, ...cible } });
+    return false;
+  });
+
+  if (supprimeTout) refuser(ERREURS_DISPONIBILITES.dernierService);
   revaliderEcransConcernes(restaurantId);
 }
 
@@ -64,12 +120,7 @@ export async function retirerPlage(plageId: string, _formData: FormData) {
   const session = await authRestaurant.api.getSession({ headers: await headers() });
   if (!session) return;
 
-  const restaurantId = session.user.restaurantId;
-  // Filtré sur le restaurant de la session : un identifiant de plage seul ne
-  // dit pas à qui elle appartient.
-  await prisma.plageOuverture.deleteMany({ where: { id: plageId, restaurantId } });
-
-  revaliderEcransConcernes(restaurantId);
+  await retirerServices(session.user.restaurantId, { id: plageId });
 }
 
 /** Ferme un jour de semaine — ses services disparaissent, plus rien n'y est réservable. */
@@ -77,10 +128,7 @@ export async function fermerJour(jourSemaine: number, _formData: FormData) {
   const session = await authRestaurant.api.getSession({ headers: await headers() });
   if (!session || jourSemaine < 0 || jourSemaine > 6) return;
 
-  const restaurantId = session.user.restaurantId;
-  await prisma.plageOuverture.deleteMany({ where: { restaurantId, jourSemaine } });
-
-  revaliderEcransConcernes(restaurantId);
+  await retirerServices(session.user.restaurantId, { jourSemaine });
 }
 
 /**

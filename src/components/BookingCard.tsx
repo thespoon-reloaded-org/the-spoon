@@ -64,11 +64,16 @@ export function BookingCard({
   occupation: Record<string, number>;
   capacite: number;
 }) {
+  // Ouverte d'emblée sur le premier jour que le restaurant ouvre. S'il n'en
+  // ouvre aucun, ces deux valeurs ne servent à rien : la carte affiche plus
+  // bas un message à la place du formulaire — mais les hooks se déclarent
+  // avant ce retour anticipé.
   const joursOuverts = jours.filter((jour) => (ouvertures[jour.iso] ?? []).length > 0);
+  const premierJourOuvert = joursOuverts[0];
   const [couverts, setCouverts] = useState<number>(TAILLES_TABLE[1].valeur);
-  const [jourIso, setJourIso] = useState(joursOuverts[0]?.iso ?? jours[0]?.iso ?? "");
+  const [jourIso, setJourIso] = useState(premierJourOuvert?.iso ?? "");
   const [creneau, setCreneau] = useState<string>(() =>
-    creneauParDefaut(ouvertures[joursOuverts[0]?.iso ?? ""] ?? []),
+    creneauParDefaut(ouvertures[premierJourOuvert?.iso ?? ""] ?? []),
   );
   const [etat, action, enCours] = useActionState(
     creerReservation.bind(null, restaurantId),

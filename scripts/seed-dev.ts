@@ -313,10 +313,14 @@ function plagesDepuisDeclaration(declaration: string) {
   );
   if (services.length === 0) throw new Error(`Aucun service lisible : "${declaration}"`);
 
+  // "Ven-Lun" boucle sur la fin de semaine — même règle que le SQL de reprise.
+  const ouvertCeJour = (jourSemaine: number) =>
+    premier <= dernier
+      ? jourSemaine >= premier && jourSemaine <= dernier
+      : jourSemaine >= premier || jourSemaine <= dernier;
+
   return ABREVIATIONS_JOURS.flatMap((_, jourSemaine) =>
-    jourSemaine >= premier && jourSemaine <= dernier
-      ? services.map((service) => ({ jourSemaine, ...service }))
-      : [],
+    ouvertCeJour(jourSemaine) ? services.map((service) => ({ jourSemaine, ...service })) : [],
   );
 }
 

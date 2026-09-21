@@ -84,19 +84,22 @@ export async function lirePlanning(
 }
 
 /**
- * Les créneaux ouverts d'un restaurant sur les jours demandés. `joursIso`
- * doit être trié — la fenêtre lue en base va du premier au dernier.
+ * Ce qu'il faut à une fiche restaurant : les horaires à afficher et les
+ * créneaux ouverts sur les jours demandés, en une seule lecture — les deux
+ * sortent de la même donnée, les lire deux fois inviterait à les voir
+ * diverger. `joursIso` doit être trié, la fenêtre lue va du premier au
+ * dernier.
  */
-export async function lireOuvertures(
+export async function lireDisponibilites(
   restaurantId: string,
   joursIso: string[],
-): Promise<Record<string, string[]>> {
-  if (joursIso.length === 0) return {};
+): Promise<{ plages: Plage[]; ouvertures: Record<string, string[]> }> {
+  if (joursIso.length === 0) return { plages: [], ouvertures: {} };
   const { plages, exceptions } = await lirePlanning(restaurantId, {
     du: joursIso[0]!,
     au: joursIso[joursIso.length - 1]!,
   });
-  return ouverturesParJour({ plages, exceptions, joursIso });
+  return { plages, ouvertures: ouverturesParJour({ plages, exceptions, joursIso }) };
 }
 
 /**

@@ -11,7 +11,7 @@ import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { auth } from "@/lib/auth";
 import { cleCreneau, construireDateCreneau, genererJoursReservables } from "@/lib/creneaux";
-import { lireOuvertures } from "@/lib/disponibilites";
+import { lireDisponibilites } from "@/lib/disponibilites";
 import { formaterHoraires } from "@/lib/horaires";
 import { estPhotoReelle, photoPlat, photoRestaurant } from "@/lib/images";
 import { LIBELLE_CATEGORIE } from "@/lib/plats";
@@ -30,7 +30,6 @@ const lireRestaurant = cache((id: string) =>
     include: {
       platsCuillere: { orderBy: { createdAt: "desc" } },
       avis: { include: { user: true }, orderBy: { createdAt: "desc" } },
-      plagesOuverture: true,
     },
   }),
 );
@@ -109,7 +108,7 @@ export default async function FicheRestaurantPage({
   // (voir "Capacité & conflits de réservation") : un créneau fermé n'a pas à
   // être proposé, et un créneau complet non plus.
   const joursReservables = genererJoursReservables();
-  const ouvertures = await lireOuvertures(
+  const { plages, ouvertures } = await lireDisponibilites(
     restaurant.id,
     joursReservables.map((jour) => jour.iso),
   );
@@ -127,9 +126,9 @@ export default async function FicheRestaurantPage({
     occupationParCreneau.map((ligne) => [cleCreneau(ligne.date), ligne._sum.couverts ?? 0]),
   );
 
-  // Les mêmes horaires que ceux qui décident des créneaux ci-dessus — la
+  // Les mêmes plages que celles qui décident des créneaux ci-dessus — la
   // fiche ne peut plus annoncer une chose et en proposer une autre.
-  const horaires = formaterHoraires(restaurant.plagesOuverture);
+  const horaires = formaterHoraires(plages);
 
   return (
     <main>
