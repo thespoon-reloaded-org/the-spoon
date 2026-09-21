@@ -6,8 +6,16 @@
  * `--color-line-strong`. Le focus visible, lui, est global (`globals.css`).
  */
 
-export const CHAMP =
-  "w-full rounded-xl border-[1.5px] border-[var(--color-line-strong)] bg-white px-3.5 py-2.5 text-[15px] text-[var(--color-ink)] transition-colors placeholder:text-[var(--color-ink-muted)] hover:border-[var(--color-ink-muted)] focus:border-[var(--color-ink)]";
+/**
+ * Champ de saisie sans largeur — pour les champs qui ne prennent pas la
+ * ligne (une heure, par exemple). `CHAMP` l'habille de `w-full` ; ne pas
+ * tenter l'inverse (`${CHAMP} w-auto`), Tailwind tranche les classes en
+ * conflit par l'ordre de la feuille générée, pas par celui du texte.
+ */
+export const CHAMP_BASE =
+  "rounded-xl border-[1.5px] border-[var(--color-line-strong)] bg-white px-3.5 py-2.5 text-[15px] text-[var(--color-ink)] transition-colors placeholder:text-[var(--color-ink-muted)] hover:border-[var(--color-ink-muted)] focus:border-[var(--color-ink)]";
+
+export const CHAMP = `w-full ${CHAMP_BASE}`;
 
 export const LABEL_CHAMP =
   "flex flex-col gap-1.5 text-sm font-semibold text-[var(--color-ink-soft)]";

@@ -20,7 +20,6 @@ export function RestaurantForm({
     ville: string;
     cuisine: string;
     adresse: string;
-    horaires: string | null;
     description: string | null;
     capacite: number | null;
   };
@@ -83,17 +82,6 @@ export function RestaurantForm({
         <h2 className={EYEBROW}>Fonctionnement</h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className={LABEL_CHAMP}>
-            Horaires (texte affiché aux dîneurs)
-            <input
-              type="text"
-              name="horaires"
-              defaultValue={valeursInitiales?.horaires ?? ""}
-              placeholder="Mar-Sam 12h-14h, 19h-22h30"
-              className={CHAMP}
-            />
-          </label>
-
           <label className={LABEL_CHAMP}>
             Capacité (couverts)
             <input

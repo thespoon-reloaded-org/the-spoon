@@ -56,7 +56,6 @@ export default async function ModifierRestaurantPage({
             ville: restaurant.ville,
             cuisine: restaurant.cuisine,
             adresse: restaurant.adresse,
-            horaires: restaurant.horaires,
             description: restaurant.description,
             capacite: restaurant.capacite,
           }}

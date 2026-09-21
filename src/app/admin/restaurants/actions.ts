@@ -23,23 +23,19 @@ const schemaRestaurant = z.object({
   ville: z.string().trim().min(1, "La ville est obligatoire."),
   cuisine: z.string().trim().min(1, "Le type de cuisine est obligatoire."),
   adresse: z.string().trim().min(1, "L'adresse est obligatoire."),
-  horaires: champTexteOptionnel,
   description: champTexteOptionnel,
   capacite: z.coerce.number().int().min(1).nullable().optional(),
 });
 
 export type EtatFormulaireRestaurant = { erreur?: string; ok?: boolean };
 
-/** Champs couverts par le formulaire, dans l'ordre où on veut les lire dans le journal d'audit. */
-const CHAMPS_SUIVIS = [
-  "nom",
-  "ville",
-  "cuisine",
-  "adresse",
-  "horaires",
-  "description",
-  "capacite",
-] as const;
+/**
+ * Champs couverts par le formulaire, dans l'ordre où on veut les lire dans le
+ * journal d'audit. Les horaires d'ouverture n'en font plus partie : ils sont
+ * déclarés par le partenaire sur "Mes disponibilités" (`PlageOuverture`), la
+ * Console staff les affiche sans les modifier.
+ */
+const CHAMPS_SUIVIS = ["nom", "ville", "cuisine", "adresse", "description", "capacite"] as const;
 
 function lireDonneesFormulaire(formData: FormData) {
   const capaciteBrute = formData.get("capacite");
@@ -48,7 +44,6 @@ function lireDonneesFormulaire(formData: FormData) {
     ville: formData.get("ville"),
     cuisine: formData.get("cuisine"),
     adresse: formData.get("adresse"),
-    horaires: formData.get("horaires"),
     description: formData.get("description"),
     capacite: capaciteBrute && capaciteBrute !== "" ? capaciteBrute : null,
   });

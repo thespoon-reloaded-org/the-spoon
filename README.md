@@ -9,7 +9,7 @@ détaillée (facturation, commission, litiges) dont ce produit s'inspire.
 données n'est pas conçu à l'avance en un bloc — chaque table arrive avec
 l'écran qui en a besoin. `prisma/schema.prisma` contient aujourd'hui
 `Restaurant`/`PlatCuillere` (recherche + fiche établissement),
-`HoraireFermeture`/`ExceptionHoraire` (disponibilités), `Booking`
+`PlageOuverture`/`ExceptionHoraire` (horaires & disponibilités), `Booking`
 (réservation), `Avis` (dépôt d'avis), `Staff` (organigramme interne) et,
 pour chacune des trois populations qui se connectent (dîneur, contact
 restaurant, staff), un jeu de tables d'auth dédié généré par better-auth
@@ -179,18 +179,24 @@ saines (local, CI) où elle ne fait rien.
   — `Booking.signaleeLe` capture l'horodatage du signalement. C'est ce geste
   qui débloquera la facturation (voir "Schéma réservation & facturation").
   Ma fiche établissement : le restaurant tient à jour nom/ville/cuisine/
-  adresse/horaires/description/capacité/photo, jusqu'ici alimentés
+  adresse/description/capacité/photo, jusqu'ici alimentés
   uniquement par le seed (`mettreAJourFiche` dans
   `src/app/espace-restaurant/fiche/actions.ts`). La photo (facultative) suit
   le même mécanisme que celles des plats — voir la story "Ma carte"
   ci-dessous et `src/lib/photos.ts`. Mes disponibilités : deux
-  plannings distincts, tous deux vérifiés par `creerReservation`
-  (`src/app/espace-restaurant/disponibilites/`) — l'horaire d'ouverture
-  classique, récurrent et non daté (`HoraireFermeture`, un jour de semaine ou
-  un créneau fermé toutes les semaines) et les exceptions ponctuelles sur une
-  date précise, via un calendrier mensuel (`ExceptionHoraire` : ouverture
-  *ou* fermeture — chaque créneau du jour sélectionné est pré-rempli depuis
-  le récurrent, et modifiable juste pour cette date, dans un sens ou l'autre).
+  plannings distincts, tous deux vérifiés par `creerReservation` et tous deux
+  lus par la fiche publique (`src/app/espace-restaurant/disponibilites/`) —
+  les horaires d'ouverture habituels (`PlageOuverture`, un service continu
+  sur un jour de semaine ; c'est ce qui s'affiche sur la fiche du dîneur et
+  ce qui décide des créneaux qu'on lui propose) et les exceptions ponctuelles
+  sur une date précise, via un calendrier mensuel (`ExceptionHoraire` :
+  ouverture *ou* fermeture — chaque créneau du jour sélectionné est
+  pré-rempli depuis les horaires habituels, et modifiable juste pour cette
+  date, dans un sens ou l'autre). La règle qui combine les deux est écrite
+  une seule fois, dans `src/lib/disponibilites.ts` : l'écran qui propose un
+  créneau et le serveur qui l'accepte ne peuvent pas diverger. Un restaurant
+  qui n'a rien déclaré garde tous ses créneaux proposés
+  (`horairesDeclares`, `src/lib/horaires.ts`).
   Politique d'annulation : le restaurant définit
   `Restaurant.delaiAnnulationHeures` sur la fiche établissement — le délai
   minimal d'annulation côté dîneur et le motif de contestation

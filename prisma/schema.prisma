@@ -24,6 +24,12 @@ model Restaurant {
   ville                 String
   cuisine               String
   adresse               String
+  /// Ancien champ texte des horaires ("Mar-Sam 12h-14h, 19h-22h30"), remplacé
+  /// par `PlageOuverture` : plus aucun écran ne le lit ni ne l'écrit. Il
+  /// survit en base le temps de vérifier qu'aucune fiche de production ne
+  /// portait un format que la migration de reprise n'a pas su relire — le
+  /// supprimer à l'aveugle effacerait des horaires irrécupérables. Voir le
+  /// ticket « Supprimer Restaurant.horaires ».
   horaires              String?
   description           String?
   capacite              Int?
@@ -45,7 +51,7 @@ model Restaurant {
   bookings           Booking[]
   avis               Avis[]
   contacts           RestaurantContact[]
-  horairesFermes     HoraireFermeture[]
+  plagesOuverture    PlageOuverture[]
   exceptionsHoraires ExceptionHoraire[]
   journalAudit       JournalAuditRestaurant[]
   factures           Facture[]
@@ -54,36 +60,47 @@ model Restaurant {
   @@index([cuisine])
 }
 
-/// Le planning récurrent (non daté) du restaurant : un jour de semaine (ou un
-/// seul créneau de ce jour) fermé toutes les semaines — l'horaire d'ouverture
-/// classique. `jourSemaine` suit l'index ISO (0 = lundi … 6 = dimanche, voir
-/// `jourSemaineIso`), pas `Date.getDay()`. `creneau: null` ferme la journée
-/// entière. Vérifié à la création d'une réservation avec les exceptions
-/// ponctuelles ci-dessous (`ExceptionHoraire`), qui le recouvrent pour une
-/// date précise. Pas de contrainte d'unicité en base : une valeur nullable
-/// dans une clé composite ne garantit rien sous PostgreSQL, l'action serveur
-/// vérifie avant d'écrire.
-model HoraireFermeture {
+/// Les horaires d'ouverture déclarés du restaurant, sous une forme qui sert
+/// à la fois à les afficher sur la fiche et à décider des créneaux proposés
+/// au dîneur — c'était là le défaut : la fiche affichait un texte libre
+/// (`Restaurant.horaires`, supprimé avec ce modèle) pendant que la carte de
+/// réservation proposait les douze créneaux de `CRENEAUX_HORAIRES` sans le
+/// lire. Une plage = un service continu sur un jour de semaine ISO
+/// (0 = lundi … 6 = dimanche, voir `jourSemaineIso`) ; ouvert midi et soir =
+/// deux plages sur le même jour.
+///
+/// Remplace aussi l'ancien `HoraireFermeture`, qui disait la même chose à
+/// l'envers (un créneau réservable fermé) : deux représentations d'une même
+/// question n'ont pas à coexister. Les exceptions datées ci-dessous, elles,
+/// restent — elles répondent à une autre question.
+///
+/// Un jour sans plage est fermé. **Aucune plage sur tout le restaurant** est
+/// le seul cas où « pas de plage » ne veut pas dire fermé : le restaurant
+/// n'a rien déclaré, tous les créneaux restent proposés (voir
+/// `horairesDeclares`, src/lib/horaires.ts).
+model PlageOuverture {
   id           String     @id @default(cuid())
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   jourSemaine  Int
-  creneau      String?
+  /// Minutes depuis minuit (12h00 = 720), borne incluse.
+  debutMinutes Int
+  /// Minutes depuis minuit, borne exclue : on ne s'attable pas à l'heure de
+  /// fermeture. Un service 19h–22h30 laisse donc réserver à 22h, pas à 22h30.
+  finMinutes   Int
   createdAt    DateTime   @default(now())
 
   @@index([restaurantId, jourSemaine])
 }
 
 /// Une exception ponctuelle sur une date précise (jour férié, congés,
-/// événement...), dans un sens ou dans l'autre : `ouvert: false` force la
-/// fermeture d'un créneau que le planning récurrent (`HoraireFermeture`)
-/// laisse ouvert (fermeture exceptionnelle), `ouvert: true` force
-/// l'ouverture d'un créneau qu'il ferme (ouverture exceptionnelle). L'écran
-/// pré-remplit chaque créneau depuis le récurrent — une exception ne
-/// représente que ce qui diffère de ce que dirait le planning par défaut. Un
-/// seul créneau par ligne (contrairement à `HoraireFermeture`, pas de
-/// `creneau: null` pour "journée entière") : "fermer/ouvrir toute la
-/// journée" applique l'exception aux `CRENEAUX_HORAIRES` un par un.
+/// événement...), dans un sens ou dans l'autre : `ouvert: false` ferme un
+/// créneau que les horaires d'ouverture (`PlageOuverture`) laissent ouvert,
+/// `ouvert: true` ouvre un créneau qu'ils ferment. L'écran pré-remplit
+/// chaque créneau depuis les horaires habituels — une exception ne
+/// représente que ce qui diffère d'eux ce jour-là. Un seul créneau par
+/// ligne : "fermer/ouvrir toute la journée" applique l'exception aux
+/// `CRENEAUX_HORAIRES` un par un.
 model ExceptionHoraire {
   id           String     @id @default(cuid())
   restaurantId String

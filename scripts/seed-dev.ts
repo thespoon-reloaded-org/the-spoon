@@ -25,7 +25,7 @@ const restaurants = [
     ville: "Lyon",
     cuisine: "Bouchon lyonnais",
     adresse: "12 rue Mercière, 69002 Lyon",
-    horaires: "Mar-Sam 12h-14h, 19h-22h30",
+    ouverture: "Mar-Sam 12h-14h, 19h-22h30",
     description: "Quenelles et gratin dauphinois, service en salle depuis 1987.",
     capacite: 40,
     noteCuilleres: 4.3,
@@ -44,7 +44,7 @@ const restaurants = [
     ville: "Lyon",
     cuisine: "Japonais",
     adresse: "5 quai Saint-Vincent, 69001 Lyon",
-    horaires: "Lun-Dim 11h30-14h30, 18h30-23h",
+    ouverture: "Lun-Dim 11h30-14h30, 18h30-23h",
     description: "Comptoir de 12 places, ramen maison et izakaya le soir.",
     capacite: 24,
     noteCuilleres: 4.7,
@@ -61,7 +61,6 @@ const restaurants = [
     ville: "Paris",
     cuisine: "Bistrot",
     adresse: "9 rue de Bretagne, 75003 Paris",
-    horaires: null,
     description: null,
     capacite: 30,
     noteCuilleres: null,
@@ -80,7 +79,7 @@ const restaurants = [
     ville: "Paris",
     cuisine: "Italien",
     adresse: "18 rue Oberkampf, 75011 Paris",
-    horaires: "Lun-Sam 12h-14h30, 19h-23h30",
+    ouverture: "Lun-Sam 12h-14h30, 19h-23h30",
     description: "Pâtes fraîches faites sur place, carte de vins italiens.",
     capacite: 45,
     noteCuilleres: 4.8,
@@ -96,7 +95,7 @@ const restaurants = [
     ville: "Paris",
     cuisine: "Végé",
     adresse: "22 rue du Faubourg Saint-Denis, 75010 Paris",
-    horaires: "Mar-Dim 12h-14h30, 19h-22h",
+    ouverture: "Mar-Dim 12h-14h30, 19h-22h",
     description: "Cuisine végétale de saison, tout est fait maison.",
     capacite: 28,
     noteCuilleres: 4.6,
@@ -112,7 +111,7 @@ const restaurants = [
     ville: "Paris",
     cuisine: "Libanais",
     adresse: "7 rue de Turenne, 75003 Paris",
-    horaires: "Lun-Sam 12h-15h, 18h30-23h",
+    ouverture: "Lun-Sam 12h-15h, 18h30-23h",
     description: "Mezzés à partager, grande table pour les groupes.",
     capacite: 36,
     noteCuilleres: 4.5,
@@ -128,7 +127,7 @@ const restaurants = [
     ville: "Marseille",
     cuisine: "Fruits de mer",
     adresse: "3 quai des Belges, 13001 Marseille",
-    horaires: "Mar-Dim 12h-14h30, 19h-22h30",
+    ouverture: "Mar-Dim 12h-14h30, 19h-22h30",
     description: "Poissons de la criée du matin, terrasse sur le Vieux-Port.",
     capacite: 50,
     noteCuilleres: 4.6,
@@ -147,7 +146,7 @@ const restaurants = [
     ville: "Bordeaux",
     cuisine: "Basque",
     adresse: "14 cours de l'Intendance, 33000 Bordeaux",
-    horaires: "Mar-Sam 12h-14h, 19h30-22h30",
+    ouverture: "Mar-Sam 12h-14h, 19h30-22h30",
     description: "Piment d'Espelette et cochon noir de Bigorre.",
     capacite: 32,
     noteCuilleres: 4.4,
@@ -164,7 +163,7 @@ const restaurants = [
     ville: "Toulouse",
     cuisine: "Sud-Ouest",
     adresse: "6 place du Capitole, 31000 Toulouse",
-    horaires: "Lun-Sam 12h-14h30, 19h-22h30",
+    ouverture: "Lun-Sam 12h-14h30, 19h-22h30",
     description: "Cassoulet au canard confit, cuisson à l'ancienne.",
     capacite: 55,
     noteCuilleres: 4.5,
@@ -190,7 +189,7 @@ const restaurants = [
     ville: "Lille",
     cuisine: "Ch'ti",
     adresse: "2 place du Général de Gaulle, 59000 Lille",
-    horaires: "Mar-Dim 12h-14h, 19h-22h",
+    ouverture: "Mar-Dim 12h-14h, 19h-22h",
     description: "Bières du Nord et carbonnade mijotée toute la journée.",
     capacite: 38,
     noteCuilleres: 4.2,
@@ -209,7 +208,7 @@ const restaurants = [
     ville: "Nantes",
     cuisine: "Breton",
     adresse: "10 rue Crébillon, 44000 Nantes",
-    horaires: "Mer-Dim 12h-14h, 19h-21h30",
+    ouverture: "Mer-Dim 12h-14h, 19h-21h30",
     description: "Galettes de blé noir et cidre brut de Fouesnant.",
     capacite: 26,
     noteCuilleres: 4.3,
@@ -226,7 +225,7 @@ const restaurants = [
     ville: "Strasbourg",
     cuisine: "Alsacien",
     adresse: "4 place de la Cathédrale, 67000 Strasbourg",
-    horaires: "Mar-Sam 12h-14h, 19h-22h",
+    ouverture: "Mar-Sam 12h-14h, 19h-22h",
     description: "Choucroute royale et vins d'Alsace au verre.",
     capacite: 42,
     noteCuilleres: 4.4,
@@ -243,7 +242,7 @@ const restaurants = [
     ville: "Montpellier",
     cuisine: "Espagnol",
     adresse: "8 place de la Comédie, 34000 Montpellier",
-    horaires: "Mar-Dim 12h-14h30, 19h30-23h",
+    ouverture: "Mar-Dim 12h-14h30, 19h30-23h",
     description: "Tapas et paella au feu de bois, terrasse ombragée.",
     capacite: 34,
     noteCuilleres: 4.6,
@@ -262,7 +261,7 @@ const restaurants = [
     ville: "Nice",
     cuisine: "Niçois",
     adresse: "5 cours Saleya, 06300 Nice",
-    horaires: "Lun-Dim 12h-14h30, 19h-22h30",
+    ouverture: "Lun-Dim 12h-14h30, 19h-22h30",
     description: "Cuisine du comté de Nice, produits du marché Saleya.",
     capacite: 30,
     noteCuilleres: 4.5,
@@ -286,6 +285,45 @@ const staff = [
   },
 ];
 
+/**
+ * Les horaires d'un restaurant, écrits comme sur une devanture
+ * ("Mar-Sam 12h-14h, 19h-22h30"), traduits en `PlageOuverture`. Le seed
+ * garde cette forme parce qu'elle se relit d'un coup d'œil ; la base, elle,
+ * ne stocke que la forme exploitable. Un restaurant sans `ouverture` n'a
+ * rien déclaré — c'est un cas à avoir en dev aussi (tous les créneaux
+ * proposés, cf. `horairesDeclares`).
+ *
+ * La migration `20260921160000_horaires_ouverture_structures` a fait la même
+ * traduction une fois pour toutes en SQL sur les données existantes.
+ */
+const ABREVIATIONS_JOURS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
+
+function plagesDepuisDeclaration(declaration: string) {
+  const jours = /^([A-Za-z]{3})-([A-Za-z]{3})/.exec(declaration);
+  if (!jours) throw new Error(`Déclaration d'horaires illisible : "${declaration}"`);
+  const premier = ABREVIATIONS_JOURS.indexOf(jours[1]!.toLowerCase());
+  const dernier = ABREVIATIONS_JOURS.indexOf(jours[2]!.toLowerCase());
+  if (premier < 0 || dernier < 0) throw new Error(`Jours inconnus : "${declaration}"`);
+
+  const services = [...declaration.matchAll(/(\d{1,2})h(\d{2})?-(\d{1,2})h(\d{2})?/g)].map(
+    (service) => ({
+      debutMinutes: Number(service[1]) * 60 + Number(service[2] ?? 0),
+      finMinutes: Number(service[3]) * 60 + Number(service[4] ?? 0),
+    }),
+  );
+  if (services.length === 0) throw new Error(`Aucun service lisible : "${declaration}"`);
+
+  // "Ven-Lun" boucle sur la fin de semaine — même règle que le SQL de reprise.
+  const ouvertCeJour = (jourSemaine: number) =>
+    premier <= dernier
+      ? jourSemaine >= premier && jourSemaine <= dernier
+      : jourSemaine >= premier || jourSemaine <= dernier;
+
+  return ABREVIATIONS_JOURS.flatMap((_, jourSemaine) =>
+    ouvertCeJour(jourSemaine) ? services.map((service) => ({ jourSemaine, ...service })) : [],
+  );
+}
+
 async function run() {
   await prisma.journalAuditRestaurant.deleteMany();
   await prisma.staff.deleteMany();
@@ -296,9 +334,13 @@ async function run() {
   let nombreContacts = 0;
   let nombrePlats = 0;
 
-  for (const { plats, contacts, ...restaurant } of restaurants) {
+  for (const { plats, contacts, ouverture, ...restaurant } of restaurants) {
     const restaurantCree = await prisma.restaurant.create({
-      data: { ...restaurant, platsCuillere: { create: plats } },
+      data: {
+        ...restaurant,
+        platsCuillere: { create: plats },
+        plagesOuverture: { create: ouverture ? plagesDepuisDeclaration(ouverture) : [] },
+      },
     });
     nombrePlats += plats.length;
 

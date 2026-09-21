@@ -28,7 +28,6 @@ export default async function FicheEtablissementPage() {
       ville: true,
       cuisine: true,
       adresse: true,
-      horaires: true,
       description: true,
       capacite: true,
       delaiAnnulationHeures: true,
@@ -41,7 +40,7 @@ export default async function FicheEtablissementPage() {
     <>
       <EnteteEspace
         titre="Ma fiche établissement"
-        description="C'est ce que voient les dîneurs avant de réserver : nom, adresse, horaires, capacité et photo."
+        description="C'est ce que voient les dîneurs avant de réserver : nom, adresse, capacité et photo. Les horaires, eux, se déclarent sur « Mes disponibilités »."
         actions={
           <Link href={`/restaurants/${restaurant.id}`} className={BOUTON_SECONDAIRE}>
             Voir ma fiche publique

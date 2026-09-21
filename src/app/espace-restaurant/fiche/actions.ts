@@ -17,11 +17,6 @@ const schemaFiche = z.object({
   ville: z.string().trim().min(1, "La ville est obligatoire."),
   cuisine: z.string().trim().min(1, "Le type de cuisine est obligatoire."),
   adresse: z.string().trim().min(1, "L'adresse est obligatoire."),
-  horaires: z
-    .string()
-    .trim()
-    .nullable()
-    .transform((v) => (v && v.length > 0 ? v : null)),
   description: z
     .string()
     .trim()
@@ -64,7 +59,6 @@ export async function mettreAJourFiche(
     ville: formData.get("ville"),
     cuisine: formData.get("cuisine"),
     adresse: formData.get("adresse"),
-    horaires: formData.get("horaires"),
     description: formData.get("description"),
     capacite: formData.get("capacite"),
     delaiAnnulationHeures: formData.get("delaiAnnulationHeures"),
