@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 
 import { BarreLaterale, type EntreeMenu, type ThemeBarre } from "@/components/BarreLaterale";
 import { DeconnexionAdminBouton } from "@/components/DeconnexionAdminBouton";
+import { Onboarding } from "@/components/Onboarding";
 import { exigerSessionStaff } from "@/lib/garde-staff";
+import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: { default: "Console staff", template: "%s · Console staff" },
@@ -15,6 +17,10 @@ const MENU: readonly EntreeMenu[] = [
   { href: "/admin/contestation", label: "Réglages contestation", icone: "reglages" },
   { href: "/admin/contacts-restaurateurs", label: "Demandes restaurateurs", icone: "message" },
 ];
+
+/** Sur fond sombre, le bouton se pose en creux plutôt qu'en pleine couleur. */
+const BOUTON_ONBOARDING =
+  "rounded-full border border-white/25 px-3 py-2 text-xs font-semibold text-[var(--color-cream)] transition-colors hover:bg-white/10";
 
 /** L'univers « staff » : encre bleutée, accent violet (cf. `src/lib/univers.ts`). */
 const THEME: ThemeBarre = {
@@ -37,6 +43,10 @@ const THEME: ThemeBarre = {
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await exigerSessionStaff();
+  const staff = await prisma.staff.findUnique({
+    where: { id: session.user.id },
+    select: { onboardingVuLe: true },
+  });
 
   return (
     <div className="univers-staff min-h-screen bg-[var(--color-staff-tint)] lg:flex">
@@ -48,6 +58,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         theme={THEME}
         pied={
           <div className="flex flex-col gap-3 px-1">
+            <Onboarding
+              univers="staff"
+              dejaVu={staff?.onboardingVuLe !== null}
+              classeBouton={BOUTON_ONBOARDING}
+            />
             <span className="text-xs" style={{ color: THEME.texte }}>
               Connecté en tant que
               <br />

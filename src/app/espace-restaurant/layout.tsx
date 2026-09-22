@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { BarreLaterale, type EntreeMenu, type ThemeBarre } from "@/components/BarreLaterale";
 import { DeconnexionRestaurantBouton } from "@/components/DeconnexionRestaurantBouton";
+import { Onboarding } from "@/components/Onboarding";
 import { authRestaurant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -19,6 +20,10 @@ const MENU: readonly EntreeMenu[] = [
   { href: "/espace-restaurant/fiche", label: "Ma fiche", icone: "boutique" },
   { href: "/espace-restaurant/factures", label: "Factures", icone: "facture" },
 ];
+
+/** Sur fond sombre, le bouton se pose en creux plutôt qu'en pleine couleur. */
+const BOUTON_ONBOARDING =
+  "rounded-full border border-white/25 px-3 py-2 text-xs font-semibold text-[var(--color-cream)] transition-colors hover:bg-white/10";
 
 /** L'univers « partenaire » : vert profond, accent jaune (cf. `src/lib/univers.ts`). */
 const THEME: ThemeBarre = {
@@ -38,10 +43,16 @@ export default async function EspaceRestaurantLayout({ children }: { children: R
   const session = await authRestaurant.api.getSession({ headers: await headers() });
   if (!session) redirect("/connexion-restaurant");
 
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id: session.user.restaurantId },
-    select: { nom: true, ville: true },
-  });
+  const [restaurant, contact] = await Promise.all([
+    prisma.restaurant.findUnique({
+      where: { id: session.user.restaurantId },
+      select: { nom: true, ville: true },
+    }),
+    prisma.restaurantContact.findUnique({
+      where: { id: session.user.id },
+      select: { onboardingVuLe: true },
+    }),
+  ]);
 
   return (
     <div className="univers-pro min-h-screen bg-[var(--color-pro-tint)] lg:flex">
@@ -53,6 +64,11 @@ export default async function EspaceRestaurantLayout({ children }: { children: R
         theme={THEME}
         pied={
           <div className="flex flex-col gap-3 px-1">
+            <Onboarding
+              univers="restaurant"
+              dejaVu={contact?.onboardingVuLe !== null}
+              classeBouton={BOUTON_ONBOARDING}
+            />
             <span className="text-xs" style={{ color: THEME.texte }}>
               Connecté en tant que
               <br />

@@ -161,19 +161,25 @@ enum RoleContactRestaurant {
 /// table dédiée, cookie dédié — une population avec ses propres accès, pas un
 /// rôle de plus sur `User`.
 model RestaurantContact {
-  id            String                     @id @default(cuid())
-  restaurantId  String
-  restaurant    Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  nom           String
-  email         String
-  emailVerified Boolean                    @default(false)
-  image         String?
-  role          RoleContactRestaurant
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
-  sessions      RestaurantContactSession[]
-  accounts      RestaurantContactAccount[]
-  dossiers      Dossier[]
+  id             String                     @id @default(cuid())
+  restaurantId   String
+  restaurant     Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  nom            String
+  email          String
+  emailVerified  Boolean                    @default(false)
+  image          String?
+  role           RoleContactRestaurant
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  /// Date à laquelle cette personne a vu l'onboarding de son parcours jusqu'au
+  /// bout. `null` : jamais vu, il s'ouvre tout seul à l'arrivée. Une fois
+  /// renseigné il ne se rouvre plus seul, mais reste rejouable depuis le
+  /// menu — d'où une date plutôt qu'un booléen : « quand » se relit, « vrai »
+  /// ne dit rien.
+  onboardingVuLe DateTime?
+  sessions       RestaurantContactSession[]
+  accounts       RestaurantContactAccount[]
+  dossiers       Dossier[]
 
   @@unique([email])
   @@index([restaurantId])
@@ -207,6 +213,12 @@ model Staff {
   role              String?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
+  /// Date à laquelle cette personne a vu l'onboarding de son parcours jusqu'au
+  /// bout. `null` : jamais vu, il s'ouvre tout seul à l'arrivée. Une fois
+  /// renseigné il ne se rouvre plus seul, mais reste rejouable depuis le
+  /// menu — d'où une date plutôt qu'un booléen : « quand » se relit, « vrai »
+  /// ne dit rien.
+  onboardingVuLe    DateTime?
   sessions          StaffSession[]
   accounts          StaffAccount[]
   journalAudit      JournalAuditRestaurant[]
@@ -728,17 +740,23 @@ model Avis {
 // ----------------------------------------------------------------------------
 
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  bookings      Booking[]
-  avis          Avis[]
+  id             String    @id
+  name           String
+  email          String
+  emailVerified  Boolean   @default(false)
+  image          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  /// Date à laquelle cette personne a vu l'onboarding de son parcours jusqu'au
+  /// bout. `null` : jamais vu, il s'ouvre tout seul à l'arrivée. Une fois
+  /// renseigné il ne se rouvre plus seul, mais reste rejouable depuis le
+  /// menu — d'où une date plutôt qu'un booléen : « quand » se relit, « vrai »
+  /// ne dit rien.
+  onboardingVuLe DateTime?
+  sessions       Session[]
+  accounts       Account[]
+  bookings       Booking[]
+  avis           Avis[]
 
   @@unique([email])
   @@map("user")
