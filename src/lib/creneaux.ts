@@ -14,11 +14,11 @@ import {
   ajouterJours,
   aujourdHuiIso,
   composantesLocales,
-  heureLocale,
-  instantLocal,
-  jourIsoLocal,
+  instantLocalDeJour,
+  jourEtHeureLocaux,
   jourIsoValide,
   jourSemaineIso,
+  moisIsoValide,
 } from "./fuseau";
 
 export const NB_JOURS_RESERVABLES = 5;
@@ -60,6 +60,11 @@ export type JourReservable = {
 /** Abrégés des jours, dans l'ordre ISO (0 = lundi) — comme `jourSemaineIso`. */
 const JOURS_SEMAINE = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
 
+/** Le quantième affiché, sans son zéro de tête : « 2 », pas « 02 ». */
+function numeroDuJour(jourIso: string): number {
+  return Number(jourIso.slice(8, 10));
+}
+
 export function genererJoursReservables(depuis = new Date()): JourReservable[] {
   const premier = aujourdHuiIso(depuis);
   return Array.from({ length: NB_JOURS_RESERVABLES }, (_, i) => {
@@ -67,7 +72,7 @@ export function genererJoursReservables(depuis = new Date()): JourReservable[] {
     return {
       iso,
       jourSemaine: JOURS_SEMAINE[jourSemaineIso(iso)]!,
-      numero: String(Number(iso.slice(8, 10))),
+      numero: String(numeroDuJour(iso)),
     };
   });
 }
@@ -84,9 +89,8 @@ function estCreneauValide(creneau: string): creneau is CreneauHoraire {
  */
 export function construireDateCreneau(jourIso: string, creneau: string): Date | null {
   if (!jourIsoValide(jourIso) || !estCreneauValide(creneau)) return null;
-  const [annee, mois, jour] = jourIso.split("-").map(Number) as [number, number, number];
   const [heures, minutes] = creneau.split(":").map(Number) as [number, number];
-  return instantLocal(annee, mois, jour, heures, minutes);
+  return instantLocalDeJour(jourIso, heures, minutes);
 }
 
 /**
@@ -96,7 +100,8 @@ export function construireDateCreneau(jourIso: string, creneau: string): Date | 
  * calcul serveur et côté affichage.
  */
 export function cleCreneau(date: Date): string {
-  return `${jourIsoLocal(date)}_${heureLocale(date)}`;
+  const { jour, heure } = jourEtHeureLocaux(date);
+  return `${jour}_${heure}`;
 }
 
 /**
@@ -105,10 +110,9 @@ export function cleCreneau(date: Date): string {
  * de changement d'heure ne la rallonge ni ne la raccourcisse d'une heure.
  */
 export function estDansLaFenetreReservable(date: Date, maintenant = new Date()): boolean {
-  const { heures, minutes } = composantesLocales(maintenant);
+  const { heures, minutes, secondes } = composantesLocales(maintenant);
   const limiteIso = ajouterJours(aujourdHuiIso(maintenant), NB_JOURS_RESERVABLES);
-  const [annee, mois, jour] = limiteIso.split("-").map(Number) as [number, number, number];
-  const limite = instantLocal(annee, mois, jour, heures, minutes);
+  const limite = instantLocalDeJour(limiteIso, heures, minutes, secondes);
   return date.getTime() > maintenant.getTime() && date.getTime() < limite.getTime();
 }
 
@@ -141,6 +145,9 @@ export function genererGrilleMois(
   moisIsoActuel: string,
   aujourdHui = new Date(),
 ): JourCalendrier[] {
+  if (!moisIsoValide(moisIsoActuel)) {
+    throw new Error(`Mois invalide : "${moisIsoActuel}" — attendu AAAA-MM.`);
+  }
   const premierDuMois = `${moisIsoActuel}-01`;
   const debutGrille = ajouterJours(premierDuMois, -jourSemaineIso(premierDuMois));
   const jourCourant = aujourdHuiIso(aujourdHui);
@@ -149,7 +156,8 @@ export function genererGrilleMois(
     const iso = ajouterJours(debutGrille, i);
     return {
       iso,
-      numero: Number(iso.slice(8, 10)),
+      numero: numeroDuJour(iso),
+      // Comparaison de chaînes sûre : `moisIsoValide` a garanti le zéro de tête.
       horsMois: iso.slice(0, 7) !== moisIsoActuel,
       estPasse: iso < jourCourant,
       estAujourdhui: iso === jourCourant,

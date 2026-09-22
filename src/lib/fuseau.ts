@@ -88,8 +88,9 @@ export function instantLocal(
   jour: number,
   heures = 0,
   minutes = 0,
+  secondes = 0,
 ): Date {
-  const commeSiUtc = Date.UTC(annee, mois - 1, jour, heures, minutes);
+  const commeSiUtc = Date.UTC(annee, mois - 1, jour, heures, minutes, secondes);
   const premier = decalage(new Date(commeSiUtc));
   const candidat = commeSiUtc - premier;
   const second = decalage(new Date(candidat));
@@ -98,20 +99,47 @@ export function instantLocal(
 
 /** Le jour "YYYY-MM-DD" sur lequel tombe cet instant à Paris. */
 export function jourIsoLocal(instant: Date): string {
-  const { annee, mois, jour } = composantesLocales(instant);
-  return `${annee}-${String(mois).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
+  return jourDesComposantes(composantesLocales(instant));
+}
+
+/**
+ * L'instant parisien d'une heure murale donnée un jour donné — le seul
+ * endroit qui découpe une chaîne "AAAA-MM-JJ" pour la donner à
+ * `instantLocal`. Lève si le jour n'existe pas : ces fonctions sont appelées
+ * avec des valeurs déjà validées (`jourIsoValide`), et un jour bancal qui
+ * passerait quand même vaut mieux bruyant que silencieusement décalé.
+ */
+export function instantLocalDeJour(jourIso: string, heures = 0, minutes = 0, secondes = 0): Date {
+  const { annee, mois, jour } = composantesDuJour(jourIso);
+  return instantLocal(annee, mois, jour, heures, minutes, secondes);
 }
 
 /** Minuit à Paris, au début du jour "YYYY-MM-DD" — la borne d'une journée de service. */
 export function debutDeJournee(jourIso: string): Date {
-  const [annee, mois, jour] = jourIso.split("-").map(Number) as [number, number, number];
-  return instantLocal(annee, mois, jour);
+  return instantLocalDeJour(jourIso);
 }
 
 /** L'heure "HH:mm" qu'affiche une horloge parisienne à cet instant. */
 export function heureLocale(instant: Date): string {
-  const { heures, minutes } = composantesLocales(instant);
+  return heureDesComposantes(composantesLocales(instant));
+}
+
+function jourDesComposantes({ annee, mois, jour }: ComposantesLocales): string {
+  return `${annee}-${String(mois).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
+}
+
+function heureDesComposantes({ heures, minutes }: ComposantesLocales): string {
   return `${String(heures).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/**
+ * Jour et heure d'un même instant, lus en une fois — `jourIsoLocal` suivi de
+ * `heureLocale` ferait deux formatages ICU pour la même horloge, et c'est
+ * appelé par créneau à chaque rendu de la carte de réservation.
+ */
+export function jourEtHeureLocaux(instant: Date): { jour: string; heure: string } {
+  const composantes = composantesLocales(instant);
+  return { jour: jourDesComposantes(composantes), heure: heureDesComposantes(composantes) };
 }
 
 // ---------------------------------------------------------------------------
@@ -126,23 +154,47 @@ export function heureLocale(instant: Date): string {
 // ---------------------------------------------------------------------------
 
 const REGEX_JOUR_ISO = /^\d{4}-\d{2}-\d{2}$/;
-
-function calendrier(jourIso: string): Date {
-  const [annee, mois, jour] = jourIso.split("-").map(Number) as [number, number, number];
-  return new Date(Date.UTC(annee, mois - 1, jour));
-}
+const REGEX_MOIS_ISO = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function isoDuCalendrier(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
 /**
- * Un jour au format attendu **et** qui existe : `Date.UTC` reporte
- * silencieusement un 31 février sur mars, là où une construction par chaîne
- * rendait une date invalide qu'on savait rejeter.
+ * Le jour, ou `null` s'il n'existe pas. La forme ne suffit pas : `Date.UTC`
+ * reporte silencieusement un 31 février sur mars, d'où l'aller-retour qui
+ * vérifie qu'on retombe sur la chaîne donnée.
  */
+function calendrierEventuel(jourIso: string): Date | null {
+  if (!REGEX_JOUR_ISO.test(jourIso)) return null;
+  const [annee, mois, jour] = jourIso.split("-").map(Number) as [number, number, number];
+  const date = new Date(Date.UTC(annee, mois - 1, jour));
+  return isoDuCalendrier(date) === jourIso ? date : null;
+}
+
+/**
+ * Même chose, mais en refusant de continuer plutôt qu'en rendant `NaN` : une
+ * date bancale qui traverse silencieusement donne un écran vide ou un jour
+ * « undefined », ce qui coûte bien plus cher à comprendre qu'une erreur.
+ */
+function calendrier(jourIso: string): Date {
+  const date = calendrierEventuel(jourIso);
+  if (!date) throw new Error(`Jour invalide : "${jourIso}" — attendu AAAA-MM-JJ.`);
+  return date;
+}
+
 export function jourIsoValide(jourIso: string): boolean {
-  return REGEX_JOUR_ISO.test(jourIso) && isoDuCalendrier(calendrier(jourIso)) === jourIso;
+  return calendrierEventuel(jourIso) !== null;
+}
+
+/** Un mois "AAAA-MM" qui existe — 2026-99 n'en est pas un. */
+export function moisIsoValide(mois: string): boolean {
+  return REGEX_MOIS_ISO.test(mois);
+}
+
+function composantesDuJour(jourIso: string): { annee: number; mois: number; jour: number } {
+  const date = calendrier(jourIso);
+  return { annee: date.getUTCFullYear(), mois: date.getUTCMonth() + 1, jour: date.getUTCDate() };
 }
 
 export function ajouterJours(jourIso: string, jours: number): string {

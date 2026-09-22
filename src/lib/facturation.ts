@@ -120,6 +120,12 @@ export type ResultatGenerationFactures = {
  * `LigneFacture` dans le schéma.
  */
 export async function genererFacturesMois(mois: Date): Promise<ResultatGenerationFactures> {
+  // Bornes en UTC, alors que `Booking.date` porte un instant parisien : les
+  // deux ne coïncident qu'aussi longtemps qu'aucun service ne tombe entre
+  // minuit et 2h du matin. C'est le cas — le dernier créneau réservable est
+  // 22h à Paris, soit 20h UTC (voir CRENEAUX_SOIR). Un créneau de nuit
+  // rattacherait le 1er du mois au mois précédent : découper le mois en heure
+  // de Paris deviendrait alors nécessaire.
   const debutMois = new Date(Date.UTC(mois.getUTCFullYear(), mois.getUTCMonth(), 1));
   const finMois = new Date(Date.UTC(mois.getUTCFullYear(), mois.getUTCMonth() + 1, 1));
 

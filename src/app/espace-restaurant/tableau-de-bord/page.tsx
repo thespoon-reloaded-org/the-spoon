@@ -6,9 +6,8 @@ import { EnteteEspace } from "@/components/EnteteEspace";
 import { IconeChevron, IconeFleche } from "@/components/Icones";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { authRestaurant } from "@/lib/auth";
-
-import { ajouterJours, aujourdHuiIso, debutDeJournee, formaterHeure } from "@/lib/fuseau";
 import { formaterMoisFacture, formaterMontant } from "@/lib/facturation";
+import { ajouterJours, aujourdHuiIso, debutDeJournee, formaterHeure } from "@/lib/fuseau";
 import { prisma } from "@/lib/prisma";
 import { CARTE, CARTE_CLIQUABLE, ETAT_VIDE, TITRE_SECTION, pastilleEtat } from "@/lib/ui";
 

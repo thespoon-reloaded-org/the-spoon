@@ -20,6 +20,7 @@ import {
   jourIsoValide,
   moisAdjacent,
   moisIso as calculerMoisIso,
+  moisIsoValide,
 } from "@/lib/fuseau";
 import { formaterMinutes, horairesDeclares } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
@@ -122,8 +123,7 @@ export default async function DisponibilitesPage({
   const restaurantId = session.user.restaurantId;
   const params = await searchParams;
 
-  const moisActuel =
-    params.mois && /^\d{4}-\d{2}$/.test(params.mois) ? params.mois : calculerMoisIso();
+  const moisActuel = params.mois && moisIsoValide(params.mois) ? params.mois : calculerMoisIso();
   const jourSelectionne = params.jour && jourIsoValide(params.jour) ? params.jour : null;
   const messageErreur = params.erreur ? MESSAGES_ERREUR[params.erreur] : undefined;
   const grille = genererGrilleMois(moisActuel);

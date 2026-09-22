@@ -98,6 +98,20 @@ describe("arithmétique de calendrier", () => {
     expect(jourIsoValide("22-09-2026")).toBe(false);
   });
 
+  /**
+   * Refuser plutôt que rendre NaN ou décaler en silence : une date bancale qui
+   * traverse donne un écran vide ou un jour « undefined », bien plus cher à
+   * comprendre qu'une erreur.
+   */
+  test("une date ou un mois qui n'existe pas fait échouer, pas dériver", () => {
+    expect(() => ajouterJours("nawak", 1)).toThrow(/Jour invalide/);
+    expect(() => jourSemaineIso("2026-02-30")).toThrow(/Jour invalide/);
+    expect(() => genererGrilleMois("2026-99")).toThrow(/Mois invalide/);
+    // Sans zéro de tête, le mois n'est pas reconnu : l'ancienne comparaison de
+    // chaînes marquait alors les 42 jours de la grille comme hors du mois.
+    expect(() => genererGrilleMois("2026-9")).toThrow(/Mois invalide/);
+  });
+
   test("le lundi vaut 0, le dimanche 6", () => {
     expect(jourSemaineIso("2026-09-21")).toBe(0);
     expect(jourSemaineIso("2026-09-27")).toBe(6);
