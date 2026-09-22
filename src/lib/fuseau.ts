@@ -248,6 +248,19 @@ export function formaterJourCourt(instant: Date): string {
   return formaterDate(instant, { weekday: "short", day: "numeric", month: "short" });
 }
 
+/**
+ * "18 sept. à 14:32" — quand la minute compte : un journal de dossier, un
+ * signalement daté. Le jour seul ne dirait pas assez.
+ */
+export function formaterJourEtHeure(instant: Date): string {
+  return `${formaterJourSansSemaine(instant)} à ${formaterHeure(instant)}`;
+}
+
+/** "22 sept." — le jour, sans son jour de semaine. */
+export function formaterJourSansSemaine(instant: Date): string {
+  return formaterDate(instant, { day: "numeric", month: "short" });
+}
+
 /** "19:30". */
 export function formaterHeure(instant: Date): string {
   return instant.toLocaleTimeString("fr-FR", {

@@ -219,10 +219,15 @@ saines (local, CI) où elle ne fait rien.
   qui n'a rien déclaré garde tous ses créneaux proposés
   (`horairesDeclares`, `src/lib/horaires.ts`).
   Politique d'annulation : le restaurant définit
-  `Restaurant.delaiAnnulationHeures` sur la fiche établissement — le délai
-  minimal d'annulation côté dîneur et le motif de contestation
-  `annulation_tardive` ne l'exploitent pas encore, ce sont des stories
-  séparées du backlog.
+  `Restaurant.delaiAnnulationHeures` sur la fiche établissement. Le dîneur la
+  voit avant de réserver (pied de la carte de réservation) et elle est
+  appliquée dans "Mes réservations" — même règle des deux côtés, écrite une
+  fois dans `src/lib/annulation.ts` : l'écran ne propose jamais un bouton que
+  le serveur refuserait. Passé le délai, le dîneur ne peut plus annuler mais
+  peut **prévenir qu'il ne viendra pas** (`Booking.absencePrevenueLe`) : la
+  réservation reste CONFIRMEE, le restaurant garde la main sur honoré/no-show,
+  mais il peut libérer la table et garde une trace datée si le no-show finit
+  en contestation. Le motif `annulation_tardive` reste une story à part.
 - Gestion de ma réservation (`/mes-reservations`) : un dîneur connecté voit
   ses réservations passées/à venir et peut annuler celles à venir
   (`src/app/mes-reservations/`). Une réservation annulée reste visible avec

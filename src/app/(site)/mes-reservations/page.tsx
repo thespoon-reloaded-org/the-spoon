@@ -4,8 +4,15 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { AnnulerReservationBouton } from "@/components/AnnulerReservationBouton";
+import { PrevenirAbsenceBouton } from "@/components/PrevenirAbsenceBouton";
 import { IconeCalendrier, IconeLieu } from "@/components/Icones";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
+import {
+  annulabilite,
+  limiteAnnulation,
+  MESSAGES_REFUS_ANNULATION,
+  peutPrevenirAbsence,
+} from "@/lib/annulation";
 import { auth } from "@/lib/auth";
 import { formaterHeure, formaterJourLong } from "@/lib/fuseau";
 import { photoRestaurant } from "@/lib/images";
@@ -33,14 +40,17 @@ function separerReservations(reservations: ReservationAvecRestaurant[]) {
   };
 }
 
-function CarteReservation({
-  reservation,
-  annulable,
-}: {
-  reservation: ReservationAvecRestaurant;
-  annulable: boolean;
-}) {
+/**
+ * Ce que le dîneur peut encore faire de cette réservation. La même règle
+ * qu'applique `annulerReservation` côté serveur : l'écran ne propose jamais
+ * un bouton que le serveur refuserait, et n'en retire jamais un qu'il
+ * accepterait.
+ */
+function CarteReservation({ reservation }: { reservation: ReservationAvecRestaurant }) {
   const statut = STATUT[reservation.statut];
+  const delaiHeures = reservation.restaurant.delaiAnnulationHeures;
+  const verdict = annulabilite(reservation, delaiHeures);
+  const limite = limiteAnnulation(reservation.date, delaiHeures);
 
   return (
     <li className="flex flex-wrap items-center gap-4 rounded-[22px] border border-[var(--color-line-strong)] bg-white p-4">
@@ -77,10 +87,34 @@ function CarteReservation({
         </p>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
-        <span className={pastilleEtat(statut.etat)}>{statut.label}</span>
-        {annulable && reservation.statut === "CONFIRMEE" && (
-          <AnnulerReservationBouton bookingId={reservation.id} />
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="flex items-center gap-3">
+          <span className={pastilleEtat(statut.etat)}>{statut.label}</span>
+          {verdict.annulable && <AnnulerReservationBouton bookingId={reservation.id} />}
+          {!verdict.annulable && verdict.raison === "delai-depasse" && (
+            <>
+              {reservation.absencePrevenueLe ? (
+                <span className="text-sm font-semibold text-[var(--color-ink-muted)]">
+                  Le restaurant est prévenu
+                </span>
+              ) : (
+                peutPrevenirAbsence(reservation) && (
+                  <PrevenirAbsenceBouton bookingId={reservation.id} />
+                )
+              )}
+            </>
+          )}
+        </div>
+
+        {verdict.annulable && limite && (
+          <p className="text-xs text-[var(--color-ink-muted)]">
+            Annulable jusqu&apos;au {formaterJourLong(limite)} à {formaterHeure(limite)}
+          </p>
+        )}
+        {!verdict.annulable && verdict.raison === "delai-depasse" && (
+          <p className="max-w-[16rem] text-right text-xs text-[var(--color-ink-muted)]">
+            {MESSAGES_REFUS_ANNULATION["delai-depasse"]}
+          </p>
         )}
       </div>
     </li>
@@ -134,7 +168,7 @@ export default async function MesReservationsPage() {
         ) : (
           <ul className="mt-4 flex flex-col gap-3">
             {aVenir.map((reservation) => (
-              <CarteReservation key={reservation.id} reservation={reservation} annulable />
+              <CarteReservation key={reservation.id} reservation={reservation} />
             ))}
           </ul>
         )}
@@ -149,11 +183,7 @@ export default async function MesReservationsPage() {
         ) : (
           <ul className="mt-4 flex flex-col gap-3">
             {passees.map((reservation) => (
-              <CarteReservation
-                key={reservation.id}
-                reservation={reservation}
-                annulable={false}
-              />
+              <CarteReservation key={reservation.id} reservation={reservation} />
             ))}
           </ul>
         )}

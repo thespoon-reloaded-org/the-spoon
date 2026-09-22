@@ -318,6 +318,7 @@ export default async function FicheRestaurantPage({
               ouvertures={ouvertures}
               occupation={occupation}
               capacite={capaciteEffective(restaurant.capacite)}
+              delaiAnnulationHeures={restaurant.delaiAnnulationHeures}
             />
           </aside>
         </div>

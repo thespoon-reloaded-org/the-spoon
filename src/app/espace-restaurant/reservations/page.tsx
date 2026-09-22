@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { SignalerReservationBoutons } from "@/components/SignalerReservationBoutons";
 import { authRestaurant } from "@/lib/auth";
-import { formaterHeure, formaterJourLong } from "@/lib/fuseau";
+import { formaterHeure, formaterJourEtHeure, formaterJourLong } from "@/lib/fuseau";
 import { prisma } from "@/lib/prisma";
 import { ETAT_VIDE, TITRE_SECTION, pastilleEtat, type EtatPastille } from "@/lib/ui";
 import type { Booking, User } from "@/generated/prisma";
@@ -50,11 +50,15 @@ function LigneReservation({
 }) {
   const aSignaler = estPassee && reservation.statut === "CONFIRMEE";
   const statut = STATUT[reservation.statut];
+  // Le dîneur a prévenu qu'il ne viendrait pas alors qu'il ne pouvait plus
+  // annuler. La table peut être libérée, et le jour où le no-show est
+  // contesté, la date du signalement est là.
+  const absenceAnnoncee = reservation.absencePrevenueLe !== null && !estPassee;
 
   return (
     <li
       className={`flex flex-wrap items-center gap-4 rounded-2xl border bg-white px-5 py-4 ${
-        aSignaler
+        aSignaler || absenceAnnoncee
           ? "border-[var(--color-warning)]/35 bg-[var(--color-warning-tint)]"
           : "border-[var(--color-line-strong)]"
       }`}
@@ -69,6 +73,11 @@ function LigneReservation({
           {reservation.couvertsServis !== null &&
             ` · ${reservation.couvertsServis} servi${reservation.couvertsServis > 1 ? "s" : ""}`}
         </p>
+        {absenceAnnoncee && reservation.absencePrevenueLe && (
+          <p className="mt-1 text-sm font-semibold text-[var(--color-warning)]">
+            A prévenu qu&apos;il ne viendra pas — {formaterJourEtHeure(reservation.absencePrevenueLe)}
+          </p>
+        )}
       </div>
 
       {aSignaler ? (
