@@ -9,6 +9,7 @@ import {
   referenceAvoir,
   referenceFacture,
 } from "@/lib/facturation";
+import { formaterDate } from "@/lib/fuseau";
 import { EYEBROW } from "@/lib/ui";
 
 type FactureAvecDetails = Facture & {
@@ -60,7 +61,7 @@ export function FactureDocument({
           <div className="text-right text-sm text-[var(--color-ink-muted)]">
             <p>
               Émise le{" "}
-              {facture.genereeLe.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+              {formaterDate(facture.genereeLe, { day: "numeric", month: "long", year: "numeric" })}
             </p>
             <p className="mt-1">
               {joursRestants > 0
