@@ -1,7 +1,21 @@
 import { describe, expect, test } from "vitest";
 
-import { cleCreneau, construireDateCreneau, estDansLaFenetreReservable, genererGrilleMois, genererJoursReservables, NB_JOURS_RESERVABLES } from "./creneaux";
-import { ajouterJours, aujourdHuiIso, jourIsoValide, jourSemaineIso, moisAdjacent, moisIso } from "./fuseau";
+import {
+  cleCreneau,
+  construireDateCreneau,
+  estDansLaFenetreReservable,
+  genererGrilleMois,
+  genererJoursReservables,
+  NB_JOURS_RESERVABLES,
+} from "./creneaux";
+import {
+  ajouterJours,
+  aujourdHuiIso,
+  jourIsoValide,
+  jourSemaineIso,
+  moisAdjacent,
+  moisIso,
+} from "./fuseau";
 
 /**
  * Comme dans `fuseau.test.ts`, les assertions portent sur des instants
@@ -109,13 +123,21 @@ describe("fenêtre réservable", () => {
   const maintenant = new Date("2026-09-22T10:00:00.000Z"); // midi à Paris
 
   test("un créneau passé est refusé, un créneau du jour à venir est accepté", () => {
-    expect(estDansLaFenetreReservable(construireDateCreneau("2026-09-22", "12:00")!, maintenant)).toBe(false);
-    expect(estDansLaFenetreReservable(construireDateCreneau("2026-09-22", "19:00")!, maintenant)).toBe(true);
+    expect(
+      estDansLaFenetreReservable(construireDateCreneau("2026-09-22", "12:00")!, maintenant),
+    ).toBe(false);
+    expect(
+      estDansLaFenetreReservable(construireDateCreneau("2026-09-22", "19:00")!, maintenant),
+    ).toBe(true);
   });
 
   test("elle s'arrête au même moment cinq jours plus tard", () => {
-    expect(estDansLaFenetreReservable(construireDateCreneau("2026-09-26", "22:00")!, maintenant)).toBe(true);
-    expect(estDansLaFenetreReservable(construireDateCreneau("2026-09-27", "12:00")!, maintenant)).toBe(false);
+    expect(
+      estDansLaFenetreReservable(construireDateCreneau("2026-09-26", "22:00")!, maintenant),
+    ).toBe(true);
+    expect(
+      estDansLaFenetreReservable(construireDateCreneau("2026-09-27", "12:00")!, maintenant),
+    ).toBe(false);
   });
 
   /**
