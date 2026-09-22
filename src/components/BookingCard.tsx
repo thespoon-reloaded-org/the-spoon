@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { creerReservation, type EtatReservation } from "@/app/(site)/restaurants/[id]/actions";
+import { politiqueAnnulation } from "@/lib/annulation";
 import { IconeCalendrier, IconeValide } from "@/components/Icones";
 import {
   CRENEAUX_MIDI,
@@ -54,6 +55,7 @@ export function BookingCard({
   ouvertures,
   occupation,
   capacite,
+  delaiAnnulationHeures,
 }: {
   restaurantId: string;
   estConnecte: boolean;
@@ -63,6 +65,8 @@ export function BookingCard({
   /** Couverts déjà confirmés par créneau, clé `cleCreneau` — voir `src/lib/reservation.ts`. */
   occupation: Record<string, number>;
   capacite: number;
+  /** Délai d'annulation déclaré par le restaurant — annoncé ici, appliqué dans "Mes réservations". */
+  delaiAnnulationHeures: number | null;
 }) {
   // Ouverte d'emblée sur le premier jour que le restaurant ouvre. S'il n'en
   // ouvre aucun, ces deux valeurs ne servent à rien : la carte affiche plus
@@ -281,7 +285,7 @@ export function BookingCard({
         )}
 
         <p className="text-center text-xs text-[var(--color-ink-muted)]">
-          Aucun prélèvement · annulation gratuite depuis « Mes réservations »
+          Aucun prélèvement · {politiqueAnnulation(delaiAnnulationHeures)}
         </p>
       </form>
     </div>

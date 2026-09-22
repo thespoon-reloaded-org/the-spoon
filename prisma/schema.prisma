@@ -370,23 +370,32 @@ enum StatutReservation {
 /// Pas de gestion de disponibilité/capacité ici — ce sera une story séparée
 /// (espace restaurant).
 model Booking {
-  id             String            @id @default(cuid())
-  restaurantId   String
-  restaurant     Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date           DateTime
-  couverts       Int
-  statut         StatutReservation @default(CONFIRMEE)
+  id                String            @id @default(cuid())
+  restaurantId      String
+  restaurant        Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date              DateTime
+  couverts          Int
+  statut            StatutReservation @default(CONFIRMEE)
   /// Nombre de couverts réellement servis, renseigné uniquement au passage en
   /// HONOREE — peut différer de `couverts` (le nombre réservé). C'est ce
   /// nombre qui sert de base à la commission facturée (epic Facturation).
-  couvertsServis Int?
+  couvertsServis    Int?
   /// Horodatage auquel le restaurant a signalé honoré/no-show — un attribut
   /// métier (utile pour la facturation), pas un simple `updatedAt` technique.
-  signaleeLe     DateTime?
-  createdAt      DateTime          @default(now())
-  ligneFacture   LigneFacture?
+  signaleeLe        DateTime?
+  /// Le dîneur a prévenu qu'il ne viendrait pas, alors qu'il ne pouvait plus
+  /// annuler (délai du restaurant dépassé). La réservation reste CONFIRMEE :
+  /// c'est le restaurant qui tranche honoré/no-show à la fin, ce signal ne
+  /// décide rien à sa place. Il s'affiche sur "Réservations reçues", avant le
+  /// service (libérer la table) comme après (choisir honoré ou no-show en
+  /// connaissance de cause). Sans effet sur la facturation — seules les
+  /// réservations HONOREE sont facturées — et pas encore repris par les
+  /// écrans de litige, où la trace serait pourtant utile.
+  absencePrevenueLe DateTime?
+  createdAt         DateTime          @default(now())
+  ligneFacture      LigneFacture?
 
   @@index([restaurantId])
   @@index([userId])

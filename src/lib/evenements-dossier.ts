@@ -1,7 +1,7 @@
 import type { EvenementDossier, Staff } from "@/generated/prisma";
 
 import { LABELS_IMPUTATION_LITIGE, LABELS_ISSUE_DECISION } from "./contestation-labels";
-import { formaterDate, formaterHeure } from "./fuseau";
+import { formaterJourEtHeure } from "./fuseau";
 import { formaterMontant } from "./montants";
 
 export type EvenementAvecAuteur = EvenementDossier & { auteurStaff: Pick<Staff, "nom"> | null };
@@ -45,14 +45,11 @@ function libelle<Cle extends string>(table: Record<Cle, string>, valeur: string 
 
 /**
  * "18 sept. à 14:32" — un journal se lit à la minute, pas au jour près. Le
- * fuseau vient de `src/lib/fuseau.ts` : en production le code tourne en UTC
- * (Netlify), et un journal qui daterait à 12:32 un geste fait à 14:32 à Paris
- * serait faux là où il doit justement faire foi.
+ * format vient de `src/lib/fuseau.ts`, qui impose aussi le fuseau : en
+ * production le code tourne en UTC (Netlify), et un journal qui daterait à
+ * 12:32 un geste fait à 14:32 à Paris serait faux là où il doit faire foi.
  */
-export function formaterHorodatage(date: Date): string {
-  const jour = formaterDate(date, { day: "numeric", month: "short" });
-  return `${jour} à ${formaterHeure(date)}`;
-}
+export const formaterHorodatage = formaterJourEtHeure;
 
 /**
  * Traduit un événement en ligne lisible. `pourLePartenaire` n'est pas un
