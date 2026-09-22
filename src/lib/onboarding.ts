@@ -27,7 +27,9 @@ export type EtapeOnboarding = {
 };
 
 export type Parcours = {
-  /** Titre de la fenêtre, et libellé du bouton qui la rouvre. */
+  /** Titre de la fenêtre. Le bouton qui la rouvre dit « Comment ça marche »
+   *  partout — trois libellés différents pour le même geste n'aideraient
+   *  personne. */
   titre: string;
   accroche: string;
   etapes: readonly EtapeOnboarding[];

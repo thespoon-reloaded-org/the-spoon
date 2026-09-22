@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { BarreLaterale, type EntreeMenu, type ThemeBarre } from "@/components/BarreLaterale";
 import { DeconnexionRestaurantBouton } from "@/components/DeconnexionRestaurantBouton";
-import { Onboarding } from "@/components/Onboarding";
+import { BoutonOnboarding, Onboarding } from "@/components/Onboarding";
 import { authRestaurant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -56,6 +56,9 @@ export default async function EspaceRestaurantLayout({ children }: { children: R
 
   return (
     <div className="univers-pro min-h-screen bg-[var(--color-pro-tint)] lg:flex">
+      {/* Une seule fenêtre par page : la barre latérale, elle, rend son pied
+          deux fois (colonne fixe et tiroir mobile). */}
+      <Onboarding univers="restaurant" dejaVu={contact?.onboardingVuLe !== null} />
       <BarreLaterale
         marque="Espace restaurateur"
         titre={restaurant?.nom ?? session.user.name}
@@ -64,11 +67,7 @@ export default async function EspaceRestaurantLayout({ children }: { children: R
         theme={THEME}
         pied={
           <div className="flex flex-col gap-3 px-1">
-            <Onboarding
-              univers="restaurant"
-              dejaVu={contact?.onboardingVuLe !== null}
-              classeBouton={BOUTON_ONBOARDING}
-            />
+            <BoutonOnboarding univers="restaurant" className={BOUTON_ONBOARDING} />
             <span className="text-xs" style={{ color: THEME.texte }}>
               Connecté en tant que
               <br />

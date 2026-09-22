@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { BarreLaterale, type EntreeMenu, type ThemeBarre } from "@/components/BarreLaterale";
 import { DeconnexionAdminBouton } from "@/components/DeconnexionAdminBouton";
-import { Onboarding } from "@/components/Onboarding";
+import { BoutonOnboarding, Onboarding } from "@/components/Onboarding";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import { prisma } from "@/lib/prisma";
 
@@ -50,6 +50,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="univers-staff min-h-screen bg-[var(--color-staff-tint)] lg:flex">
+      {/* Une seule fenêtre par page : la barre latérale, elle, rend son pied
+          deux fois (colonne fixe et tiroir mobile). */}
+      <Onboarding univers="staff" dejaVu={staff?.onboardingVuLe !== null} />
       <BarreLaterale
         marque="Console staff"
         titre="TheSpoon"
@@ -58,11 +61,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         theme={THEME}
         pied={
           <div className="flex flex-col gap-3 px-1">
-            <Onboarding
-              univers="staff"
-              dejaVu={staff?.onboardingVuLe !== null}
-              classeBouton={BOUTON_ONBOARDING}
-            />
+            <BoutonOnboarding univers="staff" className={BOUTON_ONBOARDING} />
             <span className="text-xs" style={{ color: THEME.texte }}>
               Connecté en tant que
               <br />

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AuthHeaderActions } from "@/components/AuthHeaderActions";
 import { IconeBoutique } from "@/components/Icones";
 import { LogoTheSpoon } from "@/components/LogoTheSpoon";
-import { Onboarding } from "@/components/Onboarding";
+import { BoutonOnboarding, Onboarding } from "@/components/Onboarding";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -37,11 +37,8 @@ export async function SiteHeader() {
         <LogoTheSpoon />
 
         <div className="flex items-center gap-2">
-          <Onboarding
-            univers="client"
-            dejaVu={!session || diner?.onboardingVuLe !== null}
-            classeBouton={LIEN_ONBOARDING}
-          />
+          <BoutonOnboarding univers="client" className={LIEN_ONBOARDING} />
+          <Onboarding univers="client" dejaVu={!session || diner?.onboardingVuLe !== null} />
           <AuthHeaderActions />
           {/* Pointe vers la connexion restaurant — pas d'inscription en ligne pour
               l'instant, un contact existant se connecte, un nouveau partenaire

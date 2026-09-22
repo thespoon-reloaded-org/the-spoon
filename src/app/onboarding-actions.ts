@@ -17,6 +17,10 @@ import type { CleUnivers } from "@/lib/univers";
  *
  * Silencieuse : rien à afficher, et un visiteur non connecté (le parcours
  * dîneur est ouvert à tous) n'a simplement rien à retenir.
+ *
+ * Posée à la racine de `app/` et pas à côté d'une route, contrairement aux
+ * autres actions du dépôt : celle-ci est appelée depuis les trois univers, et
+ * la ranger sous l'un d'eux laisserait croire qu'elle lui appartient.
  */
 export async function marquerOnboardingVu(univers: CleUnivers): Promise<void> {
   const enTetes = await headers();
