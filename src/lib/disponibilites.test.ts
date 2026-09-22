@@ -3,7 +3,8 @@ import "dotenv/config";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { CRENEAUX_HORAIRES } from "./creneaux";
-import { creneauEstOuvert, jourSemaineDeIso, lireDisponibilites } from "./disponibilites";
+import { jourSemaineIso } from "./fuseau";
+import { creneauEstOuvert, lireDisponibilites } from "./disponibilites";
 import { prisma } from "./prisma";
 
 /**
@@ -22,7 +23,7 @@ describe("ouverture effective d'un créneau", () => {
   let sansHorairesId: string;
 
   beforeAll(async () => {
-    const jourSemaine = jourSemaineDeIso(JOUR_OUVERT);
+    const jourSemaine = jourSemaineIso(JOUR_OUVERT);
     const restaurant = await prisma.restaurant.create({
       data: {
         nom: "Test disponibilités",

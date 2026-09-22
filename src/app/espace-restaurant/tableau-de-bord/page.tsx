@@ -6,19 +6,22 @@ import { EnteteEspace } from "@/components/EnteteEspace";
 import { IconeChevron, IconeFleche } from "@/components/Icones";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { authRestaurant } from "@/lib/auth";
+
+import { ajouterJours, aujourdHuiIso, debutDeJournee, formaterHeure } from "@/lib/fuseau";
 import { formaterMoisFacture, formaterMontant } from "@/lib/facturation";
 import { prisma } from "@/lib/prisma";
 import { CARTE, CARTE_CLIQUABLE, ETAT_VIDE, TITRE_SECTION, pastilleEtat } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
 
-/** Bornes du jour courant, en heure locale — la journée de service, pas 24 h glissantes. */
+/**
+ * Bornes du jour courant à Paris — la journée de service, pas 24 h
+ * glissantes ni la journée du serveur : en production (UTC) `setHours(0,0,0,0)`
+ * faisait courir "aujourd'hui" de 2h du matin à 2h du matin.
+ */
 function bornesDuJour(maintenant: Date) {
-  const debut = new Date(maintenant);
-  debut.setHours(0, 0, 0, 0);
-  const fin = new Date(debut);
-  fin.setDate(fin.getDate() + 1);
-  return { debut, fin };
+  const jour = aujourdHuiIso(maintenant);
+  return { debut: debutDeJournee(jour), fin: debutDeJournee(ajouterJours(jour, 1)) };
 }
 
 function Indicateur({
@@ -196,10 +199,7 @@ export default async function TableauDeBordPage() {
                 className="flex items-center gap-4 rounded-2xl border border-[var(--color-line-strong)] bg-white px-5 py-3.5"
               >
                 <span className="w-14 shrink-0 font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
-                  {reservation.date.toLocaleTimeString("fr-FR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formaterHeure(reservation.date)}
                 </span>
                 <span className="min-w-0 flex-1 truncate font-semibold text-[var(--color-ink)]">
                   {reservation.user.name}

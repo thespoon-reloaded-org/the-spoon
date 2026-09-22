@@ -11,16 +11,21 @@ import {
   montantAvoirsCentimes,
   netAPayerCentimes,
 } from "@/lib/facturation";
+import { moisAdjacent, moisIso } from "@/lib/fuseau";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import { prisma } from "@/lib/prisma";
 import { CARTE, ETAT_VIDE, TITRE_SECTION } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Facturation" };
 
+/**
+ * Le mois écoulé, vu de Paris. `getUTCMonth()` sur "maintenant" se trompait
+ * de mois pendant les deux premières heures du 1er : à 00h30 à Paris le
+ * 1er octobre, le serveur est encore au 30 septembre et proposait donc de
+ * facturer août.
+ */
 function moisPrecedentISO(): string {
-  const maintenant = new Date();
-  const moisPrecedent = new Date(Date.UTC(maintenant.getUTCFullYear(), maintenant.getUTCMonth() - 1, 1));
-  return `${moisPrecedent.getUTCFullYear()}-${String(moisPrecedent.getUTCMonth() + 1).padStart(2, "0")}`;
+  return moisAdjacent(moisIso(), -1);
 }
 
 /** Déclenchement et suivi des factures mensuelles — "Déclenchement & vue des factures (BO Admin)". */

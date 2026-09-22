@@ -11,6 +11,7 @@ import { LIBELLE_ROLE_CONTACT } from "@/lib/contacts";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import { photoRestaurant } from "@/lib/images";
 import { formaterHoraires } from "@/lib/horaires";
+import { formaterDate, formaterHeure, formaterJourCourt } from "@/lib/fuseau";
 import { prisma } from "@/lib/prisma";
 import {
   BOUTON_SECONDAIRE,
@@ -224,16 +225,7 @@ export default async function FicheRestaurantAdminPage({
                   {reservation.user.name}
                 </span>
                 <span className="text-[var(--color-ink-muted)]">
-                  {reservation.date.toLocaleDateString("fr-FR", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  })}{" "}
-                  à{" "}
-                  {reservation.date.toLocaleTimeString("fr-FR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formaterJourCourt(reservation.date)} à {formaterHeure(reservation.date)}
                 </span>
                 <span className="text-[var(--color-ink-muted)]">
                   {reservation.couverts} couvert{reservation.couverts > 1 ? "s" : ""}
@@ -265,16 +257,12 @@ export default async function FicheRestaurantAdminPage({
                     {LABEL_ACTION_AUDIT[entree.action] ?? entree.action} par {entree.staff.nom}
                   </span>
                   <span className="text-[var(--color-ink-muted)]">
-                    {entree.createdAt.toLocaleDateString("fr-FR", {
+                    {formaterDate(entree.createdAt, {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
                     })}{" "}
-                    à{" "}
-                    {entree.createdAt.toLocaleTimeString("fr-FR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    à {formaterHeure(entree.createdAt)}
                   </span>
                 </div>
                 {Array.isArray(entree.champsModifies) && entree.champsModifies.length > 0 && (

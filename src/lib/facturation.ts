@@ -1,6 +1,7 @@
 import type { Avoir, Booking, Facture } from "@/generated/prisma";
 import { Prisma } from "@/generated/prisma";
 
+import { formaterHeure, formaterJourCourt } from "./fuseau";
 import { prisma } from "./prisma";
 
 // Réexporté pour que les écrans continuent d'importer leur formatage de
@@ -80,6 +81,12 @@ export function netAPayerCentimes(
   return Math.max(0, montantTotalCentimes - montantAvoirsCentimes(avoirs));
 }
 
+/**
+ * `timeZone: "UTC"` et pas Europe/Paris, contrairement au reste : le mois
+ * d'une facture est stocké à minuit UTC le 1er (voir `moisFacture`), c'est un
+ * repère de calendrier, pas un instant. Le lire à Paris ramènerait au mois
+ * précédent.
+ */
 export function formaterMoisFacture(mois: Date): string {
   return mois.toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
 }
@@ -91,9 +98,8 @@ export function formaterMoisFacture(mois: Date): string {
  * écran.
  */
 export function formaterDateReservation(date: Date, { avecHeure = true }: { avecHeure?: boolean } = {}): string {
-  const jour = date.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
-  if (!avecHeure) return jour;
-  return `${jour} à ${date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+  const jour = formaterJourCourt(date);
+  return avecHeure ? `${jour} à ${formaterHeure(date)}` : jour;
 }
 
 export type ResultatGenerationFactures = {

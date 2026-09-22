@@ -5,21 +5,20 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { authRestaurant } from "@/lib/auth";
-import { CRENEAUX_HORAIRES, formatIso } from "@/lib/creneaux";
+import { CRENEAUX_HORAIRES } from "@/lib/creneaux";
+import { aujourdHuiIso, jourIsoValide } from "@/lib/fuseau";
 import { creneauOuvert, lirePlanning } from "@/lib/disponibilites";
 import { fusionnerPlages, minutesDepuisHeureInput } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
 
 import { ERREURS_DISPONIBILITES } from "./erreurs";
 
-const REGEX_JOUR_ISO = /^\d{4}-\d{2}-\d{2}$/;
-
 function creneauValide(creneau: string): creneau is (typeof CRENEAUX_HORAIRES)[number] {
   return (CRENEAUX_HORAIRES as readonly string[]).includes(creneau);
 }
 
 function joursValides(jourIso: string): boolean {
-  return REGEX_JOUR_ISO.test(jourIso) && jourIso >= formatIso(new Date());
+  return jourIsoValide(jourIso) && jourIso >= aujourdHuiIso();
 }
 
 /**

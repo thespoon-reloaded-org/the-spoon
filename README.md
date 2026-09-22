@@ -23,6 +23,27 @@ L'identité visuelle est celle de TheSpoon, pas celle d'Hymaïa (TheSpoon est sa
 propre marque, pas une interface interne) — voir « Charte & structure des
 écrans » plus bas.
 
+## L'heure, c'est l'heure de Paris
+
+Le produit est français, ses serveurs ne le sont pas : en production (Netlify)
+le code tourne en UTC. Toute heure murale — « le créneau de 19h du
+22 septembre » — doit donc **nommer son fuseau**, sinon la même ligne de code
+donne deux instants différents selon la machine. `src/lib/fuseau.ts` porte
+cette décision : conversion heure murale ↔ instant, calendrier (quel jour on
+est, quel jour suit), et formateurs d'affichage.
+
+Deux règles, et elles ne coûtent rien à tenir :
+
+- construire une date depuis un jour et une heure passe par `instantLocal` /
+  `construireDateCreneau`, jamais par `new Date("2026-09-22T19:00:00")` ;
+- afficher une date passe par `formaterDate` / `formaterJourLong` /
+  `formaterHeure`, jamais par `toLocaleDateString` sans `timeZone`.
+
+Ne pas compter sur le fuseau du process (`process.env.TZ`) : ça a été essayé,
+ça rendait le défaut invisible en dev sans rien corriger en production. Les
+tests de `src/lib/fuseau.ts` et `src/lib/creneaux.ts` passent sous n'importe
+quel fuseau machine — c'est ce qui rend la garantie vérifiable.
+
 ## Charte & structure des écrans
 
 **Trois univers, trois couleurs.** Trois populations se connectent, sur trois

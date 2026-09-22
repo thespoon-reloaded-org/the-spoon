@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { SignalerReservationBoutons } from "@/components/SignalerReservationBoutons";
 import { authRestaurant } from "@/lib/auth";
+import { formaterHeure, formaterJourLong } from "@/lib/fuseau";
 import { prisma } from "@/lib/prisma";
 import { ETAT_VIDE, TITRE_SECTION, pastilleEtat, type EtatPastille } from "@/lib/ui";
 import type { Booking, User } from "@/generated/prisma";
@@ -63,12 +64,7 @@ function LigneReservation({
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-[var(--color-ink)]">{reservation.user.name}</p>
         <p className="text-sm text-[var(--color-ink-muted)]">
-          {reservation.date.toLocaleDateString("fr-FR", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}{" "}
-          à {reservation.date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} ·{" "}
+          {formaterJourLong(reservation.date)} à {formaterHeure(reservation.date)} ·{" "}
           {reservation.couverts} couvert{reservation.couverts > 1 ? "s" : ""}
           {reservation.couvertsServis !== null &&
             ` · ${reservation.couvertsServis} servi${reservation.couvertsServis > 1 ? "s" : ""}`}

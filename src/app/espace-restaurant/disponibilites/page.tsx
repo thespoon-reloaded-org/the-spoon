@@ -11,11 +11,16 @@ import {
   formatMoisLabel,
   genererGrilleMois,
   JOURS_SEMAINE_ISO,
-  moisAdjacent,
-  moisIso as calculerMoisIso,
   type JourCalendrier,
 } from "@/lib/creneaux";
 import { creneauOuvert } from "@/lib/disponibilites";
+import {
+  debutDeJournee,
+  formaterDate,
+  jourIsoValide,
+  moisAdjacent,
+  moisIso as calculerMoisIso,
+} from "@/lib/fuseau";
 import { formaterMinutes, horairesDeclares } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
 import { BOUTON_SECONDAIRE, CARTE, CHAMP_BASE, TITRE_SECTION } from "@/lib/ui";
@@ -50,7 +55,6 @@ const PASTILLE_SERVICE =
 // d'heure n'a pas à occuper la ligne.
 const CHAMP_HEURE = CHAMP_BASE;
 const JOUR_ISO_LETTRES = ["L", "M", "M", "J", "V", "S", "D"];
-const REGEX_JOUR_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 const CELLULE =
   "relative flex aspect-square items-center justify-center rounded-xl text-sm font-semibold";
@@ -120,7 +124,7 @@ export default async function DisponibilitesPage({
 
   const moisActuel =
     params.mois && /^\d{4}-\d{2}$/.test(params.mois) ? params.mois : calculerMoisIso();
-  const jourSelectionne = params.jour && REGEX_JOUR_ISO.test(params.jour) ? params.jour : null;
+  const jourSelectionne = params.jour && jourIsoValide(params.jour) ? params.jour : null;
   const messageErreur = params.erreur ? MESSAGES_ERREUR[params.erreur] : undefined;
   const grille = genererGrilleMois(moisActuel);
 
@@ -333,7 +337,7 @@ export default async function DisponibilitesPage({
           <div className={`${CARTE} max-w-xl`}>
             <div className="flex items-center justify-between">
               <span className="font-semibold capitalize text-[var(--color-ink)]">
-                {new Date(`${jourSelectionne}T00:00:00`).toLocaleDateString("fr-FR", {
+                {formaterDate(debutDeJournee(jourSelectionne), {
                   weekday: "long",
                   day: "numeric",
                   month: "long",

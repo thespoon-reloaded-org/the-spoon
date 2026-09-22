@@ -7,6 +7,7 @@ import { AnnulerReservationBouton } from "@/components/AnnulerReservationBouton"
 import { IconeCalendrier, IconeLieu } from "@/components/Icones";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { auth } from "@/lib/auth";
+import { formaterHeure, formaterJourLong } from "@/lib/fuseau";
 import { photoRestaurant } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
 import { pastilleEtat, type EtatPastille } from "@/lib/ui";
@@ -64,12 +65,7 @@ function CarteReservation({
         <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[var(--color-ink-muted)]">
           <span className="inline-flex items-center gap-1.5">
             <IconeCalendrier taille={15} />
-            {reservation.date.toLocaleDateString("fr-FR", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            })}{" "}
-            à {reservation.date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            {formaterJourLong(reservation.date)} à {formaterHeure(reservation.date)}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <IconeLieu taille={15} />

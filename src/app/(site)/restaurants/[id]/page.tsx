@@ -12,6 +12,7 @@ import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { auth } from "@/lib/auth";
 import { cleCreneau, construireDateCreneau, genererJoursReservables } from "@/lib/creneaux";
 import { lireDisponibilites } from "@/lib/disponibilites";
+import { formaterDate } from "@/lib/fuseau";
 import { formaterHoraires } from "@/lib/horaires";
 import { estPhotoReelle, photoPlat, photoRestaurant } from "@/lib/images";
 import { LIBELLE_CATEGORIE } from "@/lib/plats";
@@ -290,10 +291,7 @@ export default async function FicheRestaurantPage({
                             {avis.user.name}
                           </span>
                           <span className="text-xs text-[var(--color-ink-muted)]">
-                            {avis.createdAt.toLocaleDateString("fr-FR", {
-                              month: "long",
-                              year: "numeric",
-                            })}
+                            {formaterDate(avis.createdAt, { month: "long", year: "numeric" })}
                           </span>
                         </div>
                       </div>

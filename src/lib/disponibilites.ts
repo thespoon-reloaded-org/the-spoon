@@ -12,17 +12,13 @@
  * de la même règle, c'est trois occasions qu'elles divergent.
  */
 
-import { CRENEAUX_HORAIRES, jourSemaineIso } from "./creneaux";
+import { CRENEAUX_HORAIRES } from "./creneaux";
+import { jourSemaineIso } from "./fuseau";
 import { creneauDansLesHoraires, type Plage } from "./horaires";
 import { prisma } from "./prisma";
 
 /** Les colonnes d'`ExceptionHoraire` dont dépend ce module. */
 export type Exception = { jour: string; creneau: string; ouvert: boolean };
-
-/** Jour de semaine ISO (0 = lundi … 6 = dimanche) d'une date "YYYY-MM-DD". */
-export function jourSemaineDeIso(jourIso: string): number {
-  return jourSemaineIso(new Date(`${jourIso}T00:00:00`));
-}
 
 /**
  * Ouverture effective d'un créneau à une date donnée. Une exception sur ce
@@ -42,7 +38,7 @@ export function creneauOuvert({
 }): boolean {
   const exception = exceptions.find((e) => e.jour === jourIso && e.creneau === creneau);
   if (exception) return exception.ouvert;
-  return creneauDansLesHoraires(plages, jourSemaineDeIso(jourIso), creneau);
+  return creneauDansLesHoraires(plages, jourSemaineIso(jourIso), creneau);
 }
 
 /** Les créneaux ouverts de chaque jour, indexés par jour ISO. Un jour fermé rend une liste vide. */
