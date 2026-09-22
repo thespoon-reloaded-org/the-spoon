@@ -51,6 +51,7 @@ function CarteReservation({ reservation }: { reservation: ReservationAvecRestaur
   const delaiHeures = reservation.restaurant.delaiAnnulationHeures;
   const verdict = annulabilite(reservation, delaiHeures);
   const limite = limiteAnnulation(reservation.date, delaiHeures);
+  const aPrevenu = reservation.absencePrevenueLe !== null;
 
   return (
     <li className="flex flex-wrap items-center gap-4 rounded-[22px] border border-[var(--color-line-strong)] bg-white p-4">
@@ -91,24 +92,23 @@ function CarteReservation({ reservation }: { reservation: ReservationAvecRestaur
         <div className="flex items-center gap-3">
           <span className={pastilleEtat(statut.etat)}>{statut.label}</span>
           {verdict.annulable && <AnnulerReservationBouton bookingId={reservation.id} />}
-          {!verdict.annulable && verdict.raison === "delai-depasse" && (
-            <>
-              {reservation.absencePrevenueLe ? (
-                <span className="text-sm font-semibold text-[var(--color-ink-muted)]">
-                  Le restaurant est prévenu
-                </span>
-              ) : (
-                peutPrevenirAbsence(reservation) && (
-                  <PrevenirAbsenceBouton bookingId={reservation.id} />
-                )
-              )}
-            </>
+          {/* Le signal reste affiché une fois le service passé : c'est là que
+              le dîneur a besoin de pouvoir dire qu'il avait prévenu. */}
+          {aPrevenu && (
+            <span className="text-sm font-semibold text-[var(--color-ink-muted)]">
+              Le restaurant est prévenu
+            </span>
+          )}
+          {!aPrevenu && peutPrevenirAbsence(reservation, delaiHeures) && (
+            <PrevenirAbsenceBouton bookingId={reservation.id} />
           )}
         </div>
 
-        {verdict.annulable && limite && (
+        {verdict.annulable && (
           <p className="text-xs text-[var(--color-ink-muted)]">
-            Annulable jusqu&apos;au {formaterJourLong(limite)} à {formaterHeure(limite)}
+            {limite
+              ? `Annulable jusqu'au ${formaterJourLong(limite)} à ${formaterHeure(limite)}`
+              : "Annulable jusqu'à l'heure du repas"}
           </p>
         )}
         {!verdict.annulable && verdict.raison === "delai-depasse" && (

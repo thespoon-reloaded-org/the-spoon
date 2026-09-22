@@ -226,8 +226,10 @@ saines (local, CI) où elle ne fait rien.
   le serveur refuserait. Passé le délai, le dîneur ne peut plus annuler mais
   peut **prévenir qu'il ne viendra pas** (`Booking.absencePrevenueLe`) : la
   réservation reste CONFIRMEE, le restaurant garde la main sur honoré/no-show,
-  mais il peut libérer la table et garde une trace datée si le no-show finit
-  en contestation. Le motif `annulation_tardive` reste une story à part.
+  mais il peut libérer la table, et l'information reste affichée après le
+  service — c'est là qu'elle éclaire le choix honoré/no-show. Les écrans de
+  litige ne la reprennent pas encore, et le motif `annulation_tardive` reste
+  une story à part.
 - Gestion de ma réservation (`/mes-reservations`) : un dîneur connecté voit
   ses réservations passées/à venir et peut annuler celles à venir
   (`src/app/mes-reservations/`). Une réservation annulée reste visible avec

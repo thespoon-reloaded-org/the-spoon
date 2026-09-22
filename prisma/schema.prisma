@@ -388,9 +388,11 @@ model Booking {
   /// Le dîneur a prévenu qu'il ne viendrait pas, alors qu'il ne pouvait plus
   /// annuler (délai du restaurant dépassé). La réservation reste CONFIRMEE :
   /// c'est le restaurant qui tranche honoré/no-show à la fin, ce signal ne
-  /// décide rien à sa place. Il lui permet de libérer la table, et laisse une
-  /// trace datée si le no-show finit en contestation. Sans effet sur la
-  /// facturation — seules les réservations HONOREE sont facturées.
+  /// décide rien à sa place. Il s'affiche sur "Réservations reçues", avant le
+  /// service (libérer la table) comme après (choisir honoré ou no-show en
+  /// connaissance de cause). Sans effet sur la facturation — seules les
+  /// réservations HONOREE sont facturées — et pas encore repris par les
+  /// écrans de litige, où la trace serait pourtant utile.
   absencePrevenueLe DateTime?
   createdAt         DateTime          @default(now())
   ligneFacture      LigneFacture?

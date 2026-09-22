@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import type { StatutReservation } from "@/generated/prisma";
+
 import {
   annulabilite,
   formaterDelaiAnnulation,
@@ -12,7 +14,7 @@ import {
 const CRENEAU = new Date("2026-09-23T18:00:00.000Z");
 const confirmee = (absencePrevenueLe: Date | null = null) => ({
   date: CRENEAU,
-  statut: "CONFIRMEE",
+  statut: "CONFIRMEE" as StatutReservation,
   absencePrevenueLe,
 });
 
@@ -74,36 +76,46 @@ describe("jusqu'à quand on peut annuler", () => {
 
   test("une réservation qui n'est plus confirmée ne s'annule pas", () => {
     const tot = new Date("2026-09-20T10:00:00.000Z");
-    for (const statut of ["ANNULEE", "HONOREE", "NO_SHOW"]) {
+    for (const statut of ["ANNULEE", "HONOREE", "NO_SHOW"] as StatutReservation[]) {
       expect(annulabilite({ ...confirmee(), statut }, 24, tot)).toEqual({
         annulable: false,
-        raison: "deja-annulee",
+        raison: "non-annulable",
       });
     }
   });
 });
 
 describe("prévenir qu'on ne viendra pas", () => {
-  test("possible tant que le créneau est devant, même délai dépassé", () => {
-    expect(peutPrevenirAbsence(confirmee(), new Date("2026-09-23T17:00:00.000Z"))).toBe(true);
+  /** Une heure avant le service, avec 24 h de délai : on ne peut plus annuler. */
+  const tropTard = new Date("2026-09-23T17:00:00.000Z");
+
+  test("possible dans la fenêtre où l'on ne peut plus annuler", () => {
+    expect(peutPrevenirAbsence(confirmee(), 24, tropTard)).toBe(true);
+  });
+
+  /**
+   * Tant qu'on peut annuler, on annule : ça libère vraiment la table. Offrir
+   * les deux ouvrirait un état que l'interface ne produit jamais — une
+   * réservation annulable *et* signalée absente, que le restaurant verrait
+   * et pas le dîneur.
+   */
+  test("impossible tant que l'annulation reste ouverte", () => {
+    expect(peutPrevenirAbsence(confirmee(), 24, new Date("2026-09-22T10:00:00.000Z"))).toBe(false);
+    expect(peutPrevenirAbsence(confirmee(), null, tropTard)).toBe(false);
   });
 
   test("impossible deux fois", () => {
     const dejaPrevenu = confirmee(new Date("2026-09-23T10:00:00.000Z"));
-    expect(peutPrevenirAbsence(dejaPrevenu, new Date("2026-09-23T17:00:00.000Z"))).toBe(false);
+    expect(peutPrevenirAbsence(dejaPrevenu, 24, tropTard)).toBe(false);
   });
 
   test("impossible une fois le service passé — il n'y a plus rien à libérer", () => {
-    expect(peutPrevenirAbsence(confirmee(), new Date("2026-09-23T19:00:00.000Z"))).toBe(false);
+    expect(peutPrevenirAbsence(confirmee(), 24, new Date("2026-09-23T19:00:00.000Z"))).toBe(false);
   });
 
   test("impossible sur une réservation déjà annulée", () => {
-    expect(
-      peutPrevenirAbsence(
-        { ...confirmee(), statut: "ANNULEE" },
-        new Date("2026-09-23T10:00:00.000Z"),
-      ),
-    ).toBe(false);
+    const annulee = { ...confirmee(), statut: "ANNULEE" as StatutReservation };
+    expect(peutPrevenirAbsence(annulee, 24, tropTard)).toBe(false);
   });
 });
 

@@ -9,7 +9,8 @@ import { annulabilite, MESSAGES_REFUS_ANNULATION, peutPrevenirAbsence } from "@/
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const schemaAnnulation = z.object({ bookingId: z.string() });
+/** Les deux actions de cet écran ne reçoivent qu'une chose : quelle réservation. */
+const schemaReservationCiblee = z.object({ bookingId: z.string() });
 
 export type EtatAnnulation = { erreur?: string; ok?: boolean };
 
@@ -27,7 +28,7 @@ export async function annulerReservation(
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/connexion");
 
-  const donnees = schemaAnnulation.safeParse({ bookingId });
+  const donnees = schemaReservationCiblee.safeParse({ bookingId });
   if (!donnees.success) {
     return { erreur: "Réservation introuvable." };
   }
@@ -79,19 +80,20 @@ export async function signalerAbsence(
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/connexion");
 
-  const donnees = schemaAnnulation.safeParse({ bookingId });
+  const donnees = schemaReservationCiblee.safeParse({ bookingId });
   if (!donnees.success) {
     return { erreur: "Réservation introuvable." };
   }
 
   const reservation = await prisma.booking.findFirst({
     where: { id: donnees.data.bookingId, userId: session.user.id },
+    include: { restaurant: { select: { delaiAnnulationHeures: true } } },
   });
   if (!reservation) {
     return { erreur: "Réservation introuvable." };
   }
-  if (!peutPrevenirAbsence(reservation)) {
-    return { erreur: "Ce créneau est passé, ou vous avez déjà prévenu." };
+  if (!peutPrevenirAbsence(reservation, reservation.restaurant.delaiAnnulationHeures)) {
+    return { erreur: "Ce geste n'a plus lieu d'être : annulez, ou le service est déjà passé." };
   }
 
   try {

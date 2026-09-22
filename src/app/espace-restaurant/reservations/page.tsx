@@ -51,9 +51,10 @@ function LigneReservation({
   const aSignaler = estPassee && reservation.statut === "CONFIRMEE";
   const statut = STATUT[reservation.statut];
   // Le dîneur a prévenu qu'il ne viendrait pas alors qu'il ne pouvait plus
-  // annuler. La table peut être libérée, et le jour où le no-show est
-  // contesté, la date du signalement est là.
-  const absenceAnnoncee = reservation.absencePrevenueLe !== null && !estPassee;
+  // annuler. Avant le service, ça permet de libérer la table ; après, c'est
+  // ce qui éclaire le choix honoré/no-show — donc surtout pas quelque chose
+  // à masquer une fois le créneau passé.
+  const absenceAnnoncee = reservation.absencePrevenueLe !== null;
 
   return (
     <li
@@ -73,9 +74,10 @@ function LigneReservation({
           {reservation.couvertsServis !== null &&
             ` · ${reservation.couvertsServis} servi${reservation.couvertsServis > 1 ? "s" : ""}`}
         </p>
-        {absenceAnnoncee && reservation.absencePrevenueLe && (
+        {reservation.absencePrevenueLe && (
           <p className="mt-1 text-sm font-semibold text-[var(--color-warning)]">
-            A prévenu qu&apos;il ne viendra pas — {formaterJourEtHeure(reservation.absencePrevenueLe)}
+            {estPassee ? "Avait prévenu qu'il ne viendrait pas" : "A prévenu qu'il ne viendra pas"} —{" "}
+            {formaterJourEtHeure(reservation.absencePrevenueLe)}
           </p>
         )}
       </div>
