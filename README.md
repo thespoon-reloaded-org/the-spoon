@@ -172,7 +172,7 @@ curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
 |---|---|
 | `GET /api/admin` | Sommaire des routes |
 | `GET /api/admin/restaurants` | Restaurants et contacts, avec leurs ids |
-| `POST /api/admin/restaurants` | Restaurants, avec `plats`, `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`) et `contacts` |
+| `POST /api/admin/restaurants` | Restaurants, avec `plats` (`allergenes` absent = non renseigné, `[]` = aucun), `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`) et `contacts` |
 | `POST /api/admin/restaurants/{id}/contacts` | Contacts d'un restaurant existant |
 | `POST /api/admin/dineurs` | Comptes dîneur (`nom`, `email`, `motDePasse?`) |
 | `POST /api/admin/reservations` | Réservations : `restaurantId`, `dineurEmail` ou `dineurId`, `jour`, `creneau`, `couverts`, `statut?`, `couvertsServis?`, `signaleeLe?`, `creeeLe?` |

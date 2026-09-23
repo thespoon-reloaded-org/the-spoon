@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 
+import { VALEURS_ALLERGENES } from "@/lib/allergenes";
 import { CRENEAUX_HORAIRES } from "@/lib/creneaux";
 import { jourIsoValide, moisIsoValide } from "@/lib/fuseau";
 import { MINUIT, minutesDepuisCreneau } from "@/lib/horaires";
@@ -63,6 +64,12 @@ const schemaPlat = z.object({
   description: texteOptionnel,
   categorie: z.enum(["ENTREE", "PLAT", "DESSERT"]).default("PLAT"),
   prixCentimes: z.number().int().min(0),
+  /**
+   * Absent : allergènes non renseignés. `[]` : le restaurant déclare
+   * qu'aucun des 14 n'y figure. En JSON les deux se distinguent sans case
+   * à cocher — la distinction, elle, est la même que sur « Ma carte ».
+   */
+  allergenes: z.array(z.enum(VALEURS_ALLERGENES, { message: "Allergène inconnu." })).optional(),
 });
 
 export const schemaContact = z.object({

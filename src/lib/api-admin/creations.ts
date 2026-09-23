@@ -15,6 +15,7 @@ import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import type { z } from "zod";
 
+import { trierAllergenes } from "@/lib/allergenes";
 import { genererMotDePasseTemporaire, nouveauCompteCredential } from "@/lib/comptes";
 import { LIBELLE_ROLE_CONTACT } from "@/lib/contacts";
 import { creerDossierContestation } from "@/lib/contestation";
@@ -108,7 +109,7 @@ export async function creerRestaurants(saisies: SaisieRestaurant[], staffId: str
         const restaurant = await tx.restaurant.create({
           data: {
             ...champs,
-            platsCuillere: { create: plats },
+            platsCuillere: { create: plats.map(platAvecDeclaration) },
             plagesOuverture: { create: plagesFusionnees(horaires) },
           },
         });
@@ -132,6 +133,13 @@ export async function creerRestaurants(saisies: SaisieRestaurant[], staffId: str
     },
     { timeout: DELAI_TRANSACTION_MS },
   );
+}
+
+/** `allergenes` absent = non renseigné ; présent, même vide, = déclaré maintenant. */
+function platAvecDeclaration({ allergenes, ...plat }: SaisieRestaurant["plats"][number]) {
+  return allergenes === undefined
+    ? plat
+    : { ...plat, allergenes: trierAllergenes(allergenes), allergenesDeclaresLe: new Date() };
 }
 
 /** Une plage par service et par jour, fusionnées comme sur « Mes disponibilités ». */

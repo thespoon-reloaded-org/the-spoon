@@ -83,7 +83,16 @@ describe("API d'administration", () => {
         cuisine: "Test",
         adresse: "1 rue du Test",
         capacite: 4,
-        plats: [{ nom: "Quenelle", categorie: "PLAT", prixCentimes: 1600 }],
+        plats: [
+          {
+            nom: "Quenelle",
+            categorie: "PLAT",
+            prixCentimes: 1600,
+            allergenes: ["LAIT", "GLUTEN", "OEUFS"],
+          },
+          { nom: "Sorbet", categorie: "DESSERT", prixCentimes: 600, allergenes: [] },
+          { nom: "Salade", categorie: "ENTREE", prixCentimes: 800 },
+        ],
         horaires: [
           { jourSemaine: 1, debut: "12:00", fin: "14:00" },
           { jourSemaine: 1, debut: "13:30", fin: "15:00" },
@@ -105,6 +114,12 @@ describe("API d'administration", () => {
       [720, 900], // 12h – 14h et 13h30 – 15h fusionnés
       [1140, 1440],
     ]);
+    const plats = await prisma.platCuillere.findMany({ where: { restaurantId } });
+    const plat = (nom: string) => plats.find((p) => p.nom === nom)!;
+    expect(plat("Quenelle").allergenes).toEqual(["GLUTEN", "OEUFS", "LAIT"]); // ordre réglementaire
+    expect(plat("Sorbet").allergenesDeclaresLe).not.toBeNull(); // « aucun », déclaré
+    expect(plat("Salade").allergenesDeclaresLe).toBeNull(); // non renseigné
+
     const audit = await prisma.journalAuditRestaurant.findMany({ where: { restaurantId } });
     expect(audit.map((a) => a.action).sort()).toEqual(["AJOUT_CONTACT", "CREATION"]);
     expect(audit.every((a) => a.staffId === staffId)).toBe(true);
