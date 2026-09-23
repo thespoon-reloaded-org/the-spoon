@@ -157,11 +157,12 @@ répondent 404. Pour l'ouvrir sur un environnement :
   creer-compte`) : les créations de restaurants et de contacts sont tracées
   à son nom dans le journal d'audit, comme depuis la Console.
 
-⚠️ Les Deploy Previews et la production partagent **la même base Neon**
-(voir « Migrations de base de données ») : poser le jeton sur n'importe quel
-contexte Netlify écrit dans la base de production. Pour un jeu de formation,
-viser une base à part (locale, ou une branche Neon avec sa propre
-`DATABASE_URL`).
+**Une seule base, la vraie.** Les Deploy Previews et la production partagent
+la même base Neon (voir « Migrations de base de données »), et c'est voulu :
+les formations se bâtissent sur l'écosystème réel, pas sur une copie. Ce qui
+rend ces données acceptables en production, c'est qu'elles sont
+**réalistes** — la première règle ci-dessous — pas qu'elles soient isolées.
+Pas d'anomalie volontaire ni de piège pédagogique par cette API.
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
