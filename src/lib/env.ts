@@ -10,8 +10,22 @@ const schema = z.object({
     .string()
     .min(1)
     .describe("URL de connexion PostgreSQL, ex. postgresql://user@localhost:5432/thespoon_dev"),
-  BETTER_AUTH_SECRET: z.string().min(1).describe("Clé de signature des sessions — générer avec `openssl rand -hex 32`"),
+  BETTER_AUTH_SECRET: z
+    .string()
+    .min(1)
+    .describe("Clé de signature des sessions — générer avec `openssl rand -hex 32`"),
   BETTER_AUTH_URL: z.string().min(1).describe("URL de base de l'app, ex. http://localhost:3100"),
+  // API d'administration (`/api/admin`, voir src/lib/api-admin/garde.ts) :
+  // absente tant que le jeton n'est pas posé. Une variable vide compte comme
+  // absente — Netlify laisse facilement une valeur "" derrière soi.
+  ADMIN_API_TOKEN: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().min(32, "32 caractères minimum — générer avec `openssl rand -hex 32`").optional(),
+  ),
+  ADMIN_API_STAFF_EMAIL: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().trim().toLowerCase().email().optional(),
+  ),
 });
 
 function lire() {
@@ -23,9 +37,12 @@ function lire() {
       .join("\n");
 
     throw new Error(
-      ["Configuration incomplète — l'app ne peut pas démarrer.", details, "", "Voir .env.example."].join(
-        "\n",
-      ),
+      [
+        "Configuration incomplète — l'app ne peut pas démarrer.",
+        details,
+        "",
+        "Voir .env.example.",
+      ].join("\n"),
     );
   }
 

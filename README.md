@@ -143,6 +143,58 @@ Par défaut il crée les trois comptes ; `COMPTE_UNIVERS=restaurant,staff` en
 restreint la liste, `COMPTE_RESTAURANT='Chez Antoine'` choisit l'établissement
 du contact restaurateur.
 
+## API d'administration
+
+`/api/admin/*` sert à créer de la donnée en masse — un jeu de formation, un
+scénario de démo — depuis un script, `curl` ou un agent, sans passer par les
+écrans. Réservée à l'administratrice du produit : un seul jeton, pas de compte.
+
+**Désactivée par défaut.** Sans `ADMIN_API_TOKEN`, toutes les routes
+répondent 404. Pour l'ouvrir sur un environnement :
+
+- `ADMIN_API_TOKEN` — `openssl rand -hex 32`, 32 caractères minimum ;
+- `ADMIN_API_STAFF_EMAIL` — un membre du staff déjà en base (`pnpm
+  creer-compte`) : les créations de restaurants et de contacts sont tracées
+  à son nom dans le journal d'audit, comme depuis la Console.
+
+⚠️ Les Deploy Previews et la production partagent **la même base Neon**
+(voir « Migrations de base de données ») : poser le jeton sur n'importe quel
+contexte Netlify écrit dans la base de production. Pour un jeu de formation,
+viser une base à part (locale, ou une branche Neon avec sa propre
+`DATABASE_URL`).
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
+```
+
+| Route | Effet |
+|---|---|
+| `GET /api/admin` | Sommaire des routes |
+| `GET /api/admin/restaurants` | Restaurants et contacts, avec leurs ids |
+| `POST /api/admin/restaurants` | Restaurants, avec `plats`, `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`) et `contacts` |
+| `POST /api/admin/restaurants/{id}/contacts` | Contacts d'un restaurant existant |
+| `POST /api/admin/dineurs` | Comptes dîneur (`nom`, `email`, `motDePasse?`) |
+| `POST /api/admin/reservations` | Réservations : `restaurantId`, `dineurEmail` ou `dineurId`, `jour`, `creneau`, `couverts`, `statut?`, `couvertsServis?`, `signaleeLe?`, `creeeLe?` |
+| `GET /api/admin/factures?mois=AAAA-MM` | Factures du mois et leurs lignes |
+| `POST /api/admin/factures` | Génère les factures de `{ mois }` — idempotent |
+| `POST /api/admin/dossiers` | Dépose une contestation : `factureId`, `contactId`, `lignes: [{ ligneFactureId, motif }]` |
+
+Trois règles :
+
+- **L'API ne fabrique que des états que le produit aurait pu atteindre.**
+  Créneaux de la grille (`12:00`…`22:00`, heure de Paris), capacité du
+  restaurant, honoré/no-show seulement sur un créneau passé, facturation et
+  dépôt de contestation par les mêmes fonctions que les écrans (seuil de
+  crédit d'office, délai de 30 jours, pas de double contestation).
+- **Tout-ou-rien.** Les `POST` acceptent un objet ou une liste ; une liste
+  avec une erreur n'écrit rien, et la réponse (400, 409 ou 422) désigne
+  l'élément fautif.
+- **Mots de passe.** Sans `motDePasse`, un mot de passe temporaire est généré
+  et rendu **une seule fois** dans la réponse (`motDePasseGenere`).
+
+Code : `src/lib/api-admin/` (garde, schémas, écritures) et
+`src/app/api/admin/`.
+
 ## Migrations de base de données
 
 Tout changement de `prisma/schema.prisma` passe par une migration versionnée
