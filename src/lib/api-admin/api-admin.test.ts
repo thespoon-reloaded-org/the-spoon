@@ -54,22 +54,26 @@ const moisDuService = avantHier.slice(0, 7);
 // Arrivés sur TheSpoon trois mois plus tôt, pour que l'historique tienne.
 const arrivee = instantLocalDeJour(ajouterJours(aujourdHuiIso(), -90), 10).toISOString();
 let staffId: string;
+let staffBId: string;
+const emailStaffB = `api-b-${Date.now()}@staff.test.example`;
 let restaurantId: string;
+const restaurantsACleaner: string[] = [];
 let contactId: string;
 const emailDineur = `dineur-${suffixe}@test.example`;
 
 beforeAll(async () => {
   staffId = (await prisma.staff.create({ data: { nom: "Admin API", email: EMAIL_STAFF } })).id;
+  staffBId = (await prisma.staff.create({ data: { nom: "Responsable", email: emailStaffB } })).id;
 });
 
 afterAll(async () => {
-  if (restaurantId) {
-    await prisma.facture.deleteMany({ where: { restaurantId } });
-    await prisma.restaurant.delete({ where: { id: restaurantId } });
+  for (const id of [restaurantId, ...restaurantsACleaner].filter(Boolean)) {
+    await prisma.facture.deleteMany({ where: { restaurantId: id } });
+    await prisma.restaurant.delete({ where: { id } });
   }
   await prisma.user.deleteMany({ where: { email: emailDineur } });
   await prisma.journalAuditRestaurant.deleteMany({ where: { staffId } });
-  await prisma.staff.delete({ where: { id: staffId } });
+  await prisma.staff.deleteMany({ where: { id: { in: [staffId, staffBId] } } });
   await prisma.$disconnect();
 });
 
@@ -246,6 +250,135 @@ describe("API d'administration", () => {
       }),
     );
     expect(doublon.statut).toBe(422);
+  });
+
+  test("rejoue l'historique d'un litige : escaladé, puis accordé en partie", async () => {
+    // Un service il y a deux mois, assez contesté pour dépasser tout seuil
+    // que les autres tests posent (jusqu'à 70 €) : 20 tables de 6 = 300 €.
+    const jours = [ajouterJours(aujourdHuiIso(), -60), ajouterJours(aujourdHuiIso(), -61)];
+    const creneaux = [
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "19:00",
+      "19:30",
+      "20:00",
+      "20:30",
+      "21:00",
+      "21:30",
+    ];
+    const moisHistorique = jours[0]!.slice(0, 7);
+    const grande = await appeler(
+      restaurants.POST,
+      requete({
+        nom: `Brasserie API ${suffixe}`,
+        ville: "Lyon",
+        cuisine: "Brasserie",
+        adresse: "2 rue du Test",
+        capacite: 80,
+        creeLe: arrivee,
+        contacts: [{ nom: "Gérant", email: `gerant-${suffixe}@test.example`, role: "GERANT" }],
+      }),
+    );
+    const brasserieId = grande.corps.crees[0].id;
+    const gerantId = grande.corps.crees[0].contacts[0].id;
+    restaurantsACleaner.push(brasserieId);
+
+    const resas = await appeler(
+      reservations.POST,
+      requete(
+        jours.flatMap((jour) =>
+          creneaux.map((creneau) => ({
+            restaurantId: brasserieId,
+            dineurEmail: emailDineur,
+            jour,
+            creneau,
+            couverts: 6,
+            statut: "HONOREE",
+            couvertsServis: 6,
+          })),
+        ),
+      ),
+    );
+    expect(resas.statut).toBe(201);
+
+    const generation = await appeler(factures.POST, requete({ mois: moisHistorique }));
+    const facturesDuMois = generation.corps.factures.filter(
+      (f: { restaurantId: string }) => f.restaurantId === brasserieId,
+    );
+    // Les deux jours peuvent tomber sur deux mois : on prend la facture du premier.
+    const facture = facturesDuMois[0];
+    const lignes = facture.lignes.map((l: { id: string }) => ({
+      ligneFactureId: l.id,
+      motif: "NO_SHOW",
+    }));
+
+    const etapes = [
+      { type: "PRISE_EN_CHARGE", par: EMAIL_STAFF },
+      {
+        type: "COMPLEMENT",
+        par: EMAIL_STAFF,
+        message: "Merci de joindre le cahier de réservations.",
+      },
+      {
+        type: "DECISION",
+        par: EMAIL_STAFF,
+        issue: "ESCALADE",
+        motif: "Volume inhabituel, je passe la main.",
+      },
+      {
+        type: "DECISION",
+        par: emailStaffB,
+        issue: "PARTIEL",
+        montantAccordeCentimes: 5000,
+        imputation: "CLIENT",
+        motif: "Deux tables absentes confirmées, le reste est honoré.",
+      },
+    ];
+
+    // Refus en route (la seconde personne tranche sans l'escalade) : rien ne reste.
+    const avantEchec = await prisma.dossier.count({ where: { factureId: facture.id } });
+    const echec = await appeler(
+      dossiers.POST,
+      requete({
+        factureId: facture.id,
+        contactId: gerantId,
+        lignes,
+        etapes: [etapes[0], etapes[3]],
+      }),
+    );
+    expect(echec.statut).toBe(422);
+    expect(echec.corps.erreur).toMatch(/etapes\.1/);
+    expect(await prisma.dossier.count({ where: { factureId: facture.id } })).toBe(avantEchec);
+
+    const { statut, corps } = await appeler(
+      dossiers.POST,
+      requete({ factureId: facture.id, contactId: gerantId, lignes, etapes }),
+    );
+    expect(statut).toBe(201);
+    expect(corps.cree.statut).toBe("CLOTURE");
+    expect(corps.cree.journal.map((e: { type: string }) => e.type)).toEqual([
+      "DEPOT",
+      "PRISE_EN_CHARGE",
+      "COMPLEMENT_DEMANDE",
+      "DECISION",
+      "DECISION",
+      "AVOIR_EMIS",
+    ]);
+
+    // Daté comme en vrai : déposé après l'émission de la facture, dans son
+    // délai, et tranché depuis longtemps.
+    const dossier = await prisma.dossier.findUniqueOrThrow({
+      where: { id: corps.cree.id },
+      include: { decisions: { include: { avoir: true } } },
+    });
+    const emise = new Date(facture.genereeLe).getTime();
+    expect(dossier.createdAt.getTime()).toBeGreaterThan(emise);
+    expect(dossier.createdAt.getTime() - emise).toBeLessThan(30 * 24 * 60 * 60 * 1000);
+    const avoir = dossier.decisions.find((d) => d.avoir)!.avoir!;
+    expect(avoir.montantCentimes).toBe(5000);
+    expect(avoir.emisLe.getTime()).toBeLessThan(Date.now() - 7 * 24 * 60 * 60 * 1000);
   });
 
   test("dit quel champ corriger", async () => {

@@ -23,7 +23,13 @@ import {
   genererMotDePasseTemporaire,
   nouveauCompteCredential,
 } from "@/lib/comptes";
-import { creerDossierContestation } from "@/lib/contestation";
+import {
+  creerDossierContestation,
+  deciderDossier,
+  demanderComplementDossier,
+  lireJournalDossier,
+  prendreEnChargeDossier,
+} from "@/lib/contestation";
 import {
   NB_JOURS_RESERVABLES,
   cleCreneau,
@@ -39,6 +45,7 @@ import { capaciteEffective } from "@/lib/reservation";
 
 import { ErreurApi } from "./erreurs";
 import type {
+  EtapeInstruction,
   SaisieReservation,
   schemaContact,
   schemaDineur,
@@ -635,19 +642,112 @@ export async function genererFactures(mois: string, maintenant = new Date()) {
 }
 
 /**
- * Dépôt d'un dossier au nom d'un contact restaurant — passe par
- * `creerDossierContestation`, donc par ses règles : délai de 30 jours,
- * lignes de la bonne facture, pas de double contestation, crédit d'office
- * sous le seuil. Le dépôt a lieu maintenant : seule une facture émise il y
- * a moins de 30 jours se conteste, et un historique de litiges ne se
- * reconstitue pas en arrière.
+ * Délais par défaut d'un dossier d'historique : déposé quelques jours après
+ * l'émission de la facture, chaque geste d'instruction un jour après le
+ * précédent. `deposeLe` et `le` les remplacent.
  */
-export async function deposerDossier(saisie: z.output<typeof schemaDossier>) {
-  const [facture, contact] = await Promise.all([
-    prisma.facture.findUnique({ where: { id: saisie.factureId }, select: { restaurantId: true } }),
+const DEPOSE_APRES_FACTURE_MS = 5 * 24 * 60 * 60 * 1000;
+const ETAPE_APRES_MS = 24 * 60 * 60 * 1000;
+
+/** Dates de dépôt et de chaque étape, validées avant toute écriture. */
+export function datesDossier(
+  saisie: { deposeLe?: Date; etapes: { le?: Date }[] },
+  bornes: { factureEmiseLe: Date; contactCreeLe: Date },
+  maintenant: Date,
+): { deposeLe: Date; etapes: Date[]; erreurs: string[] } {
+  const erreurs: string[] = [];
+  const deposeLe =
+    saisie.deposeLe ??
+    plusTot(
+      maintenant,
+      plusTard(
+        new Date(bornes.factureEmiseLe.getTime() + DEPOSE_APRES_FACTURE_MS),
+        bornes.contactCreeLe,
+      ),
+    );
+  if (deposeLe.getTime() < bornes.factureEmiseLe.getTime()) {
+    erreurs.push(
+      `deposeLe précède l'émission de la facture (${formaterJourEtHeure(bornes.factureEmiseLe)}).`,
+    );
+  }
+  if (deposeLe.getTime() < bornes.contactCreeLe.getTime()) {
+    erreurs.push(
+      `deposeLe précède l'arrivée du contact sur TheSpoon (${formaterJourEtHeure(bornes.contactCreeLe)}).`,
+    );
+  }
+  if (deposeLe.getTime() > maintenant.getTime())
+    erreurs.push("deposeLe ne peut pas être dans le futur.");
+
+  let precedente = deposeLe;
+  const etapes = saisie.etapes.map((etape, i) => {
+    const le = etape.le ?? plusTot(maintenant, new Date(precedente.getTime() + ETAPE_APRES_MS));
+    if (le.getTime() < precedente.getTime()) {
+      erreurs.push(
+        `etapes.${i} : doit suivre l'étape précédente (${formaterJourEtHeure(precedente)}).`,
+      );
+    }
+    if (le.getTime() > maintenant.getTime())
+      erreurs.push(`etapes.${i} : ne peut pas être dans le futur.`);
+    precedente = le;
+    return le;
+  });
+
+  return { deposeLe, etapes, erreurs };
+}
+
+/** Rejoue un geste d'instruction par la fonction de la Console qui le fait. */
+function rejouerEtape(dossierId: string, staffId: string, etape: EtapeInstruction, le: Date) {
+  switch (etape.type) {
+    case "PRISE_EN_CHARGE":
+      return prendreEnChargeDossier(dossierId, staffId, le);
+    case "COMPLEMENT":
+      return demanderComplementDossier(dossierId, staffId, etape.message, le);
+    case "DECISION":
+      return deciderDossier(
+        dossierId,
+        staffId,
+        {
+          issue: etape.issue,
+          montantAccordeCentimes: etape.montantAccordeCentimes,
+          imputation: etape.imputation,
+          motif: etape.motif,
+        },
+        le,
+      );
+  }
+}
+
+/**
+ * Dépôt d'un dossier au nom d'un contact restaurant, puis son instruction
+ * étape par étape — chacune par la fonction de la Console qui la fait, donc
+ * par ses règles : délai de 30 jours jugé au jour du dépôt, lignes de la
+ * bonne facture, pas de double contestation, crédit d'office sous le seuil,
+ * seul l'instructeur qui a pris le dossier le tranche, une escalade le
+ * libère, un accord partiel reste sous le montant contesté.
+ *
+ * Tout-ou-rien comme le reste de l'API, mais ces fonctions ont chacune leur
+ * transaction : les dates sont validées avant d'écrire, et si une étape est
+ * refusée en cours de route, le dossier créé par cet appel est supprimé —
+ * journal, décisions et avoirs avec lui (cascade). Un écran ouvert à cet
+ * instant précis peut l'avoir aperçu ; aucune donnée ne survit.
+ */
+export async function deposerDossier(
+  saisie: z.output<typeof schemaDossier>,
+  maintenant = new Date(),
+) {
+  const emailsStaff = [...new Set(saisie.etapes.map((e) => e.par))];
+  const [facture, contact, staff] = await Promise.all([
+    prisma.facture.findUnique({
+      where: { id: saisie.factureId },
+      select: { restaurantId: true, genereeLe: true },
+    }),
     prisma.restaurantContact.findUnique({
       where: { id: saisie.contactId },
-      select: { restaurantId: true },
+      select: { restaurantId: true, createdAt: true },
+    }),
+    prisma.staff.findMany({
+      where: { email: { in: emailsStaff } },
+      select: { id: true, email: true },
     }),
   ]);
   if (!facture) throw new ErreurApi(404, "Facture introuvable.");
@@ -655,19 +755,78 @@ export async function deposerDossier(saisie: z.output<typeof schemaDossier>) {
   if (contact.restaurantId !== facture.restaurantId) {
     throw new ErreurApi(422, "Ce contact n'appartient pas au restaurant de cette facture.");
   }
+  const staffParEmail = new Map(staff.map((m) => [m.email, m.id]));
+  const inconnus = emailsStaff.filter((email) => !staffParEmail.has(email));
+  if (inconnus.length > 0) {
+    throw new ErreurApi(422, `Aucun membre du staff pour : ${inconnus.join(", ")}.`);
+  }
 
-  const resultat = await creerDossierContestation({
+  const dates = datesDossier(
+    saisie,
+    { factureEmiseLe: facture.genereeLe, contactCreeLe: contact.createdAt },
+    maintenant,
+  );
+  if (dates.erreurs.length > 0) throw new ErreurApi(422, "Dates impossibles.", dates.erreurs);
+
+  const depot = await creerDossierContestation({
     factureId: saisie.factureId,
     restaurantId: facture.restaurantId,
     restaurantContactId: saisie.contactId,
     lignes: saisie.lignes,
     commentaire: saisie.commentaire,
+    le: dates.deposeLe,
   });
-  if (!resultat.ok) throw new ErreurApi(422, resultat.erreur);
+  if (!depot.ok) throw new ErreurApi(422, depot.erreur);
+  const dossierId = depot.dossierId;
+
+  const annuler = async (message: string) => {
+    await prisma.dossier.delete({ where: { id: dossierId } });
+    throw new ErreurApi(422, message);
+  };
+
+  const { statut } = await prisma.dossier.findUniqueOrThrow({
+    where: { id: dossierId },
+    select: { statut: true },
+  });
+  if (statut === "CREDITE_OFFICE" && saisie.etapes.length > 0) {
+    await annuler("Dossier crédité d'office au dépôt (sous le seuil) : il n'y a rien à instruire.");
+  }
+
+  for (const [i, etape] of saisie.etapes.entries()) {
+    let resultat;
+    try {
+      resultat = await rejouerEtape(
+        dossierId,
+        staffParEmail.get(etape.par)!,
+        etape,
+        dates.etapes[i]!,
+      );
+    } catch (erreur) {
+      await prisma.dossier.delete({ where: { id: dossierId } });
+      throw erreur;
+    }
+    if (!resultat.ok) await annuler(`etapes.${i} (${etape.type}) : ${resultat.erreur}`);
+  }
 
   const dossier = await prisma.dossier.findUniqueOrThrow({
-    where: { id: resultat.dossierId },
-    select: { id: true, statut: true, montantContesteCentimes: true },
+    where: { id: dossierId },
+    select: {
+      id: true,
+      statut: true,
+      montantContesteCentimes: true,
+      createdAt: true,
+      decisions: {
+        select: { issue: true, montantAccordeCentimes: true, avoir: { select: { id: true } } },
+      },
+    },
   });
-  return dossier;
+  const journal = await lireJournalDossier(dossierId);
+  return {
+    ...dossier,
+    journal: journal.map((e) => ({
+      type: e.type,
+      le: e.createdAt,
+      par: e.auteurStaff?.nom ?? null,
+    })),
+  };
 }

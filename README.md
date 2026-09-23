@@ -180,7 +180,7 @@ curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
 | `POST /api/admin/reservations` | Réservations : `restaurantId`, `dineurEmail` ou `dineurId`, `jour`, `creneau`, `couverts`, `statut?`, `couvertsServis?`, `signaleeLe?`, `creeLe?` | 1000 |
 | `GET /api/admin/factures?mois=AAAA-MM` | Factures du mois et leurs lignes | |
 | `POST /api/admin/factures` | Génère les factures de `{ mois }` — idempotent | |
-| `POST /api/admin/dossiers` | Dépose une contestation : `factureId`, `contactId`, `lignes: [{ ligneFactureId, motif }]` | 1 |
+| `POST /api/admin/dossiers` | Dépose une contestation et rejoue son instruction : `factureId`, `contactId`, `lignes: [{ ligneFactureId, motif }]`, `deposeLe?`, `etapes?` (voir plus bas) | 1 |
 
 **L'API ne fabrique que des états que le produit aurait pu atteindre.**
 Chaque réservation passe les contrôles de la fiche restaurant, vus du jour où
@@ -199,9 +199,30 @@ Les dates absentes prennent les délais courants : réservée la veille,
 signalée trois heures après le service, facture d'un mois émise le 1er du
 mois suivant à 6h. Facturation et dépôt de contestation passent par les
 fonctions des écrans (commission, seuil de crédit d'office, délai de 30
-jours, pas de double contestation). Le dépôt, lui, a lieu maintenant : seule
-une facture émise il y a moins de 30 jours se conteste, un historique de
-litiges ne se reconstitue pas en arrière.
+jours, pas de double contestation).
+
+**Litiges, ouverts ou clos.** Un dossier se dépose à `deposeLe` (par défaut
+5 jours après l'émission de la facture), et le délai de 30 jours est jugé à
+cette date : un litige de juin se rejoue sur la facture de juin. `etapes`
+rejoue ensuite son instruction, dans l'ordre, chaque geste par la fonction
+de la Console qui le fait — donc avec ses règles (seul l'instructeur qui a
+pris le dossier le tranche, une escalade le libère pour tout le staff, un
+accord partiel reste sous le montant contesté) :
+
+```json
+"etapes": [
+  { "type": "PRISE_EN_CHARGE", "par": "sophie@thespoon.fr" },
+  { "type": "COMPLEMENT", "par": "sophie@thespoon.fr", "message": "Merci de joindre le cahier." },
+  { "type": "DECISION", "par": "sophie@thespoon.fr", "issue": "ESCALADE", "motif": "Je passe la main." },
+  { "type": "DECISION", "par": "karim@thespoon.fr", "issue": "PARTIEL",
+    "montantAccordeCentimes": 5000, "imputation": "CLIENT", "motif": "Deux tables absentes confirmées." }
+]
+```
+
+`par` est l'email d'un membre du staff ; `le` (facultatif) date l'étape, par
+défaut un jour après la précédente. Sans `etapes`, le dossier reste en file
+d'instruction — ou crédité d'office s'il est sous le seuil. Journal, décision
+et avoir portent les dates rejouées.
 
 **Tout-ou-rien.** Les `POST` acceptent un objet ou une liste ; une liste avec
 une erreur n'écrit rien, et la réponse (400, 409 ou 422) désigne l'élément

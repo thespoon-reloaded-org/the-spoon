@@ -152,6 +152,35 @@ export const schemaMois = z.string().refine(moisIsoValide, "Mois attendu au form
 
 export const schemaGenerationFactures = z.object({ mois: schemaMois });
 
+/**
+ * Un geste d'instruction, rejoué dans l'ordre par la fonction de la Console
+ * qui le fait (`prendreEnChargeDossier`, `demanderComplementDossier`,
+ * `deciderDossier`) : mêmes règles, seulement daté. `par` est l'email d'un
+ * membre du staff ; `le` absent, un jour après l'étape précédente.
+ */
+const schemaEtapeInstruction = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("PRISE_EN_CHARGE"), par: email, le: instant.optional() }),
+  z.object({
+    type: z.literal("COMPLEMENT"),
+    par: email,
+    le: instant.optional(),
+    message: texte.max(2000),
+  }),
+  z.object({
+    type: z.literal("DECISION"),
+    par: email,
+    le: instant.optional(),
+    issue: z.enum(["ACCORDE", "PARTIEL", "REFUSE", "ESCALADE"]),
+    /** Seulement pour un accord partiel. */
+    montantAccordeCentimes: z.number().int().min(1).optional(),
+    /** Seulement pour un accord, total ou partiel : qui porte le coût. */
+    imputation: z.enum(["THESPOON", "CLIENT"]).optional(),
+    motif: texte.max(2000),
+  }),
+]);
+
+export type EtapeInstruction = z.output<typeof schemaEtapeInstruction>;
+
 export const schemaDossier = z.object({
   factureId: texte,
   /** Le contact restaurant qui dépose — il doit appartenir au restaurant facturé. */
@@ -172,4 +201,8 @@ export const schemaDossier = z.object({
       }),
     )
     .min(1, "Au moins une ligne contestée."),
+  /** Absent : quelques jours après l'émission de la facture, sans dépasser maintenant. */
+  deposeLe: instant.optional(),
+  /** L'instruction du dossier, dans l'ordre. Vide : le dossier reste en file. */
+  etapes: z.array(schemaEtapeInstruction).max(10).default([]),
 });

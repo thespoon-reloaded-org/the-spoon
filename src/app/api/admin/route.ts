@@ -42,7 +42,11 @@ export const GET = routeAdmin(async () =>
         chemin: "/api/admin/factures",
         role: "Génère les factures d'un mois { mois }",
       },
-      { methode: "POST", chemin: "/api/admin/dossiers", role: "Dépose un dossier de contestation" },
+      {
+        methode: "POST",
+        chemin: "/api/admin/dossiers",
+        role: "Dépose une contestation et rejoue son instruction (etapes)",
+      },
     ],
   }),
 );
