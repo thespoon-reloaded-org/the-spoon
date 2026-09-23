@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { IconeCalendrier, IconeDeconnexion } from "@/components/Icones";
+import { useCibleOnboarding } from "@/components/Onboarding";
 import { authClient } from "@/lib/auth-client";
 
 const LIEN_DISCRET =
@@ -20,6 +21,7 @@ export function AuthHeaderActions() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const [deconnexionEnCours, setDeconnexionEnCours] = useState(false);
+  const estCibleReservations = useCibleOnboarding("/mes-reservations");
 
   // Pendant la résolution de session, un espace réservé de la bonne taille :
   // renvoyer `null` faisait sauter le header au chargement de chaque page.
@@ -55,7 +57,11 @@ export function AuthHeaderActions() {
 
   return (
     <div className="flex items-center gap-1">
-      <Link href="/mes-reservations" className={LIEN_DISCRET}>
+      <Link
+        href="/mes-reservations"
+        className={`${LIEN_DISCRET} ${estCibleReservations ? "onboarding-cible" : ""}`}
+        style={{ ["--cible-couleur" as string]: "var(--color-accent)" }}
+      >
         <IconeCalendrier taille={17} />
         <span className="hidden sm:inline">Mes réservations</span>
       </Link>

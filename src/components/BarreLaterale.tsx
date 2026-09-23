@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { ICONES, IconeCroix, IconeMenu, type CleIcone } from "@/components/Icones";
 import { LogoTheSpoon } from "@/components/LogoTheSpoon";
+import { useCibleOnboarding } from "@/components/Onboarding";
 
 export type EntreeMenu = {
   href: string;
@@ -38,6 +39,45 @@ export type ThemeBarre = {
  * différentes — c'est tout ce qui les distingue, et c'est ce que porte
  * `theme`.
  */
+/**
+ * Une entrée de menu — isolée pour que `useCibleOnboarding` s'appelle une
+ * fois par entrée, pas dans la boucle `.map` de `BarreLaterale`.
+ */
+function LienMenu({
+  entree,
+  estActive,
+  theme,
+  onClick,
+}: {
+  entree: EntreeMenu;
+  estActive: boolean;
+  theme: ThemeBarre;
+  onClick: () => void;
+}) {
+  const Icone = ICONES[entree.icone];
+  const estCible = useCibleOnboarding(entree.href);
+
+  return (
+    <Link
+      href={entree.href}
+      onClick={onClick}
+      aria-current={estActive ? "page" : undefined}
+      className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors ${estCible ? "onboarding-cible" : ""}`}
+      style={{
+        ...(estActive
+          ? { background: theme.fondActif, color: "var(--color-cream)" }
+          : { color: theme.texte }),
+        ["--cible-couleur" as string]: theme.accent,
+      }}
+    >
+      <span style={{ color: estActive ? theme.accent : "inherit" }}>
+        <Icone taille={19} />
+      </span>
+      {entree.label}
+    </Link>
+  );
+}
+
 export function BarreLaterale({
   marque,
   titre,
@@ -92,29 +132,15 @@ export function BarreLaterale({
       </div>
 
       <nav className="flex flex-1 flex-col gap-1" aria-label={marque}>
-        {entrees.map((entree) => {
-          const Icone = ICONES[entree.icone];
-          const estActive = pathname === entree.href || pathname.startsWith(`${entree.href}/`);
-          return (
-            <Link
-              key={entree.href}
-              href={entree.href}
-              onClick={fermerTiroir}
-              aria-current={estActive ? "page" : undefined}
-              className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors"
-              style={
-                estActive
-                  ? { background: theme.fondActif, color: "var(--color-cream)" }
-                  : { color: theme.texte }
-              }
-            >
-              <span style={{ color: estActive ? theme.accent : "inherit" }}>
-                <Icone taille={19} />
-              </span>
-              {entree.label}
-            </Link>
-          );
-        })}
+        {entrees.map((entree) => (
+          <LienMenu
+            key={entree.href}
+            entree={entree}
+            estActive={pathname === entree.href || pathname.startsWith(`${entree.href}/`)}
+            theme={theme}
+            onClick={fermerTiroir}
+          />
+        ))}
       </nav>
 
       <div className="border-t pt-4" style={{ borderColor: theme.ligne }}>

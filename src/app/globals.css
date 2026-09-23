@@ -83,6 +83,28 @@ body {
   outline-color: var(--color-staff-accent);
 }
 
+/*
+ * Anneau qui respire autour de l'entrée de menu que l'étape d'onboarding
+ * affichée désigne — `--cible-couleur` est fourni par l'entrée elle-même,
+ * chaque univers ayant son accent. Un `outline` plutôt qu'un `box-shadow` :
+ * pas de canal alpha à composer, et les navigateurs le bornent déjà au
+ * `border-radius` de l'élément.
+ */
+@keyframes onboarding-respire {
+  0%,
+  100% {
+    outline: 2px solid var(--cible-couleur, var(--color-accent));
+    outline-offset: 2px;
+  }
+  50% {
+    outline: 2px solid var(--cible-couleur, var(--color-accent));
+    outline-offset: 6px;
+  }
+}
+.onboarding-cible {
+  animation: onboarding-respire 1.4s ease-in-out infinite;
+}
+
 @keyframes spoon-marquee {
   from {
     transform: translateX(0);

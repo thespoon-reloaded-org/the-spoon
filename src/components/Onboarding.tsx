@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 
 import { marquerOnboardingVu } from "@/app/onboarding-actions";
 import { IconeCroix } from "@/components/Icones";
@@ -20,6 +20,49 @@ import { UNIVERS, type CleUnivers } from "@/lib/univers";
  */
 function evenementOuverture(univers: CleUnivers): string {
   return `onboarding:ouvrir:${univers}`;
+}
+
+/**
+ * Événement par lequel l'étape courante annonce le lien de menu dont elle
+ * parle — la barre latérale et le header n'ont pas de référence directe vers
+ * la fenêtre pour aller lire son état.
+ */
+const EVENEMENT_CIBLE = "onboarding:cible";
+
+// Rejoue la dernière annonce à qui s'abonne après coup : la fenêtre s'ouvre
+// d'elle-même au montage (`dejaVu` à `false`) et annonce sa première étape
+// avant que `BarreLaterale` ait eu le temps de poser son propre écouteur —
+// un event seul aurait perdu cette toute première annonce.
+let derniereCible: string | null = null;
+
+function annoncerCible(href: string | null | undefined) {
+  derniereCible = href ?? null;
+  window.dispatchEvent(new CustomEvent<string | null>(EVENEMENT_CIBLE, { detail: derniereCible }));
+}
+
+function suivreCible(prevenir: () => void) {
+  window.addEventListener(EVENEMENT_CIBLE, prevenir);
+  return () => window.removeEventListener(EVENEMENT_CIBLE, prevenir);
+}
+
+function lireCibleServeur() {
+  return null;
+}
+
+/**
+ * À appeler depuis l'entrée de menu qui correspond à `href` : elle sait ainsi
+ * si c'est elle que l'étape affichée désigne, et peut se mettre en évidence
+ * pendant que la fenêtre reste ouverte sur cette étape.
+ *
+ * `useSyncExternalStore` plutôt qu'un état local mis à jour dans un effet :
+ * `derniereCible` peut déjà avoir changé entre le rendu de cette entrée et la
+ * pose de son écouteur (la fenêtre s'ouvre d'elle-même au montage) — un
+ * simple event l'aurait manqué, `useSyncExternalStore` relit l'externe au
+ * moment de s'abonner et rattrape l'écart tout seul.
+ */
+export function useCibleOnboarding(href: string): boolean {
+  const cible = useSyncExternalStore(suivreCible, () => derniereCible, lireCibleServeur);
+  return cible === href;
 }
 
 /** Le bouton qui rejoue l'onboarding — autant d'exemplaires que nécessaire. */
@@ -67,21 +110,33 @@ export function Onboarding({
   const [aRetenir, setARetenir] = useState(!dejaVu);
 
   useEffect(() => {
-    if (!dejaVu) dialogue.current?.showModal();
-  }, [dejaVu]);
+    if (!dejaVu) {
+      dialogue.current?.showModal();
+      annoncerCible(parcours.etapes[0]?.lien?.href);
+    }
+  }, [dejaVu, parcours.etapes]);
 
   useEffect(() => {
     function ouvrir() {
       setEtape(0);
       if (!dialogue.current?.open) dialogue.current?.showModal();
+      annoncerCible(parcours.etapes[0]?.lien?.href);
     }
     const evenement = evenementOuverture(univers);
     window.addEventListener(evenement, ouvrir);
     return () => window.removeEventListener(evenement, ouvrir);
-  }, [univers]);
+  }, [univers, parcours.etapes]);
+
+  // Ne s'annonce qu'à l'ouverture ou au changement d'étape, pas au montage :
+  // sans le garde sur `.open`, une fenêtre pas encore ouverte (`dejaVu`)
+  // mettrait en évidence l'entrée de sa première étape avant même le clic.
+  useEffect(() => {
+    if (dialogue.current?.open) annoncerCible(parcours.etapes[etape]?.lien?.href);
+  }, [etape, parcours.etapes]);
 
   /** Déclenché aussi bien par Échap que par les boutons — un seul endroit qui retient. */
   function surFermeture() {
+    annoncerCible(null);
     if (!aRetenir) return;
     setARetenir(false);
     void marquerOnboardingVu(univers);
