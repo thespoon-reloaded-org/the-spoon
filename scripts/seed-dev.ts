@@ -328,6 +328,10 @@ async function run() {
   await prisma.journalAuditRestaurant.deleteMany();
   await prisma.staff.deleteMany();
   await prisma.platCuillere.deleteMany();
+  // Une facture retient sa réservation (`LigneFacture.bookingId` n'est pas en
+  // cascade) : sans cette purge, supprimer un restaurant qui a déjà été
+  // facturé échoue sur cette contrainte.
+  await prisma.facture.deleteMany();
   await prisma.restaurant.deleteMany();
 
   const motDePasseHash = await hashPassword(MOT_DE_PASSE_CONTACT_DEV);

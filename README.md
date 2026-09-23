@@ -23,6 +23,23 @@ L'identité visuelle est celle de TheSpoon, pas celle d'Hymaïa (TheSpoon est sa
 propre marque, pas une interface interne) — voir « Charte & structure des
 écrans » plus bas.
 
+## Un onboarding par univers
+
+Trois populations, trois produits : le dîneur ne gagne rien à lire comment on
+instruit un litige. Chaque univers a donc son propre parcours, en quatre
+étapes, déclaré comme du contenu dans `src/lib/onboarding.ts` — ajouter une
+étape ne demande pas de toucher à la mécanique, qui vit une seule fois dans
+`src/components/Onboarding.tsx`.
+
+Il **se rejoue** : un bouton « Comment ça marche » dans le header du site et
+dans la barre latérale des deux espaces connectés. Ce n'est pas un tunnel
+d'accueil qu'on subit une fois, c'est un écran qui reste à portée. Il s'ouvre
+tout seul à la première arrivée, puis plus jamais sans qu'on le demande —
+`onboardingVuLe` porte cette trace, une colonne par population (`User`,
+`RestaurantContact`, `Staff`), comme les trois instances better-auth.
+`marquerOnboardingVu` résout la session de l'univers concerné et n'accepte
+jamais d'identifiant venu du client.
+
 ## L'heure, c'est l'heure de Paris
 
 Le produit est français, ses serveurs ne le sont pas : en production (Netlify)
