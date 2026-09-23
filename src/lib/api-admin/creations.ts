@@ -649,22 +649,27 @@ export async function genererFactures(mois: string, maintenant = new Date()) {
 const DEPOSE_APRES_FACTURE_MS = 5 * 24 * 60 * 60 * 1000;
 const ETAPE_APRES_MS = 24 * 60 * 60 * 1000;
 
-/** Dates de dépôt et de chaque étape, validées avant toute écriture. */
+/**
+ * Dates de dépôt et de chaque étape, validées avant toute écriture. Elles
+ * se suivent **strictement** : le journal d'un dossier se lit dans l'ordre
+ * des instants, et deux décisions au même instant (une escalade puis son
+ * dénouement) n'auraient plus d'ordre. Les dates par défaut suivent les
+ * délais courants ; quand le dossier est trop récent pour les tenir, elles
+ * se répartissent entre sa borne et maintenant plutôt que de s'empiler.
+ */
 export function datesDossier(
   saisie: { deposeLe?: Date; etapes: { le?: Date }[] },
   bornes: { factureEmiseLe: Date; contactCreeLe: Date },
   maintenant: Date,
 ): { deposeLe: Date; etapes: Date[]; erreurs: string[] } {
   const erreurs: string[] = [];
+  const nbEtapes = saisie.etapes.length;
+  const borne = plusTard(bornes.factureEmiseLe, bornes.contactCreeLe);
   const deposeLe =
     saisie.deposeLe ??
-    plusTot(
-      maintenant,
-      plusTard(
-        new Date(bornes.factureEmiseLe.getTime() + DEPOSE_APRES_FACTURE_MS),
-        bornes.contactCreeLe,
-      ),
-    );
+    (borne.getTime() + DEPOSE_APRES_FACTURE_MS < maintenant.getTime()
+      ? new Date(borne.getTime() + DEPOSE_APRES_FACTURE_MS)
+      : new Date(borne.getTime() + (maintenant.getTime() - borne.getTime()) / (nbEtapes + 1)));
   if (deposeLe.getTime() < bornes.factureEmiseLe.getTime()) {
     erreurs.push(
       `deposeLe précède l'émission de la facture (${formaterJourEtHeure(bornes.factureEmiseLe)}).`,
@@ -680,10 +685,11 @@ export function datesDossier(
 
   let precedente = deposeLe;
   const etapes = saisie.etapes.map((etape, i) => {
-    const le = etape.le ?? plusTot(maintenant, new Date(precedente.getTime() + ETAPE_APRES_MS));
-    if (le.getTime() < precedente.getTime()) {
+    const marge = (maintenant.getTime() - precedente.getTime()) / (nbEtapes - i);
+    const le = etape.le ?? new Date(precedente.getTime() + Math.min(ETAPE_APRES_MS, marge));
+    if (le.getTime() <= precedente.getTime()) {
       erreurs.push(
-        `etapes.${i} : doit suivre l'étape précédente (${formaterJourEtHeure(precedente)}).`,
+        `etapes.${i} : doit suivre strictement l'étape précédente (${formaterJourEtHeure(precedente)}) — dater les étapes avec le.`,
       );
     }
     if (le.getTime() > maintenant.getTime())
@@ -775,6 +781,7 @@ export async function deposerDossier(
     lignes: saisie.lignes,
     commentaire: saisie.commentaire,
     le: dates.deposeLe,
+    exigerInstruction: saisie.etapes.length > 0,
   });
   if (!depot.ok) throw new ErreurApi(422, depot.erreur);
   const dossierId = depot.dossierId;
@@ -783,14 +790,6 @@ export async function deposerDossier(
     await prisma.dossier.delete({ where: { id: dossierId } });
     throw new ErreurApi(422, message);
   };
-
-  const { statut } = await prisma.dossier.findUniqueOrThrow({
-    where: { id: dossierId },
-    select: { statut: true },
-  });
-  if (statut === "CREDITE_OFFICE" && saisie.etapes.length > 0) {
-    await annuler("Dossier crédité d'office au dépôt (sous le seuil) : il n'y a rien à instruire.");
-  }
 
   for (const [i, etape] of saisie.etapes.entries()) {
     let resultat;

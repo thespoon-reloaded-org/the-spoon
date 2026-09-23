@@ -179,6 +179,31 @@ const schemaEtapeInstruction = z.discriminatedUnion("type", [
   }),
 ]);
 
+/**
+ * Le montant n'a de sens que pour un accord partiel, l'imputation que pour
+ * un accord : `normaliserDecision` ignorerait le reste sans le dire, et un
+ * jeu de données qui croit accorder 50 € en accorderait 300.
+ */
+const schemaEtapeInstructionCoherente = schemaEtapeInstruction.superRefine((etape, ctx) => {
+  if (etape.type !== "DECISION") return;
+  if ((etape.issue === "PARTIEL") !== (etape.montantAccordeCentimes !== undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["montantAccordeCentimes"],
+      message: "montantAccordeCentimes est requis pour PARTIEL, et seulement pour PARTIEL.",
+    });
+  }
+  const accord = etape.issue === "ACCORDE" || etape.issue === "PARTIEL";
+  if (accord !== (etape.imputation !== undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["imputation"],
+      message:
+        "imputation (THESPOON ou CLIENT) est requise pour un accord, et seulement pour un accord.",
+    });
+  }
+});
+
 export type EtapeInstruction = z.output<typeof schemaEtapeInstruction>;
 
 export const schemaDossier = z.object({
@@ -204,5 +229,5 @@ export const schemaDossier = z.object({
   /** Absent : quelques jours après l'émission de la facture, sans dépasser maintenant. */
   deposeLe: instant.optional(),
   /** L'instruction du dossier, dans l'ordre. Vide : le dossier reste en file. */
-  etapes: z.array(schemaEtapeInstruction).max(10).default([]),
+  etapes: z.array(schemaEtapeInstructionCoherente).max(10).default([]),
 });

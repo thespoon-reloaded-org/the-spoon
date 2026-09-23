@@ -121,6 +121,12 @@ export async function creerDossierContestation(params: {
    * délai de contestation est alors jugé à cet instant-là.
    */
   le?: Date;
+  /**
+   * Refuser le dépôt, sans rien écrire, s'il serait crédité d'office : l'API
+   * d'administration rejoue ensuite une instruction qui n'aurait pas lieu
+   * d'être.
+   */
+  exigerInstruction?: boolean;
 }): Promise<ResultatCreationDossier> {
   const facture = await prisma.facture.findFirst({
     where: { id: params.factureId, restaurantId: params.restaurantId },
@@ -157,6 +163,9 @@ export async function creerDossierContestation(params: {
     (dejaConteste._sum.montantContesteCentimes ?? 0) + montantContesteCentimes,
     config.seuilCreditOfficeCentimes,
   );
+  if (params.exigerInstruction && statut === "CREDITE_OFFICE") {
+    return { ok: false, erreur: "Sous le seuil d'instruction, ce dossier serait crédité d'office." };
+  }
   const motifParLigne = new Map(params.lignes.map((l) => [l.ligneFactureId, l.motif]));
   // Décrite une fois, écrite deux fois : sur la décision et dans le journal.
   // Deux blocs séparés finiraient par diverger le jour où la règle change.

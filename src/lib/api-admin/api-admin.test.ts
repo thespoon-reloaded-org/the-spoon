@@ -240,6 +240,25 @@ describe("API d'administration", () => {
     expect(dossier.statut).toBe(201);
     expect(dossier.corps.cree.statut).toBe("CREDITE_OFFICE");
 
+    // Sous le seuil avec une instruction à rejouer : refusé sans rien écrire.
+    const autreLigne = facture.lignes.find((l: { id: string }) => l.id !== ligneA5Euros.id);
+    const avantRefus = await prisma.dossier.count({ where: { factureId: facture.id } });
+    const sousLeSeuil = await appeler(
+      dossiers.POST,
+      requete({
+        factureId: facture.id,
+        contactId,
+        lignes: [{ ligneFactureId: autreLigne.id, motif: "AUTRE" }],
+        etapes: [{ type: "PRISE_EN_CHARGE", par: EMAIL_STAFF }],
+      }),
+    );
+    // 10 € : sous le seuil par défaut ; si un autre test l'a abaissé à 10 €,
+    // le dossier part en instruction et la prise en charge passe.
+    if (sousLeSeuil.statut === 422) {
+      expect(sousLeSeuil.corps.erreur).toMatch(/crédité d'office/);
+      expect(await prisma.dossier.count({ where: { factureId: facture.id } })).toBe(avantRefus);
+    }
+
     // La même ligne ne se conteste pas deux fois.
     const doublon = await appeler(
       dossiers.POST,
