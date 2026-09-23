@@ -120,18 +120,29 @@ model ExceptionHoraire {
 /// depuis l'écran "Mon menu" côté partenaire, la carte gérée par le
 /// restaurant lui-même (photo, description/ingrédients, catégorie, prix).
 model PlatCuillere {
-  id              String        @id @default(cuid())
-  nom             String
-  description     String?
-  categorie       CategoriePlat @default(PLAT)
-  prixCentimes    Int           @default(0)
+  id                   String        @id @default(cuid())
+  nom                  String
+  description          String?
+  categorie            CategoriePlat @default(PLAT)
+  prixCentimes         Int           @default(0)
   /// Horodatage de la dernière photo uploadée (stockée sur Netlify Blobs,
   /// clé = id du plat). `null` = pas de photo, sert aussi de cache-bust pour
   /// l'URL publique `/api/plats/[id]/photo`.
-  photoMisAJourLe DateTime?
-  restaurantId    String
-  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdAt       DateTime      @default(now())
+  photoMisAJourLe      DateTime?
+  /// Les allergènes présents dans le plat, déclarés par le restaurant.
+  /// Une liste vide ne veut rien dire toute seule — voir
+  /// `allergenesDeclaresLe`.
+  allergenes           Allergene[]
+  /// Quand le restaurant a déclaré les allergènes de ce plat. `null` = jamais
+  /// déclaré, et c'est toute la différence : une liste vide **non datée** est
+  /// un plat qu'on n'a pas renseigné, une liste vide **datée** est un plat dont
+  /// le restaurant affirme qu'aucun des 14 allergènes majeurs n'y figure. Les
+  /// confondre reviendrait à rassurer un dîneur allergique sur la foi d'un
+  /// champ que personne n'a rempli.
+  allergenesDeclaresLe DateTime?
+  restaurantId         String
+  restaurant           Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt            DateTime      @default(now())
 
   @@index([restaurantId])
 }
@@ -142,6 +153,28 @@ enum CategoriePlat {
   ENTREE
   PLAT
   DESSERT
+}
+
+/// Les quatorze allergènes à déclaration obligatoire en restauration
+/// (annexe II du règlement UE n° 1169/2011, dit « INCO »). La liste est
+/// réglementaire et fermée : c'est pour ça que c'est un enum et pas du texte
+/// libre — un dîneur qui filtre « sans gluten » ne peut pas le faire sur des
+/// orthographes libres, et l'ordre ci-dessous est celui de l'annexe.
+enum Allergene {
+  GLUTEN
+  CRUSTACES
+  OEUFS
+  POISSONS
+  ARACHIDES
+  SOJA
+  LAIT
+  FRUITS_A_COQUE
+  CELERI
+  MOUTARDE
+  SESAME
+  SULFITES
+  LUPIN
+  MOLLUSQUES
 }
 
 // ----------------------------------------------------------------------------

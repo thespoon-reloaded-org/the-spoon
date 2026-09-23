@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import type { EtatPlat } from "@/app/espace-restaurant/menu/actions";
 import { MessageFormulaire } from "@/components/MessageFormulaire";
-import type { PlatCuillere } from "@/generated/prisma";
+import type { Allergene, PlatCuillere } from "@/generated/prisma";
+import { ALLERGENES, LIBELLE_ALLERGENE, PRECISION_ALLERGENE } from "@/lib/allergenes";
 import { CATEGORIES } from "@/lib/plats";
 import { BOUTON_PRIMAIRE, CHAMP, CHAMP_FICHIER, LABEL_CHAMP } from "@/lib/ui";
 
@@ -12,7 +13,14 @@ const ETAT_INITIAL: EtatPlat = {};
 
 type PlatExistant = Pick<
   PlatCuillere,
-  "id" | "nom" | "description" | "categorie" | "prixCentimes" | "photoMisAJourLe"
+  | "id"
+  | "nom"
+  | "description"
+  | "categorie"
+  | "prixCentimes"
+  | "photoMisAJourLe"
+  | "allergenes"
+  | "allergenesDeclaresLe"
 >;
 
 export function PlatForm({
@@ -80,6 +88,14 @@ export function PlatForm({
         </label>
       </div>
 
+      {/* `key` sur la déclaration enregistrée : après un enregistrement, la
+          page se revalide et `plat` revient à jour, mais un `useState` ignore
+          sa valeur initiale une fois monté — les cases seraient restées sur
+          l'ancienne saisie, à mentir sur ce qui est en base. Remonter ce seul
+          bloc les resynchronise sans effacer le message de `useActionState`,
+          qui vit dans le composant parent. */}
+      <ChampsAllergenes key={cleDeclaration(plat)} plat={plat} />
+
       <label className={LABEL_CHAMP}>
         Photo
         {plat?.photoMisAJourLe && (
@@ -119,5 +135,86 @@ export function PlatForm({
         <MessageFormulaire type="avertissement" message={etat.avertissement} />
       </div>
     </form>
+  );
+}
+
+/** Identifie la déclaration enregistrée : elle change, les cases se resynchronisent. */
+function cleDeclaration(plat?: PlatExistant) {
+  if (!plat?.allergenesDeclaresLe) return "non-declare";
+  return `${plat.allergenesDeclaresLe.getTime()}:${plat.allergenes.join(",")}`;
+}
+
+/**
+ * Les 14 cases réglementaires, plus celle qui affirme qu'il n'y en a aucune.
+ * Les deux s'excluent, et on le rend impossible à l'écran plutôt que de le
+ * refuser après coup : cocher « aucun » désactive la grille, et cocher un
+ * allergène désactive « aucun ». Le serveur retranche quand même
+ * (cf. `declarationDepuisFormulaire`) — un formulaire n'est pas une garde.
+ */
+function ChampsAllergenes({ plat }: { plat?: PlatExistant }) {
+  const [allergenes, setAllergenes] = useState<Allergene[]>(plat?.allergenes ?? []);
+  const [aucunAllergene, setAucunAllergene] = useState(
+    plat ? plat.allergenesDeclaresLe !== null && plat.allergenes.length === 0 : false,
+  );
+
+  return (
+    <fieldset className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-[var(--color-line-strong)] p-4">
+      <legend className="px-1 text-sm font-semibold text-[var(--color-ink-soft)]">
+        Allergènes
+      </legend>
+      <p className="text-xs text-[var(--color-ink-muted)]">
+        Les 14 allergènes à déclaration obligatoire. Tant que rien n&apos;est coché, la fiche
+        publique affiche « non renseignés » — elle ne dira jamais qu&apos;il n&apos;y en a pas à
+        votre place.
+      </p>
+
+      <label className="mt-1 flex items-center gap-2.5 text-sm font-semibold text-[var(--color-ink)]">
+        <input
+          type="checkbox"
+          name="aucunAllergene"
+          checked={aucunAllergene}
+          disabled={allergenes.length > 0}
+          onChange={(e) => setAucunAllergene(e.target.checked)}
+          className="h-4 w-4 accent-[var(--color-pro)]"
+        />
+        Aucun de ces allergènes dans ce plat
+      </label>
+
+      <div className="mt-1 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+        {ALLERGENES.map((allergene) => (
+          <label
+            key={allergene}
+            className={`flex items-center gap-2.5 text-sm ${
+              aucunAllergene ? "text-[var(--color-ink-muted)]" : "text-[var(--color-ink)]"
+            }`}
+          >
+            <input
+              type="checkbox"
+              name="allergenes"
+              value={allergene}
+              checked={allergenes.includes(allergene)}
+              disabled={aucunAllergene}
+              onChange={(e) =>
+                setAllergenes((actuels) =>
+                  e.target.checked
+                    ? [...actuels, allergene]
+                    : actuels.filter((a) => a !== allergene),
+                )
+              }
+              className="h-4 w-4 shrink-0 accent-[var(--color-pro)]"
+            />
+            <span>
+              {LIBELLE_ALLERGENE[allergene]}
+              {PRECISION_ALLERGENE[allergene] && (
+                <span className="text-[var(--color-ink-muted)]">
+                  {" "}
+                  ({PRECISION_ALLERGENE[allergene]})
+                </span>
+              )}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }

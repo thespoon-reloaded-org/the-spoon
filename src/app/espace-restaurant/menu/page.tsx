@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 
 import { creerPlat } from "./actions";
+import { AllergenesPlat } from "@/components/AllergenesPlat";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { PlatForm } from "@/components/PlatForm";
@@ -30,6 +31,10 @@ export default async function MenuPage() {
   });
 
   const sansPhoto = plats.filter((plat) => !estPhotoReelle(plat)).length;
+  // Compté ici plutôt que laissé à l'œil : "non renseigné" s'affiche sur la
+  // fiche publique, et un restaurateur ne le découvre pas en relisant sa
+  // carte plat par plat.
+  const sansAllergenes = plats.filter((plat) => plat.allergenesDeclaresLe === null).length;
 
   return (
     <>
@@ -46,11 +51,18 @@ export default async function MenuPage() {
               · {plats.length}
             </span>
           </h2>
-          {sansPhoto > 0 && (
-            <span className={pastilleEtat("attention")}>
-              {sansPhoto} sans photo — un visuel générique est affiché à la place
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {sansAllergenes > 0 && (
+              <span className={pastilleEtat("attention")}>
+                {sansAllergenes} sans allergènes renseignés
+              </span>
+            )}
+            {sansPhoto > 0 && (
+              <span className={pastilleEtat("attention")}>
+                {sansPhoto} sans photo — un visuel générique est affiché à la place
+              </span>
+            )}
+          </div>
         </div>
 
         {plats.length === 0 ? (
@@ -84,6 +96,9 @@ export default async function MenuPage() {
                   {plat.description && (
                     <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{plat.description}</p>
                   )}
+                  <div className="mt-1.5">
+                    <AllergenesPlat plat={plat} />
+                  </div>
                   <p className="mt-1 font-[family-name:var(--font-display)] text-base font-bold text-[var(--color-ink)]">
                     {(plat.prixCentimes / 100).toFixed(2)} €
                   </p>

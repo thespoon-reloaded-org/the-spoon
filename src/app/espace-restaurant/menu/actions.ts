@@ -4,13 +4,15 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { VALEURS_ALLERGENES, declarationDepuisFormulaire } from "@/lib/allergenes";
 import { authRestaurant } from "@/lib/auth";
 import { getPlatsPhotosStore } from "@/lib/plats-photos";
 import { lirePhoto, sauvegarderPhotoEntite, validerImage } from "@/lib/photos";
 import { prisma } from "@/lib/prisma";
 import type { PlatCuillere } from "@/generated/prisma";
 
-const MESSAGE_ECHEC_PHOTO = "Plat enregistré, mais la photo n'a pas pu être envoyée — réessaie plus tard.";
+const MESSAGE_ECHEC_PHOTO =
+  "Plat enregistré, mais la photo n'a pas pu être envoyée — réessaie plus tard.";
 
 const schemaPlat = z.object({
   nom: z
@@ -32,7 +34,24 @@ const schemaPlat = z.object({
     .finite("Prix invalide.")
     .positive("Le prix doit être supérieur à 0.")
     .max(10000, "Prix trop élevé (10 000 € max)."),
+  // Une valeur inconnue n'est pas ignorée en silence : la liste est
+  // réglementaire, un allergène qu'on ne sait pas nommer doit faire échouer
+  // l'enregistrement plutôt que disparaître de la fiche.
+  allergenes: z.array(z.enum(VALEURS_ALLERGENES), { message: "Allergène inconnu." }),
+  aucunAllergene: z.boolean(),
 });
+
+/**
+ * Les champs allergènes tels que le formulaire les envoie. Une case cochée
+ * vaut "on" ; aucune case cochée n'envoie rien du tout (`getAll` renvoie `[]`,
+ * `get` renvoie `null`) — c'est bien l'absence de déclaration, pas un zéro.
+ */
+function lireSaisieAllergenes(formData: FormData) {
+  return {
+    allergenes: formData.getAll("allergenes"),
+    aucunAllergene: formData.get("aucunAllergene") !== null,
+  };
+}
 
 export type EtatPlat = { erreur?: string; ok?: boolean; avertissement?: string };
 
@@ -66,6 +85,7 @@ export async function creerPlat(_etatPrecedent: EtatPlat, formData: FormData): P
     description: formData.get("description"),
     categorie: formData.get("categorie"),
     prixEuros: formData.get("prixEuros"),
+    ...lireSaisieAllergenes(formData),
   });
   if (!donnees.success) {
     return { erreur: donnees.error.issues[0]?.message ?? "Formulaire invalide." };
@@ -88,12 +108,18 @@ export async function creerPlat(_etatPrecedent: EtatPlat, formData: FormData): P
       description: donnees.data.description,
       categorie: donnees.data.categorie,
       prixCentimes: Math.round(donnees.data.prixEuros * 100),
+      ...declarationDepuisFormulaire(donnees.data, new Date()),
     },
   });
 
   let avertissement: string | undefined;
   if (photo) {
-    const erreurPhoto = await sauvegarderPhotoEntite(getPlatsPhotosStore(), plat.id, photo, MESSAGE_ECHEC_PHOTO);
+    const erreurPhoto = await sauvegarderPhotoEntite(
+      getPlatsPhotosStore(),
+      plat.id,
+      photo,
+      MESSAGE_ECHEC_PHOTO,
+    );
     if (erreurPhoto) {
       avertissement = erreurPhoto;
     } else {
@@ -125,6 +151,7 @@ export async function modifierPlat(
     description: formData.get("description"),
     categorie: formData.get("categorie"),
     prixEuros: formData.get("prixEuros"),
+    ...lireSaisieAllergenes(formData),
   });
   if (!donnees.success) {
     return { erreur: donnees.error.issues[0]?.message ?? "Formulaire invalide." };
@@ -141,7 +168,12 @@ export async function modifierPlat(
   // dans la même écriture, au lieu d'un second aller-retour.
   let avertissement: string | undefined;
   if (photo) {
-    const erreurPhoto = await sauvegarderPhotoEntite(getPlatsPhotosStore(), platId, photo, MESSAGE_ECHEC_PHOTO);
+    const erreurPhoto = await sauvegarderPhotoEntite(
+      getPlatsPhotosStore(),
+      platId,
+      photo,
+      MESSAGE_ECHEC_PHOTO,
+    );
     if (erreurPhoto) avertissement = erreurPhoto;
   }
 
@@ -153,6 +185,10 @@ export async function modifierPlat(
         description: donnees.data.description,
         categorie: donnees.data.categorie,
         prixCentimes: Math.round(donnees.data.prixEuros * 100),
+        // La date suit la déclaration courante : ré-enregistrer le plat
+        // re-date ce que le restaurant vient d'affirmer, décocher tout le
+        // ramène à "non renseigné".
+        ...declarationDepuisFormulaire(donnees.data, new Date()),
         ...(photo && !avertissement ? { photoMisAJourLe: new Date() } : {}),
       },
     });

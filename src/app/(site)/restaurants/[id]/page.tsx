@@ -3,6 +3,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+import { AllergenesPlat } from "@/components/AllergenesPlat";
 import { AvisForm } from "@/components/AvisForm";
 import { BookingCard } from "@/components/BookingCard";
 import { IconeCouverts, IconeHorloge, IconeLieu } from "@/components/Icones";
@@ -42,7 +43,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: `${restaurant.nom}, ${restaurant.ville}`,
     description:
-      restaurant.description ?? `${restaurant.cuisine} à ${restaurant.ville} — réservez sur TheSpoon.`,
+      restaurant.description ??
+      `${restaurant.cuisine} à ${restaurant.ville} — réservez sur TheSpoon.`,
   };
 }
 
@@ -75,11 +77,7 @@ function Repere({
   );
 }
 
-export default async function FicheRestaurantPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function FicheRestaurantPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [restaurant, session] = await Promise.all([
     lireRestaurant(id),
@@ -102,7 +100,9 @@ export default async function FicheRestaurantPage({
       })
     : null;
 
-  const avisExistant = session ? (restaurant.avis.find((a) => a.userId === session.user.id) ?? null) : null;
+  const avisExistant = session
+    ? (restaurant.avis.find((a) => a.userId === session.user.id) ?? null)
+    : null;
 
   // Ce que le restaurant ouvre (ses horaires, recouverts par ses exceptions
   // datées) puis, dans ces créneaux-là seulement, ce qu'il lui reste de place
@@ -234,8 +234,11 @@ export default async function FicheRestaurantPage({
                           </span>
                         </div>
                         {plat.description && (
-                          <p className="text-sm text-[var(--color-ink-muted)]">{plat.description}</p>
+                          <p className="text-sm text-[var(--color-ink-muted)]">
+                            {plat.description}
+                          </p>
                         )}
+                        <AllergenesPlat plat={plat} />
                         <p className="mt-auto pt-2 font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
                           {(plat.prixCentimes / 100).toFixed(2)} €
                         </p>
