@@ -44,10 +44,7 @@ export default async function FacturesAdminPage() {
   const total = factures.reduce((somme, facture) => somme + facture.montantTotalCentimes, 0);
   // Ce que TheSpoon encaisse réellement : les avoirs émis sur litige viennent
   // en déduction, et c'est ce chiffre-là qui intéresse le staff.
-  const totalAvoirs = factures.reduce(
-    (somme, facture) => somme + montantAvoirsCentimes(facture.avoirs),
-    0,
-  );
+  const totalAvoirs = factures.reduce((somme, facture) => somme + montantAvoirsCentimes(facture.avoirs), 0);
 
   return (
     <>
@@ -108,9 +105,7 @@ export default async function FacturesAdminPage() {
                   className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--color-line-strong)] bg-white px-5 py-4 transition-colors hover:border-[var(--color-staff)]"
                 >
                   <div>
-                    <p className="font-semibold text-[var(--color-ink)]">
-                      {facture.restaurant.nom}
-                    </p>
+                    <p className="font-semibold text-[var(--color-ink)]">{facture.restaurant.nom}</p>
                     <p className="text-sm text-[var(--color-ink-muted)]">
                       <span className="capitalize">{formaterMoisFacture(facture.mois)}</span> ·{" "}
                       {facture._count.lignes} réservation{facture._count.lignes > 1 ? "s" : ""}{" "}
@@ -126,9 +121,7 @@ export default async function FacturesAdminPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     <p className="font-[family-name:var(--font-display)] text-lg font-bold text-[var(--color-ink)]">
-                      {formaterMontant(
-                        netAPayerCentimes(facture.montantTotalCentimes, facture.avoirs),
-                      )}
+                      {formaterMontant(netAPayerCentimes(facture.montantTotalCentimes, facture.avoirs))}
                     </p>
                     <span className="text-[var(--color-ink-muted)]">
                       <IconeChevron taille={18} />

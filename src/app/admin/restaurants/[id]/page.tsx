@@ -147,11 +147,7 @@ export default async function FicheRestaurantAdminPage({
           <Info libelle="Adresse">{restaurant.adresse}</Info>
           <Info libelle="Horaires">
             {horaires.length > 0
-              ? horaires.map((ligne) => (
-                  <span key={ligne} className="block">
-                    {ligne}
-                  </span>
-                ))
+              ? horaires.map((ligne) => <span key={ligne} className="block">{ligne}</span>)
               : "Non déclarés — tous les créneaux sont proposés"}
           </Info>
           <Info libelle="Capacité">

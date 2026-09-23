@@ -104,9 +104,9 @@ export async function modifierRestaurant(
     return { erreur: "Restaurant introuvable." };
   }
 
-  const champsModifies = CHAMPS_SUIVIS.filter((champ) => donnees.data[champ] !== avant[champ]).map(
-    (champ) => ({ champ, avant: avant[champ], apres: donnees.data[champ] }),
-  );
+  const champsModifies = CHAMPS_SUIVIS.filter(
+    (champ) => donnees.data[champ] !== avant[champ],
+  ).map((champ) => ({ champ, avant: avant[champ], apres: donnees.data[champ] }));
 
   await prisma.restaurant.update({ where: { id: restaurantId }, data: donnees.data });
 
