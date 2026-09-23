@@ -6,6 +6,7 @@ import { useActionState, useState } from "react";
 import { creerReservation, type EtatReservation } from "@/app/(site)/restaurants/[id]/actions";
 import { politiqueAnnulation } from "@/lib/annulation";
 import { IconeCalendrier, IconeValide } from "@/components/Icones";
+import { lienConnexion } from "@/lib/retour";
 import {
   CRENEAUX_MIDI,
   CRENEAUX_SOIR,
@@ -37,6 +38,17 @@ function creneauParDefaut(ouverts: readonly string[]): string {
   return ouverts.includes(CRENEAU_PREFERE) ? CRENEAU_PREFERE : (ouverts[0] ?? CRENEAU_PREFERE);
 }
 
+/**
+ * Sélection retrouvée dans l'URL au retour de la connexion. On ne la reprend
+ * que si elle tient toujours debout : entre le départ vers `/connexion` et le
+ * retour, un créneau a pu se remplir ou le restaurant fermer ce jour-là.
+ */
+export type SelectionReservation = {
+  couverts?: string;
+  jour?: string;
+  creneau?: string;
+};
+
 function Groupe({ libelle, children }: { libelle: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
@@ -56,6 +68,7 @@ export function BookingCard({
   occupation,
   capacite,
   delaiAnnulationHeures,
+  selection,
 }: {
   restaurantId: string;
   estConnecte: boolean;
@@ -67,6 +80,8 @@ export function BookingCard({
   capacite: number;
   /** Délai d'annulation déclaré par le restaurant — annoncé ici, appliqué dans "Mes réservations". */
   delaiAnnulationHeures: number | null;
+  /** Sélection à ré-afficher au retour de la connexion — voir `src/lib/retour.ts`. */
+  selection?: SelectionReservation;
 }) {
   // Ouverte d'emblée sur le premier jour que le restaurant ouvre. S'il n'en
   // ouvre aucun, ces deux valeurs ne servent à rien : la carte affiche plus
@@ -74,10 +89,21 @@ export function BookingCard({
   // avant ce retour anticipé.
   const joursOuverts = jours.filter((jour) => (ouvertures[jour.iso] ?? []).length > 0);
   const premierJourOuvert = joursOuverts[0];
-  const [couverts, setCouverts] = useState<number>(TAILLES_TABLE[1].valeur);
-  const [jourIso, setJourIso] = useState(premierJourOuvert?.iso ?? "");
+  const jourDemande =
+    joursOuverts.find((jour) => jour.iso === selection?.jour)?.iso ??
+    premierJourOuvert?.iso ??
+    "";
+  const creneauxDuJourDemande = ouvertures[jourDemande] ?? [];
+  const [couverts, setCouverts] = useState<number>(
+    () =>
+      TAILLES_TABLE.find((t) => String(t.valeur) === selection?.couverts)?.valeur ??
+      TAILLES_TABLE[1].valeur,
+  );
+  const [jourIso, setJourIso] = useState(jourDemande);
   const [creneau, setCreneau] = useState<string>(() =>
-    creneauParDefaut(ouvertures[premierJourOuvert?.iso ?? ""] ?? []),
+    selection?.creneau && creneauxDuJourDemande.includes(selection.creneau)
+      ? selection.creneau
+      : creneauParDefaut(creneauxDuJourDemande),
   );
   const [etat, action, enCours] = useActionState(
     creerReservation.bind(null, restaurantId),
@@ -100,6 +126,14 @@ export function BookingCard({
     const ouverts = ouvertures[iso] ?? [];
     if (!ouverts.includes(creneau)) setCreneau(creneauParDefaut(ouverts));
   }
+
+  // Le dîneur non connecté part vers `/connexion` avec sa sélection dans
+  // l'URL : c'est elle qui lui sera ré-affichée au retour.
+  const lienRetourFiche = `/restaurants/${restaurantId}?${new URLSearchParams({
+    couverts: String(couverts),
+    jour: jourIso,
+    creneau,
+  })}`;
 
   const restantSurCreneau = placesRestantes(jourIso, creneau);
   const creneauFerme = !creneauxOuverts.includes(creneau);
@@ -279,7 +313,7 @@ export function BookingCard({
             {enCours ? "Confirmation…" : "Confirmer la réservation"}
           </button>
         ) : (
-          <Link href="/connexion" className={BOUTON_CONFIRMER}>
+          <Link href={lienConnexion(lienRetourFiche)} className={BOUTON_CONFIRMER}>
             Se connecter pour réserver
           </Link>
         )}

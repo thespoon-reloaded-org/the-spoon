@@ -77,10 +77,13 @@ function Repere({
 
 export default async function FicheRestaurantPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  /** Sélection de réservation rapportée de l'écran de connexion — voir `src/lib/retour.ts`. */
+  searchParams: Promise<{ couverts?: string; jour?: string; creneau?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, selection] = await Promise.all([params, searchParams]);
   const [restaurant, session] = await Promise.all([
     lireRestaurant(id),
     auth.api.getSession({ headers: await headers() }),
@@ -319,6 +322,7 @@ export default async function FicheRestaurantPage({
               occupation={occupation}
               capacite={capaciteEffective(restaurant.capacite)}
               delaiAnnulationHeures={restaurant.delaiAnnulationHeures}
+              selection={selection}
             />
           </aside>
         </div>

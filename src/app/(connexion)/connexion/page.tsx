@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 import { EcranConnexion } from "@/components/EcranConnexion";
 import {
@@ -10,6 +10,7 @@ import {
   ErreurConnexion,
 } from "@/components/FormulaireConnexion";
 import { authClient } from "@/lib/auth-client";
+import { cheminRetour } from "@/lib/retour";
 import { UNIVERS } from "@/lib/univers";
 
 type Mode = "connexion" | "inscription";
@@ -21,8 +22,16 @@ const MODES: { value: Mode; label: string }[] = [
 
 const UNIVERS_CLIENT = UNIVERS.client;
 
-export default function ConnexionPage() {
+export default function ConnexionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ retour?: string | string[] }>;
+}) {
   const router = useRouter();
+  // D'où vient le dîneur : une fiche restaurant avec sa réservation en cours,
+  // le plus souvent. On l'y ramène plutôt que sur l'accueil — sinon il perd
+  // sa sélection et recommence tout.
+  const retour = cheminRetour(use(searchParams).retour) ?? "/";
   const { data: session, isPending: sessionEnCoursDeChargement } = authClient.useSession();
   const [mode, setMode] = useState<Mode>("connexion");
   const [nom, setNom] = useState("");
@@ -33,8 +42,8 @@ export default function ConnexionPage() {
 
   // Un dîneur déjà connecté n'a rien à faire sur ce formulaire.
   useEffect(() => {
-    if (session) router.replace("/");
-  }, [session, router]);
+    if (session) router.replace(retour);
+  }, [session, retour, router]);
 
   function changerDeMode(nouveauMode: Mode) {
     setMode(nouveauMode);
@@ -57,7 +66,7 @@ export default function ConnexionPage() {
         return;
       }
 
-      router.push("/");
+      router.push(retour);
       router.refresh();
     } catch {
       setErreur("Impossible de contacter le serveur — vérifie ta connexion et réessaie.");

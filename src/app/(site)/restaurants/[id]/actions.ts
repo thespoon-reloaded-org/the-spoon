@@ -10,6 +10,7 @@ import { construireDateCreneau, estDansLaFenetreReservable, TAILLES_TABLE } from
 import { creneauEstOuvert } from "@/lib/disponibilites";
 import { prisma } from "@/lib/prisma";
 import { CreneauCompletError, reserverCreneau } from "@/lib/reservation";
+import { lienConnexion } from "@/lib/retour";
 
 const schemaReservation = z.object({
   jourIso: z.string(),
@@ -28,8 +29,10 @@ export async function creerReservation(
   _etatPrecedent: EtatReservation,
   formData: FormData,
 ): Promise<EtatReservation> {
+  // Session expirée entre l'affichage de la fiche et l'envoi du formulaire :
+  // on renvoie à la connexion, puis sur la fiche plutôt que sur l'accueil.
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/connexion");
+  if (!session) redirect(lienConnexion(`/restaurants/${restaurantId}`));
 
   const donnees = schemaReservation.safeParse({
     jourIso: formData.get("jourIso"),
