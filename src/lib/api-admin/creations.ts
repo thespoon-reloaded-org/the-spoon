@@ -2,10 +2,12 @@
  * Les écritures de l'API d'administration. Une règle les tient toutes :
  * **l'API ne fabrique que des états que le produit aurait pu atteindre**.
  * Elle raccourcit le chemin (une réservation passée, honorée, sans attendre
- * que le service ait lieu), elle ne le contourne pas : mêmes créneaux, même
- * capacité, même facturation, même dépôt de contestation que les écrans. Des
- * données de formation qui violeraient ces règles apprendraient un produit
- * qui n'existe pas.
+ * que le service ait lieu), elle ne le contourne pas : mêmes créneaux, mêmes
+ * horaires d'ouverture, même capacité, même fenêtre de réservation, même
+ * facturation, même dépôt de contestation que les écrans — et des dates qui
+ * se suivent dans l'ordre où le produit les aurait écrites. Des données de
+ * formation qui violeraient ces règles apprendraient un produit qui
+ * n'existe pas.
  *
  * Chaque appel est tout-ou-rien : une liste avec une erreur n'écrit rien, et
  * la réponse dit quels éléments corriger.
@@ -16,12 +18,22 @@ import { hashPassword } from "better-auth/crypto";
 import type { z } from "zod";
 
 import { trierAllergenes } from "@/lib/allergenes";
-import { genererMotDePasseTemporaire, nouveauCompteCredential } from "@/lib/comptes";
-import { LIBELLE_ROLE_CONTACT } from "@/lib/contacts";
+import {
+  creerContactAvecAcces,
+  genererMotDePasseTemporaire,
+  nouveauCompteCredential,
+} from "@/lib/comptes";
 import { creerDossierContestation } from "@/lib/contestation";
-import { construireDateCreneau, cleCreneau } from "@/lib/creneaux";
-import { genererFacturesMois, referenceFacture } from "@/lib/facturation";
-import { fusionnerPlages } from "@/lib/horaires";
+import {
+  NB_JOURS_RESERVABLES,
+  cleCreneau,
+  construireDateCreneau,
+  estDansLaFenetreReservable,
+} from "@/lib/creneaux";
+import { creneauOuvert, type Exception } from "@/lib/disponibilites";
+import { genererFacturesMois, moisFacture, referenceFacture } from "@/lib/facturation";
+import { formaterJourEtHeure, instantLocalDeJour, moisAdjacent } from "@/lib/fuseau";
+import { fusionnerPlages, type Plage } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
 import { capaciteEffective } from "@/lib/reservation";
 
@@ -34,8 +46,13 @@ import type {
   schemaRestaurant,
 } from "./schemas";
 
-/** Assez large pour charger une centaine de restaurants d'un coup, borné quand même. */
-const DELAI_TRANSACTION_MS = 60_000;
+/**
+ * Sous le délai d'exécution d'une fonction Netlify : une transaction encore
+ * ouverte quand la fonction est coupée est annulée, rien n'est écrit, mais
+ * le client ne reçoit qu'une erreur de passerelle. Les plafonds par appel
+ * (voir les routes) sont choisis pour tenir largement dedans.
+ */
+const DELAI_TRANSACTION_MS = 20_000;
 
 type Erreur = { element: number; message: string };
 
@@ -55,6 +72,15 @@ function doublonsInternes(emails: string[]): Erreur[] {
   return erreurs;
 }
 
+/** Une date de création dans le futur n'a pas encore eu lieu. */
+function datesFutures(dates: (Date | undefined)[], maintenant: Date): Erreur[] {
+  return dates.flatMap((date, element) =>
+    date && date.getTime() > maintenant.getTime()
+      ? [{ element, message: "creeLe ne peut pas être dans le futur." }]
+      : [],
+  );
+}
+
 /**
  * Hache le mot de passe fourni, ou en génère un. Le mot de passe généré est
  * rendu une seule fois dans la réponse, jamais stocké en clair — même
@@ -72,7 +98,31 @@ async function preparerMotDePasse(fourni: string | undefined) {
 type SaisieRestaurant = z.output<typeof schemaRestaurant>;
 type SaisieContact = z.output<typeof schemaContact>;
 
-export async function creerRestaurants(saisies: SaisieRestaurant[], staffId: string) {
+/** Emails déjà pris par un contact restaurant, rapportés à l'élément qui les porte. */
+async function emailsContactsPris(contacts: { element: number; email: string }[]) {
+  const pris = await prisma.restaurantContact.findMany({
+    where: { email: { in: contacts.map((c) => c.email) } },
+    select: { email: true },
+  });
+  const emails = new Set(pris.map((p) => p.email));
+  return contacts
+    .filter((c) => emails.has(c.email))
+    .map((c) => ({ element: c.element, message: `${c.email} est déjà un contact restaurant.` }));
+}
+
+export async function creerRestaurants(
+  saisies: SaisieRestaurant[],
+  staffId: string,
+  maintenant = new Date(),
+) {
+  refuserSiErreurs(
+    400,
+    "Dates de création impossibles.",
+    datesFutures(
+      saisies.map((r) => r.creeLe),
+      maintenant,
+    ),
+  );
   const contacts = saisies.flatMap((r, element) =>
     r.contacts.map((c) => ({ element, email: c.email })),
   );
@@ -84,17 +134,7 @@ export async function creerRestaurants(saisies: SaisieRestaurant[], staffId: str
       element: contacts[e.element]!.element,
     })),
   );
-  const dejaPris = await prisma.restaurantContact.findMany({
-    where: { email: { in: contacts.map((c) => c.email) } },
-    select: { email: true },
-  });
-  refuserSiErreurs(
-    409,
-    "Emails de contact déjà utilisés.",
-    contacts
-      .filter((c) => dejaPris.some((p) => p.email === c.email))
-      .map((c) => ({ element: c.element, message: `${c.email} est déjà un contact restaurant.` })),
-  );
+  refuserSiErreurs(409, "Emails de contact déjà utilisés.", await emailsContactsPris(contacts));
 
   // Hachage hors transaction : il est lent (scrypt) et n'a rien à verrouiller.
   const motsDePasse = await Promise.all(
@@ -105,27 +145,44 @@ export async function creerRestaurants(saisies: SaisieRestaurant[], staffId: str
     async (tx) => {
       const crees = [];
       for (const [i, saisie] of saisies.entries()) {
-        const { plats, horaires, contacts: contactsSaisis, ...champs } = saisie;
+        const { plats, horaires, contacts: contactsSaisis, creeLe, ...champs } = saisie;
+        // Carte, horaires et trace de création en une seule écriture.
         const restaurant = await tx.restaurant.create({
           data: {
             ...champs,
-            platsCuillere: { create: plats.map(platAvecDeclaration) },
+            createdAt: creeLe,
+            platsCuillere: {
+              create: plats.map((p) => platAvecDeclaration(p, creeLe ?? maintenant)),
+            },
             plagesOuverture: { create: plagesFusionnees(horaires) },
+            journalAudit: { create: { staffId, action: "CREATION", createdAt: creeLe } },
           },
-        });
-        await tx.journalAuditRestaurant.create({
-          data: { restaurantId: restaurant.id, staffId, action: "CREATION" },
         });
 
         const contactsCrees = [];
         for (const [j, contact] of contactsSaisis.entries()) {
           const motDePasse = motsDePasse[i]![j]!;
-          contactsCrees.push(await creerContact(tx, restaurant.id, contact, motDePasse, staffId));
+          const cree = await creerContactAvecAcces(tx, {
+            restaurantId: restaurant.id,
+            nom: contact.nom,
+            email: contact.email,
+            role: contact.role,
+            motDePasseHash: motDePasse.hash,
+            staffId,
+            creeLe,
+          });
+          contactsCrees.push({
+            id: cree.id,
+            email: cree.email,
+            role: cree.role,
+            motDePasseGenere: motDePasse.genere,
+          });
         }
         crees.push({
           id: restaurant.id,
           nom: restaurant.nom,
           ville: restaurant.ville,
+          creeLe: restaurant.createdAt,
           contacts: contactsCrees,
         });
       }
@@ -135,11 +192,14 @@ export async function creerRestaurants(saisies: SaisieRestaurant[], staffId: str
   );
 }
 
-/** `allergenes` absent = non renseigné ; présent, même vide, = déclaré maintenant. */
-function platAvecDeclaration({ allergenes, ...plat }: SaisieRestaurant["plats"][number]) {
+/** `allergenes` absent = non renseigné ; présent, même vide, = déclaré à la création. */
+function platAvecDeclaration(
+  { allergenes, ...plat }: SaisieRestaurant["plats"][number],
+  declareLe: Date,
+) {
   return allergenes === undefined
     ? plat
-    : { ...plat, allergenes: trierAllergenes(allergenes), allergenesDeclaresLe: new Date() };
+    : { ...plat, allergenes: trierAllergenes(allergenes), allergenesDeclaresLe: declareLe };
 }
 
 /** Une plage par service et par jour, fusionnées comme sur « Mes disponibilités ». */
@@ -151,45 +211,6 @@ function plagesFusionnees(plages: SaisieRestaurant["horaires"]) {
       ...p,
     })),
   );
-}
-
-type Transaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
-
-/** Même écriture que `creerContactRestaurant` (Console staff), audit compris. */
-async function creerContact(
-  tx: Transaction,
-  restaurantId: string,
-  contact: SaisieContact,
-  motDePasse: { hash: string; genere?: string },
-  staffId: string,
-) {
-  const cree = await tx.restaurantContact.create({
-    data: {
-      restaurantId,
-      nom: contact.nom,
-      email: contact.email,
-      role: contact.role,
-      emailVerified: true,
-    },
-  });
-  await tx.restaurantContactAccount.create({
-    data: nouveauCompteCredential(cree.id, motDePasse.hash),
-  });
-  await tx.journalAuditRestaurant.create({
-    data: {
-      restaurantId,
-      staffId,
-      action: "AJOUT_CONTACT",
-      champsModifies: [
-        {
-          champ: "contact",
-          avant: null,
-          apres: `${contact.nom} (${LIBELLE_ROLE_CONTACT[contact.role]}) — ${contact.email}`,
-        },
-      ],
-    },
-  });
-  return { id: cree.id, email: cree.email, role: cree.role, motDePasseGenere: motDePasse.genere };
 }
 
 /** Ajoute des contacts à un restaurant existant. */
@@ -209,18 +230,10 @@ export async function ajouterContacts(
     "Emails en double dans l'appel.",
     doublonsInternes(saisies.map((c) => c.email)),
   );
-  const dejaPris = await prisma.restaurantContact.findMany({
-    where: { email: { in: saisies.map((c) => c.email) } },
-    select: { email: true },
-  });
   refuserSiErreurs(
     409,
     "Emails de contact déjà utilisés.",
-    saisies.flatMap((c, element) =>
-      dejaPris.some((p) => p.email === c.email)
-        ? [{ element, message: `${c.email} est déjà un contact restaurant.` }]
-        : [],
-    ),
+    await emailsContactsPris(saisies.map((c, element) => ({ element, email: c.email }))),
   );
 
   const motsDePasse = await Promise.all(saisies.map((c) => preparerMotDePasse(c.motDePasse)));
@@ -228,7 +241,20 @@ export async function ajouterContacts(
     async (tx) => {
       const crees = [];
       for (const [i, contact] of saisies.entries()) {
-        crees.push(await creerContact(tx, restaurantId, contact, motsDePasse[i]!, staffId));
+        const cree = await creerContactAvecAcces(tx, {
+          restaurantId,
+          nom: contact.nom,
+          email: contact.email,
+          role: contact.role,
+          motDePasseHash: motsDePasse[i]!.hash,
+          staffId,
+        });
+        crees.push({
+          id: cree.id,
+          email: cree.email,
+          role: cree.role,
+          motDePasseGenere: motsDePasse[i]!.genere,
+        });
       }
       return crees;
     },
@@ -240,23 +266,40 @@ export async function ajouterContacts(
 // Dîneurs
 // ---------------------------------------------------------------------------
 
-export async function creerDineurs(saisies: z.output<typeof schemaDineur>[]) {
+function sansUtilisateur<T extends { userId: string }>({ userId: _userId, ...compte }: T) {
+  return compte;
+}
+
+export async function creerDineurs(
+  saisies: z.output<typeof schemaDineur>[],
+  maintenant = new Date(),
+) {
+  refuserSiErreurs(
+    400,
+    "Dates de création impossibles.",
+    datesFutures(
+      saisies.map((d) => d.creeLe),
+      maintenant,
+    ),
+  );
   refuserSiErreurs(
     400,
     "Emails en double dans l'appel.",
     doublonsInternes(saisies.map((d) => d.email)),
   );
-  const dejaPris = await prisma.user.findMany({
-    where: { email: { in: saisies.map((d) => d.email) } },
-    select: { email: true },
-  });
+  const dejaPris = new Set(
+    (
+      await prisma.user.findMany({
+        where: { email: { in: saisies.map((d) => d.email) } },
+        select: { email: true },
+      })
+    ).map((p) => p.email),
+  );
   refuserSiErreurs(
     409,
     "Emails de dîneur déjà utilisés.",
     saisies.flatMap((d, element) =>
-      dejaPris.some((p) => p.email === d.email)
-        ? [{ element, message: `${d.email} a déjà un compte dîneur.` }]
-        : [],
+      dejaPris.has(d.email) ? [{ element, message: `${d.email} a déjà un compte dîneur.` }] : [],
     ),
   );
 
@@ -267,13 +310,24 @@ export async function creerDineurs(saisies: z.output<typeof schemaDineur>[]) {
       for (const [i, saisie] of saisies.entries()) {
         // Même forme que `pnpm creer-compte` : id UUID, email vérifié (pas de
         // flux de vérification dans ce projet), compte credential.
+        const id = randomUUID();
         const dineur = await tx.user.create({
-          data: { id: randomUUID(), name: saisie.nom, email: saisie.email, emailVerified: true },
+          data: {
+            id,
+            name: saisie.nom,
+            email: saisie.email,
+            emailVerified: true,
+            createdAt: saisie.creeLe,
+            // Imbriqué : `userId` est porté par la relation, pas par la ligne.
+            accounts: {
+              create: sansUtilisateur(nouveauCompteCredential(id, motsDePasse[i]!.hash)),
+            },
+          },
         });
-        await tx.account.create({ data: nouveauCompteCredential(dineur.id, motsDePasse[i]!.hash) });
         crees.push({
           id: dineur.id,
           email: dineur.email,
+          creeLe: dineur.createdAt,
           motDePasseGenere: motsDePasse[i]!.genere,
         });
       }
@@ -287,6 +341,16 @@ export async function creerDineurs(saisies: z.output<typeof schemaDineur>[]) {
 // Réservations
 // ---------------------------------------------------------------------------
 
+/**
+ * Délais par défaut d'une réservation d'historique, quand le jeu de données
+ * ne les donne pas : réservée la veille, signalée dans la soirée. Ce sont les
+ * délais courants, pas des bornes — `creeLe` et `signaleeLe` les remplacent.
+ */
+const RESERVEE_AVANT_MS = 24 * 60 * 60 * 1000;
+const SIGNALEE_APRES_MS = 3 * 60 * 60 * 1000;
+
+export type RestaurantConnu = { createdAt: Date; plages: Plage[]; exceptions: Exception[] };
+
 type ReservationResolue = {
   element: number;
   restaurantId: string;
@@ -299,17 +363,21 @@ type ReservationResolue = {
   createdAt: Date;
 };
 
+const plusTard = (...dates: Date[]) => new Date(Math.max(...dates.map((d) => d.getTime())));
+const plusTot = (...dates: Date[]) => new Date(Math.min(...dates.map((d) => d.getTime())));
+
 /**
  * Résout chaque saisie en réservation prête à écrire, ou dit pourquoi elle
- * décrit un état que le produit ne sait pas atteindre. Pure : les dîneurs et
- * restaurants connus sont passés en paramètre, `maintenant` aussi.
+ * décrit un état que le produit ne sait pas atteindre. Pure : restaurants
+ * (horaires compris) et dîneurs connus sont passés en paramètre,
+ * `maintenant` aussi.
  */
 export function resoudreReservations(
   saisies: SaisieReservation[],
   connus: {
-    restaurantIds: Set<string>;
-    dineurParId: Set<string>;
-    dineurParEmail: Map<string, string>;
+    restaurants: Map<string, RestaurantConnu>;
+    dineurParId: Map<string, Date>;
+    dineurParEmail: Map<string, { id: string; createdAt: Date }>;
   },
   maintenant: Date,
 ): { reservations: ReservationResolue[]; erreurs: Erreur[] } {
@@ -319,14 +387,28 @@ export function resoudreReservations(
   saisies.forEach((saisie, element) => {
     const refuser = (message: string) => erreurs.push({ element, message });
 
-    if (!connus.restaurantIds.has(saisie.restaurantId))
-      return refuser(`Restaurant ${saisie.restaurantId} introuvable.`);
-    const userId = saisie.dineurEmail
+    const restaurant = connus.restaurants.get(saisie.restaurantId);
+    if (!restaurant) return refuser(`Restaurant ${saisie.restaurantId} introuvable.`);
+    const dineur = saisie.dineurEmail
       ? connus.dineurParEmail.get(saisie.dineurEmail)
       : connus.dineurParId.has(saisie.dineurId!)
-        ? saisie.dineurId
+        ? { id: saisie.dineurId!, createdAt: connus.dineurParId.get(saisie.dineurId!)! }
         : undefined;
-    if (!userId) return refuser(`Dîneur ${saisie.dineurEmail ?? saisie.dineurId} introuvable.`);
+    if (!dineur) return refuser(`Dîneur ${saisie.dineurEmail ?? saisie.dineurId} introuvable.`);
+
+    // Même lecture que la carte de réservation : horaires habituels
+    // recouverts par les exceptions datées. Vaut pour tous les statuts — une
+    // réservation annulée avait, elle aussi, été prise sur un créneau ouvert.
+    if (
+      !creneauOuvert({
+        plages: restaurant.plages,
+        exceptions: restaurant.exceptions,
+        jourIso: saisie.jour,
+        creneau: saisie.creneau,
+      })
+    ) {
+      return refuser(`Le restaurant est fermé le ${saisie.jour} à ${saisie.creneau}.`);
+    }
 
     // Validés par le schéma : jamais null ici.
     const date = construireDateCreneau(saisie.jour, saisie.creneau)!;
@@ -337,14 +419,37 @@ export function resoudreReservations(
       return refuser(`Une réservation ${saisie.statut} doit porter sur un créneau passé.`);
     }
 
-    const createdAt = saisie.creeeLe ?? (passee ? date : maintenant);
-    if (createdAt.getTime() > date.getTime() || createdAt.getTime() > maintenant.getTime()) {
-      return refuser("creeeLe doit précéder le créneau, et ne pas être dans le futur.");
+    // Personne ne réserve chez un restaurant, ni avec un compte, qui
+    // n'existe pas encore.
+    const existeDepuis = plusTard(restaurant.createdAt, dineur.createdAt);
+    if (date.getTime() <= existeDepuis.getTime()) {
+      return refuser(
+        `Créneau du ${formaterJourEtHeure(date)}, antérieur à l'arrivée du restaurant ou du dîneur sur TheSpoon (${formaterJourEtHeure(existeDepuis)}) — les dater avec creeLe.`,
+      );
+    }
+    // Par défaut la veille, sans remonter avant cette arrivée ni dépasser maintenant.
+    const createdAt =
+      saisie.creeLe ??
+      plusTot(maintenant, plusTard(new Date(date.getTime() - RESERVEE_AVANT_MS), existeDepuis));
+    if (createdAt.getTime() > maintenant.getTime()) {
+      return refuser("creeLe ne peut pas être dans le futur.");
+    }
+    if (createdAt.getTime() < existeDepuis.getTime()) {
+      return refuser(
+        `Réservation prise le ${formaterJourEtHeure(createdAt)}, avant l'arrivée du restaurant ou du dîneur sur TheSpoon (${formaterJourEtHeure(existeDepuis)}) — les dater avec creeLe.`,
+      );
+    }
+    // La fenêtre de la fiche restaurant, vue du jour où la réservation a été prise.
+    if (!estDansLaFenetreReservable(date, createdAt)) {
+      return refuser(
+        `Un créneau se réserve au plus ${NB_JOURS_RESERVABLES} jours à l'avance, et avant qu'il ait lieu (réservation prise le ${formaterJourEtHeure(createdAt)}).`,
+      );
     }
 
     let signaleeLe: Date | null = null;
     if (saisie.statut === "HONOREE" || saisie.statut === "NO_SHOW") {
-      signaleeLe = saisie.signaleeLe ?? maintenant;
+      signaleeLe =
+        saisie.signaleeLe ?? plusTot(maintenant, new Date(date.getTime() + SIGNALEE_APRES_MS));
       if (signaleeLe.getTime() < date.getTime() || signaleeLe.getTime() > maintenant.getTime()) {
         return refuser("signaleeLe doit tomber entre le créneau et maintenant.");
       }
@@ -353,7 +458,7 @@ export function resoudreReservations(
     reservations.push({
       element,
       restaurantId: saisie.restaurantId,
-      userId,
+      userId: dineur.id,
       date,
       couverts: saisie.couverts,
       statut: saisie.statut,
@@ -368,32 +473,49 @@ export function resoudreReservations(
 
 export async function creerReservations(saisies: SaisieReservation[], maintenant = new Date()) {
   const restaurantIdsDemandes = [...new Set(saisies.map((s) => s.restaurantId))];
-  const [restaurants, dineursParId, dineursParEmail] = await Promise.all([
+  const joursDemandes = [...new Set(saisies.map((s) => s.jour))];
+  const [restaurants, plages, exceptions, dineursParId, dineursParEmail] = await Promise.all([
     prisma.restaurant.findMany({
       where: { id: { in: restaurantIdsDemandes } },
-      select: { id: true },
+      select: { id: true, createdAt: true },
+    }),
+    prisma.plageOuverture.findMany({
+      where: { restaurantId: { in: restaurantIdsDemandes } },
+      select: { restaurantId: true, jourSemaine: true, debutMinutes: true, finMinutes: true },
+    }),
+    prisma.exceptionHoraire.findMany({
+      where: { restaurantId: { in: restaurantIdsDemandes }, jour: { in: joursDemandes } },
+      select: { restaurantId: true, jour: true, creneau: true, ouvert: true },
     }),
     prisma.user.findMany({
       where: { id: { in: saisies.flatMap((s) => (s.dineurId ? [s.dineurId] : [])) } },
-      select: { id: true },
+      select: { id: true, createdAt: true },
     }),
     prisma.user.findMany({
       where: { email: { in: saisies.flatMap((s) => (s.dineurEmail ? [s.dineurEmail] : [])) } },
-      select: { id: true, email: true },
+      select: { id: true, email: true, createdAt: true },
     }),
   ]);
 
   const { reservations, erreurs } = resoudreReservations(
     saisies,
     {
-      restaurantIds: new Set(restaurants.map((r) => r.id)),
-      dineurParId: new Set(dineursParId.map((d) => d.id)),
-      dineurParEmail: new Map(dineursParEmail.map((d) => [d.email, d.id])),
+      restaurants: new Map(
+        restaurants.map((r) => [
+          r.id,
+          {
+            createdAt: r.createdAt,
+            plages: plages.filter((p) => p.restaurantId === r.id),
+            exceptions: exceptions.filter((e) => e.restaurantId === r.id),
+          },
+        ]),
+      ),
+      dineurParId: new Map(dineursParId.map((d) => [d.id, d.createdAt])),
+      dineurParEmail: new Map(dineursParEmail.map((d) => [d.email, d])),
     },
     maintenant,
   );
   refuserSiErreurs(400, "Réservations impossibles.", erreurs);
-
   return prisma.$transaction(
     async (tx) => {
       // Même verrou que `reserverCreneau`, pris dans un ordre stable pour que
@@ -451,15 +573,10 @@ export async function creerReservations(saisies: SaisieReservation[], maintenant
 // Factures & contestations
 // ---------------------------------------------------------------------------
 
-function debutDuMois(mois: string): Date {
-  const [annee, index] = mois.split("-").map(Number) as [number, number];
-  return new Date(Date.UTC(annee, index - 1, 1));
-}
-
 /** Factures d'un mois, avec leurs lignes — de quoi choisir quoi contester. */
 export async function listerFacturesMois(mois: string) {
   const factures = await prisma.facture.findMany({
-    where: { mois: debutDuMois(mois) },
+    where: { mois: moisFacture(mois) },
     orderBy: { restaurant: { nom: "asc" } },
     include: {
       restaurant: {
@@ -493,9 +610,27 @@ export async function listerFacturesMois(mois: string) {
   }));
 }
 
-/** Même génération que le bouton de la Console staff, pour le mois donné. */
-export async function genererFactures(mois: string) {
-  const resultat = await genererFacturesMois(debutDuMois(mois));
+/**
+ * Heure d'émission des factures d'un mois : le 1er du mois suivant, 6h à
+ * Paris — un mois se facture une fois terminé. Jamais dans le futur : le
+ * mois en cours se facture maintenant, comme depuis la Console.
+ */
+export const HEURE_EMISSION_FACTURES = 6;
+
+export function dateEmissionFactures(mois: string, maintenant: Date): Date {
+  const emission = instantLocalDeJour(`${moisAdjacent(mois, 1)}-01`, HEURE_EMISSION_FACTURES);
+  return emission.getTime() < maintenant.getTime() ? emission : maintenant;
+}
+
+/**
+ * Même génération que le bouton de la Console staff, datée comme si elle
+ * avait eu lieu à la fin du mois (voir `dateEmissionFactures`) : le délai de
+ * contestation d'une facture de juin est clos en septembre, comme en vrai.
+ */
+export async function genererFactures(mois: string, maintenant = new Date()) {
+  const resultat = await genererFacturesMois(moisFacture(mois), {
+    genereeLe: dateEmissionFactures(mois, maintenant),
+  });
   return { ...resultat, factures: await listerFacturesMois(mois) };
 }
 
@@ -503,7 +638,9 @@ export async function genererFactures(mois: string) {
  * Dépôt d'un dossier au nom d'un contact restaurant — passe par
  * `creerDossierContestation`, donc par ses règles : délai de 30 jours,
  * lignes de la bonne facture, pas de double contestation, crédit d'office
- * sous le seuil.
+ * sous le seuil. Le dépôt a lieu maintenant : seule une facture émise il y
+ * a moins de 30 jours se conteste, et un historique de litiges ne se
+ * reconstitue pas en arrière.
  */
 export async function deposerDossier(saisie: z.output<typeof schemaDossier>) {
   const [facture, contact] = await Promise.all([

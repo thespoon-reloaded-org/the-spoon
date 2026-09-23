@@ -125,7 +125,11 @@ export default async function RestaurantsAdminPage({
                 </div>
 
                 <div className="hidden shrink-0 flex-col items-end gap-1.5 sm:flex">
-                  <span className={pastilleEtat(restaurant._count.contacts > 0 ? "succes" : "attention")}>
+                  <span
+                    className={pastilleEtat(
+                      restaurant._count.contacts > 0 ? "succes" : "attention",
+                    )}
+                  >
                     {restaurant._count.contacts} contact
                     {restaurant._count.contacts > 1 ? "s" : ""}
                   </span>

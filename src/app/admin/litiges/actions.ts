@@ -47,7 +47,11 @@ export async function demanderComplementDossier(
     return { erreur: donnees.error.issues[0]?.message ?? "Message invalide." };
   }
 
-  const resultat = await demanderComplementDossierLib(dossierId, session.user.id, donnees.data.message);
+  const resultat = await demanderComplementDossierLib(
+    dossierId,
+    session.user.id,
+    donnees.data.message,
+  );
   if (!resultat.ok) return { erreur: resultat.erreur };
 
   revalidatePath(`/admin/litiges/${dossierId}`);

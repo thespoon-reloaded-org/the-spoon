@@ -3,6 +3,6 @@ import { lireCorps, repondre, routeAdmin } from "@/lib/api-admin/reponses";
 import { schemaDineur, unOuPlusieurs } from "@/lib/api-admin/schemas";
 
 export const POST = routeAdmin(async (requete) => {
-  const saisies = await lireCorps(requete, unOuPlusieurs(schemaDineur, 200));
+  const saisies = await lireCorps(requete, unOuPlusieurs(schemaDineur, 50));
   return repondre({ crees: await creerDineurs(saisies) }, 201);
 });

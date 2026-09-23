@@ -7,8 +7,7 @@ import { hashPassword } from "better-auth/crypto";
 import { z } from "zod";
 
 import { authAdmin } from "@/lib/auth";
-import { genererMotDePasseTemporaire, nouveauCompteCredential } from "@/lib/comptes";
-import { LIBELLE_ROLE_CONTACT } from "@/lib/contacts";
+import { creerContactAvecAcces, genererMotDePasseTemporaire } from "@/lib/comptes";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma";
 
@@ -105,9 +104,9 @@ export async function modifierRestaurant(
     return { erreur: "Restaurant introuvable." };
   }
 
-  const champsModifies = CHAMPS_SUIVIS.filter(
-    (champ) => donnees.data[champ] !== avant[champ],
-  ).map((champ) => ({ champ, avant: avant[champ], apres: donnees.data[champ] }));
+  const champsModifies = CHAMPS_SUIVIS.filter((champ) => donnees.data[champ] !== avant[champ]).map(
+    (champ) => ({ champ, avant: avant[champ], apres: donnees.data[champ] }),
+  );
 
   await prisma.restaurant.update({ where: { id: restaurantId }, data: donnees.data });
 
@@ -200,36 +199,14 @@ export async function creerContactRestaurant(
   const motDePasseHash = await hashPassword(motDePasse);
 
   try {
-    await prisma.$transaction(async (tx) => {
-      const contact = await tx.restaurantContact.create({
-        data: {
-          restaurantId,
-          nom: donnees.data.nom,
-          email: donnees.data.email,
-          role: donnees.data.role,
-          // Pas de flux de vérification d'email dans ce projet — même
-          // convention que `pnpm creer-compte` et `seed:dev`.
-          emailVerified: true,
-        },
-      });
-      await tx.restaurantContactAccount.create({
-        data: nouveauCompteCredential(contact.id, motDePasseHash),
-      });
-      await tx.journalAuditRestaurant.create({
-        data: {
-          restaurantId,
-          staffId: session.user.id,
-          action: "AJOUT_CONTACT",
-          champsModifies: [
-            {
-              champ: "contact",
-              avant: null,
-              apres: `${donnees.data.nom} (${LIBELLE_ROLE_CONTACT[donnees.data.role]}) — ${donnees.data.email}`,
-            },
-          ],
-        },
-      });
-    });
+    await prisma.$transaction((tx) =>
+      creerContactAvecAcces(tx, {
+        restaurantId,
+        ...donnees.data,
+        motDePasseHash,
+        staffId: session.user.id,
+      }),
+    );
   } catch (erreur) {
     // Filet de sécurité si deux créations concurrentes visent le même email
     // entre la vérification ci-dessus et cet insert (contrainte unique sur

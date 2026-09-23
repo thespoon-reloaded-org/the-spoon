@@ -141,7 +141,8 @@ function LigneDossier({
           {restaurant}
         </p>
         <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
-          {formaterMontant(montantContesteCentimes)} contestés · déposé {formaterAnciennete(deposeLe)}
+          {formaterMontant(montantContesteCentimes)} contestés · déposé{" "}
+          {formaterAnciennete(deposeLe)}
         </p>
       </div>
 

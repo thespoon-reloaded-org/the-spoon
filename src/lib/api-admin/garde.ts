@@ -7,10 +7,13 @@
  * d'environnement (`ADMIN_API_TOKEN`), réservé à l'administratrice du
  * produit : pas de table de clés tant qu'il n'y a qu'une personne derrière.
  *
- * Trois états, dans cet ordre :
+ * Quatre états, dans cet ordre :
  * - pas de jeton configuré → 404 : sur cet environnement, l'API n'existe pas.
  *   C'est l'état par défaut, pour qu'aucun déploiement ne l'ouvre par oubli ;
- * - jeton absent ou faux → 401 ;
+ * - jeton configuré trop court → 503, l'API reste fermée : un jeton qu'on
+ *   devine n'en est pas un. Jugé ici et pas au démarrage (`env.ts`), pour
+ *   qu'une faute de configuration de l'API ne fasse pas tomber le site ;
+ * - jeton absent ou faux dans la requête → 401 ;
  * - jeton bon mais `ADMIN_API_STAFF_EMAIL` absent ou inconnu → 503 : chaque
  *   création de restaurant est tracée dans `JournalAuditRestaurant` au nom
  *   d'un membre du staff, comme depuis la Console. Une API qui écrirait sans
@@ -22,6 +25,9 @@ import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
 import { ErreurApi } from "./erreurs";
+
+/** `openssl rand -hex 32` en donne 64. */
+export const LONGUEUR_MINIMALE_JETON = 32;
 
 export type ContexteApiAdmin = {
   /** Membre du staff à qui les écritures sont imputées (journal d'audit). */
@@ -48,6 +54,12 @@ export function jetonDeLEntete(entete: string | null): string | null {
 export async function authentifierApiAdmin(requete: Request): Promise<ContexteApiAdmin> {
   const jetonAttendu = env.ADMIN_API_TOKEN;
   if (!jetonAttendu) throw new ErreurApi(404, "Introuvable.");
+  if (jetonAttendu.length < LONGUEUR_MINIMALE_JETON) {
+    throw new ErreurApi(
+      503,
+      `ADMIN_API_TOKEN doit faire ${LONGUEUR_MINIMALE_JETON} caractères minimum — générer avec \`openssl rand -hex 32\`.`,
+    );
+  }
 
   if (!jetonCorrespond(jetonDeLEntete(requete.headers.get("authorization")), jetonAttendu)) {
     throw new ErreurApi(401, "Jeton manquant ou invalide (en-tête Authorization: Bearer …).");

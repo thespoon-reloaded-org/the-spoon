@@ -16,15 +16,15 @@ const schema = z.object({
     .describe("Clé de signature des sessions — générer avec `openssl rand -hex 32`"),
   BETTER_AUTH_URL: z.string().min(1).describe("URL de base de l'app, ex. http://localhost:3100"),
   // API d'administration (`/api/admin`, voir src/lib/api-admin/garde.ts) :
-  // absente tant que le jeton n'est pas posé. Une variable vide compte comme
-  // absente — Netlify laisse facilement une valeur "" derrière soi.
-  ADMIN_API_TOKEN: z.preprocess(
-    (v) => (v === "" ? undefined : v),
-    z.string().min(32, "32 caractères minimum — générer avec `openssl rand -hex 32`").optional(),
-  ),
+  // absente tant que le jeton n'est pas posé. Lus bruts, sans autre
+  // contrainte : une valeur mal formée pour cette fonction optionnelle doit
+  // garder l'API fermée (c'est la garde qui la juge), pas empêcher tout le
+  // site de démarrer. Une variable vide compte comme absente — Netlify laisse
+  // facilement une valeur "" derrière soi.
+  ADMIN_API_TOKEN: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   ADMIN_API_STAFF_EMAIL: z.preprocess(
     (v) => (v === "" ? undefined : v),
-    z.string().trim().toLowerCase().email().optional(),
+    z.string().trim().toLowerCase().optional(),
   ),
 });
 

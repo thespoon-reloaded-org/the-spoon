@@ -152,7 +152,8 @@ scénario de démo — depuis un script, `curl` ou un agent, sans passer par les
 **Désactivée par défaut.** Sans `ADMIN_API_TOKEN`, toutes les routes
 répondent 404. Pour l'ouvrir sur un environnement :
 
-- `ADMIN_API_TOKEN` — `openssl rand -hex 32`, 32 caractères minimum ;
+- `ADMIN_API_TOKEN` — `openssl rand -hex 32`, 32 caractères minimum (plus
+  court, l'API reste fermée en 503 ; le reste du site n'est pas touché) ;
 - `ADMIN_API_STAFF_EMAIL` — un membre du staff déjà en base (`pnpm
   creer-compte`) : les créations de restaurants et de contacts sont tracées
   à son nom dans le journal d'audit, comme depuis la Console.
@@ -162,36 +163,53 @@ la même base Neon (voir « Migrations de base de données »), et c'est voulu :
 les formations se bâtissent sur l'écosystème réel, pas sur une copie. Ce qui
 rend ces données acceptables en production, c'est qu'elles sont
 **réalistes** — la première règle ci-dessous — pas qu'elles soient isolées.
-Pas d'anomalie volontaire ni de piège pédagogique par cette API.
+Pas d'anomalie volontaire ni de piège pédagogique par cette API, et pas de
+suppression : ce qui est écrit reste.
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
 ```
 
-| Route | Effet |
-|---|---|
-| `GET /api/admin` | Sommaire des routes |
-| `GET /api/admin/restaurants` | Restaurants et contacts, avec leurs ids |
-| `POST /api/admin/restaurants` | Restaurants, avec `plats` (`allergenes` absent = non renseigné, `[]` = aucun), `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`) et `contacts` |
-| `POST /api/admin/restaurants/{id}/contacts` | Contacts d'un restaurant existant |
-| `POST /api/admin/dineurs` | Comptes dîneur (`nom`, `email`, `motDePasse?`) |
-| `POST /api/admin/reservations` | Réservations : `restaurantId`, `dineurEmail` ou `dineurId`, `jour`, `creneau`, `couverts`, `statut?`, `couvertsServis?`, `signaleeLe?`, `creeeLe?` |
-| `GET /api/admin/factures?mois=AAAA-MM` | Factures du mois et leurs lignes |
-| `POST /api/admin/factures` | Génère les factures de `{ mois }` — idempotent |
-| `POST /api/admin/dossiers` | Dépose une contestation : `factureId`, `contactId`, `lignes: [{ ligneFactureId, motif }]` |
+| Route | Effet | Par appel |
+|---|---|---|
+| `GET /api/admin` | Sommaire des routes | |
+| `GET /api/admin/restaurants` | Restaurants et contacts, avec leurs ids | |
+| `POST /api/admin/restaurants` | Restaurants : `plats` (`allergenes` absent = non renseigné, `[]` = aucun), `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`), `contacts`, `creeLe?` | 20 |
+| `POST /api/admin/restaurants/{id}/contacts` | Contacts d'un restaurant existant | 10 |
+| `POST /api/admin/dineurs` | Comptes dîneur (`nom`, `email`, `motDePasse?`, `creeLe?`) | 50 |
+| `POST /api/admin/reservations` | Réservations : `restaurantId`, `dineurEmail` ou `dineurId`, `jour`, `creneau`, `couverts`, `statut?`, `couvertsServis?`, `signaleeLe?`, `creeLe?` | 1000 |
+| `GET /api/admin/factures?mois=AAAA-MM` | Factures du mois et leurs lignes | |
+| `POST /api/admin/factures` | Génère les factures de `{ mois }` — idempotent | |
+| `POST /api/admin/dossiers` | Dépose une contestation : `factureId`, `contactId`, `lignes: [{ ligneFactureId, motif }]` | 1 |
 
-Trois règles :
+**L'API ne fabrique que des états que le produit aurait pu atteindre.**
+Chaque réservation passe les contrôles de la fiche restaurant, vus du jour où
+elle a été prise :
 
-- **L'API ne fabrique que des états que le produit aurait pu atteindre.**
-  Créneaux de la grille (`12:00`…`22:00`, heure de Paris), capacité du
-  restaurant, honoré/no-show seulement sur un créneau passé, facturation et
-  dépôt de contestation par les mêmes fonctions que les écrans (seuil de
-  crédit d'office, délai de 30 jours, pas de double contestation).
-- **Tout-ou-rien.** Les `POST` acceptent un objet ou une liste ; une liste
-  avec une erreur n'écrit rien, et la réponse (400, 409 ou 422) désigne
-  l'élément fautif.
-- **Mots de passe.** Sans `motDePasse`, un mot de passe temporaire est généré
-  et rendu **une seule fois** dans la réponse (`motDePasseGenere`).
+- créneau de la grille (`12:00`…`13:30`, `18:30`…`22:00`, heure de Paris),
+  **ouvert** ce jour-là (horaires habituels et exceptions datées) ;
+- 1 à 6 couverts, capacité du restaurant respectée ;
+- prise au plus 5 jours avant le créneau, et après l'arrivée du restaurant
+  et du dîneur sur TheSpoon — d'où `creeLe` sur les restaurants et les
+  dîneurs : un historique de trois mois demande des comptes datés d'au
+  moins trois mois ;
+- honorée ou no-show seulement sur un créneau passé.
+
+Les dates absentes prennent les délais courants : réservée la veille,
+signalée trois heures après le service, facture d'un mois émise le 1er du
+mois suivant à 6h. Facturation et dépôt de contestation passent par les
+fonctions des écrans (commission, seuil de crédit d'office, délai de 30
+jours, pas de double contestation). Le dépôt, lui, a lieu maintenant : seule
+une facture émise il y a moins de 30 jours se conteste, un historique de
+litiges ne se reconstitue pas en arrière.
+
+**Tout-ou-rien.** Les `POST` acceptent un objet ou une liste ; une liste avec
+une erreur n'écrit rien, et la réponse (400, 409 ou 422) désigne l'élément
+fautif. Les plafonds par appel tiennent dans le délai d'une fonction
+Netlify ; au-delà, découper en plusieurs appels.
+
+**Mots de passe.** Sans `motDePasse`, un mot de passe temporaire est généré
+et rendu **une seule fois** dans la réponse (`motDePasseGenere`).
 
 Code : `src/lib/api-admin/` (garde, schémas, écritures) et
 `src/app/api/admin/`.

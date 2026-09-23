@@ -119,9 +119,7 @@ export default async function InstructionDossierPage({
               </span>
             )}
             {dossier.instructeur ? (
-              <span className={pastilleEtat("neutre")}>
-                Instruit par {dossier.instructeur.nom}
-              </span>
+              <span className={pastilleEtat("neutre")}>Instruit par {dossier.instructeur.nom}</span>
             ) : (
               enAttente && <PrendreEnChargeBouton dossierId={dossier.id} />
             )}
@@ -259,7 +257,9 @@ export default async function InstructionDossierPage({
                   )}
                 </p>
 
-                <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink)]">{decision.motif}</p>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink)]">
+                  {decision.motif}
+                </p>
 
                 {decision.avoir && (
                   <p className="mt-3 border-t border-[var(--color-line)] pt-3 text-sm text-[var(--color-ink-muted)]">
@@ -297,8 +297,8 @@ export default async function InstructionDossierPage({
         <section className="mt-10 max-w-3xl">
           <h2 className={`${TITRE_SECTION} mb-1`}>Journal du dossier</h2>
           <p className="mb-5 text-sm text-[var(--color-ink-muted)]">
-            Tout ce qui a été fait sur ce dossier, dans l&apos;ordre. En ajout seul : rien ne s&apos;y
-            modifie ni ne s&apos;en supprime.
+            Tout ce qui a été fait sur ce dossier, dans l&apos;ordre. En ajout seul : rien ne
+            s&apos;y modifie ni ne s&apos;en supprime.
           </p>
           <div className={CARTE}>
             <JournalDossier evenements={journal} />

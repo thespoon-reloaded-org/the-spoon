@@ -6,7 +6,7 @@
 import { z } from "zod";
 
 import { VALEURS_ALLERGENES } from "@/lib/allergenes";
-import { CRENEAUX_HORAIRES } from "@/lib/creneaux";
+import { CRENEAUX_HORAIRES, TAILLES_TABLE } from "@/lib/creneaux";
 import { jourIsoValide, moisIsoValide } from "@/lib/fuseau";
 import { MINUIT, minutesDepuisCreneau } from "@/lib/horaires";
 
@@ -25,6 +25,13 @@ const instant = z.iso
     message: "Instant ISO 8601 attendu, avec fuseau (ex. 2026-06-12T21:30:00+02:00).",
   })
   .transform((v) => new Date(v));
+
+/**
+ * Date de création d'une donnée d'historique reconstitué. Absente :
+ * maintenant. Elle compte : une réservation ne peut pas précéder le
+ * restaurant ni le compte qui l'a passée.
+ */
+const creeLe = instant.optional();
 
 /**
  * Un objet seul ou une liste : le même point d'entrée sert à créer une donnée
@@ -90,12 +97,15 @@ export const schemaRestaurant = z.object({
   plats: z.array(schemaPlat).max(50).default([]),
   horaires: z.array(schemaPlage).max(28).default([]),
   contacts: z.array(schemaContact).max(10).default([]),
+  /** Date d'arrivée sur TheSpoon ; ses contacts et sa trace d'audit la reprennent. */
+  creeLe,
 });
 
 export const schemaDineur = z.object({
   nom: texte.max(80),
   email,
   motDePasse,
+  creeLe,
 });
 
 export const STATUTS_RESERVATION = ["CONFIRMEE", "ANNULEE", "HONOREE", "NO_SHOW"] as const;
@@ -111,11 +121,17 @@ export const schemaReservation = z
     creneau: z.enum(CRENEAUX_HORAIRES, {
       message: `Créneau attendu parmi ${CRENEAUX_HORAIRES.join(", ")}.`,
     }),
-    couverts: z.number().int().min(1).max(50),
+    /** Les tailles de table de la fiche restaurant, pas au-delà. */
+    couverts: z
+      .number()
+      .int()
+      .refine((n) => TAILLES_TABLE.some((t) => t.valeur === n), {
+        message: `Couverts attendus parmi ${TAILLES_TABLE.map((t) => t.valeur).join(", ")}.`,
+      }),
     statut: z.enum(STATUTS_RESERVATION).default("CONFIRMEE"),
     couvertsServis: z.number().int().min(1).optional(),
     signaleeLe: instant.optional(),
-    creeeLe: instant.optional(),
+    creeLe,
   })
   .refine((r) => (r.dineurId === undefined) !== (r.dineurEmail === undefined), {
     message: "Donner dineurId ou dineurEmail, pas les deux.",

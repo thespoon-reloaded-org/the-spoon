@@ -26,7 +26,7 @@ import * as dossiers from "@/app/api/admin/dossiers/route";
 import * as factures from "@/app/api/admin/factures/route";
 import * as reservations from "@/app/api/admin/reservations/route";
 import * as restaurants from "@/app/api/admin/restaurants/route";
-import { moisAdjacent, moisIso } from "@/lib/fuseau";
+import { ajouterJours, aujourdHuiIso, instantLocalDeJour } from "@/lib/fuseau";
 import { prisma } from "@/lib/prisma";
 
 function requete(corps?: unknown, jeton: string | null = JETON, url = "http://test/api/admin") {
@@ -46,7 +46,13 @@ async function appeler(route: (r: Request, c: unknown) => Promise<Response>, r: 
 }
 
 const suffixe = randomUUID().slice(0, 8);
-const moisPasse = moisAdjacent(moisIso(), -1);
+// Avant-hier : toujours passé, et sa facture toujours dans le délai de
+// contestation (émise au plus tard le 1er du mois suivant, soit aujourd'hui
+// ou hier) — quel que soit le jour où la CI tourne.
+const avantHier = ajouterJours(aujourdHuiIso(), -2);
+const moisDuService = avantHier.slice(0, 7);
+// Arrivés sur TheSpoon trois mois plus tôt, pour que l'historique tienne.
+const arrivee = instantLocalDeJour(ajouterJours(aujourdHuiIso(), -90), 10).toISOString();
 let staffId: string;
 let restaurantId: string;
 let contactId: string;
@@ -93,10 +99,13 @@ describe("API d'administration", () => {
           { nom: "Sorbet", categorie: "DESSERT", prixCentimes: 600, allergenes: [] },
           { nom: "Salade", categorie: "ENTREE", prixCentimes: 800 },
         ],
+        creeLe: arrivee,
         horaires: [
-          { jourSemaine: 1, debut: "12:00", fin: "14:00" },
+          ...[0, 1, 2, 3, 4, 5, 6].flatMap((jourSemaine) => [
+            { jourSemaine, debut: "12:00", fin: "14:00" },
+            { jourSemaine, debut: "19:00", fin: "24:00" },
+          ]),
           { jourSemaine: 1, debut: "13:30", fin: "15:00" },
-          { jourSemaine: 1, debut: "19:00", fin: "24:00" },
         ],
         contacts: [{ nom: "Gérante", email: `gerante-${suffixe}@test.example`, role: "GERANT" }],
       }),
@@ -107,7 +116,7 @@ describe("API d'administration", () => {
     expect(corps.crees[0].contacts[0].motDePasseGenere).toHaveLength(12);
 
     const plages = await prisma.plageOuverture.findMany({
-      where: { restaurantId },
+      where: { restaurantId, jourSemaine: 1 },
       orderBy: { debutMinutes: "asc" },
     });
     expect(plages.map((p) => [p.debutMinutes, p.finMinutes])).toEqual([
@@ -126,7 +135,7 @@ describe("API d'administration", () => {
   });
 
   test("crée un dîneur, et refuse le doublon", async () => {
-    const dineur = { nom: "Dina", email: emailDineur, motDePasse: "motdepasse" };
+    const dineur = { nom: "Dina", email: emailDineur, motDePasse: "motdepasse", creeLe: arrivee };
     const premier = await appeler(dineurs.POST, requete(dineur));
     expect(premier.statut).toBe(201);
     expect(premier.corps.crees[0].motDePasseGenere).toBeUndefined();
@@ -140,7 +149,7 @@ describe("API d'administration", () => {
         {
           restaurantId,
           dineurEmail: emailDineur,
-          jour: `${moisPasse}-10`,
+          jour: `${avantHier}`,
           creneau: "19:30",
           couverts: 3,
           statut: "HONOREE",
@@ -149,7 +158,7 @@ describe("API d'administration", () => {
         {
           restaurantId,
           dineurEmail: emailDineur,
-          jour: `${moisPasse}-10`,
+          jour: `${avantHier}`,
           creneau: "19:30",
           couverts: 2,
           statut: "NO_SHOW",
@@ -168,7 +177,7 @@ describe("API d'administration", () => {
         {
           restaurantId,
           dineurEmail: emailDineur,
-          jour: `${moisPasse}-10`,
+          jour: `${avantHier}`,
           creneau: "19:30",
           couverts: 3,
           statut: "HONOREE",
@@ -177,7 +186,7 @@ describe("API d'administration", () => {
         {
           restaurantId,
           dineurEmail: emailDineur,
-          jour: `${moisPasse}-12`,
+          jour: `${avantHier}`,
           creneau: "12:00",
           couverts: 4,
           statut: "HONOREE",
@@ -186,7 +195,7 @@ describe("API d'administration", () => {
         {
           restaurantId,
           dineurEmail: emailDineur,
-          jour: `${moisPasse}-12`,
+          jour: `${avantHier}`,
           creneau: "12:00",
           couverts: 2,
           statut: "ANNULEE",
@@ -196,7 +205,7 @@ describe("API d'administration", () => {
     expect(creees.statut).toBe(201);
     expect(creees.corps.crees).toHaveLength(3);
 
-    const generation = await appeler(factures.POST, requete({ mois: moisPasse }));
+    const generation = await appeler(factures.POST, requete({ mois: moisDuService }));
     expect(generation.statut).toBe(200);
     const facture = generation.corps.factures.find(
       (f: { restaurantId: string }) => f.restaurantId === restaurantId,
@@ -206,19 +215,26 @@ describe("API d'administration", () => {
     expect(facture.lignes).toHaveLength(2);
 
     // Relancer ne duplique rien.
-    await appeler(factures.POST, requete({ mois: moisPasse }));
+    await appeler(factures.POST, requete({ mois: moisDuService }));
     expect(await prisma.ligneFacture.count({ where: { factureId: facture.id } })).toBe(2);
+
+    // Émise à la fin du mois du service, pas au moment de l'appel.
+    expect(new Date(facture.genereeLe).getTime()).toBeLessThanOrEqual(Date.now());
+    // La ligne à 5 € (2 couverts) : sous tout seuil que les autres tests posent.
+    const ligneA5Euros = facture.lignes.find(
+      (l: { montantCentimes: number }) => l.montantCentimes === 500,
+    );
 
     const dossier = await appeler(
       dossiers.POST,
       requete({
         factureId: facture.id,
         contactId,
-        lignes: [{ ligneFactureId: facture.lignes[0].id, motif: "COUVERTS_SURCOMPTES" }],
+        lignes: [{ ligneFactureId: ligneA5Euros.id, motif: "COUVERTS_SURCOMPTES" }],
       }),
     );
     expect(dossier.statut).toBe(201);
-    expect(dossier.corps.cree.statut).toBe("CREDITE_OFFICE"); // 5 € < seuil de 20 €
+    expect(dossier.corps.cree.statut).toBe("CREDITE_OFFICE");
 
     // La même ligne ne se conteste pas deux fois.
     const doublon = await appeler(
@@ -226,7 +242,7 @@ describe("API d'administration", () => {
       requete({
         factureId: facture.id,
         contactId,
-        lignes: [{ ligneFactureId: facture.lignes[0].id, motif: "AUTRE" }],
+        lignes: [{ ligneFactureId: ligneA5Euros.id, motif: "AUTRE" }],
       }),
     );
     expect(doublon.statut).toBe(422);

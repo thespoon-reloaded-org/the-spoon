@@ -6,15 +6,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { authAdmin } from "@/lib/auth";
-import { genererFacturesMois } from "@/lib/facturation";
+import { genererFacturesMois, moisFacture } from "@/lib/facturation";
 
 const schemaMois = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mois invalide.")
-  .transform((valeur) => {
-    const [annee, moisIndex] = valeur.split("-");
-    return new Date(Date.UTC(Number(annee), Number(moisIndex) - 1, 1));
-  });
+  .transform(moisFacture);
 
 export type EtatGenerationFactures = { erreur?: string; resume?: string };
 

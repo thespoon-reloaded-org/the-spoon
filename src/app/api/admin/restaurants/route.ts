@@ -19,6 +19,6 @@ export const GET = routeAdmin(async () => {
 });
 
 export const POST = routeAdmin(async (requete, { staffId }) => {
-  const saisies = await lireCorps(requete, unOuPlusieurs(schemaRestaurant, 100));
+  const saisies = await lireCorps(requete, unOuPlusieurs(schemaRestaurant, 20));
   return repondre({ crees: await creerRestaurants(saisies, staffId) }, 201);
 });
