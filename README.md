@@ -334,15 +334,48 @@ saines (local, CI) où elle ne fait rien.
   l'afficher aurait été fictif.
 - Ma carte (`/espace-restaurant/menu`) : le contact restaurant connecté gère
   la carte de son établissement — ajoute, modifie, supprime un plat (nom,
-  description/ingrédients, catégorie entrée/plat/dessert, prix, photo
-  facultative), visible immédiatement sur la fiche publique et sur l'accueil
-  (`src/app/espace-restaurant/menu/`). Les photos (plats et fiche
+  description/ingrédients, catégorie entrée/plat/dessert, prix, allergènes,
+  photo facultative), visible immédiatement sur la fiche publique et sur
+  l'accueil (`src/app/espace-restaurant/menu/`). Les photos (plats et fiche
   établissement) sont stockées sur Netlify Blobs (`src/lib/photos.ts`, un
   store par type d'entité — `plats-photos.ts`/`restaurants-photos.ts` —
   servis par `/api/plats/[platId]/photo` et `/api/restaurants/[id]/photo`) —
   sans configuration sur Netlify. En local (`pnpm dev`), pas de Netlify Blobs
   disponible : on écrit sur disque dans `.local-blobs/` (ignoré par git),
   même interface, transparent pour le reste du code.
+
+## « Non renseigné » n'est pas « sans allergène »
+
+Les quatorze allergènes à déclaration obligatoire (annexe II du règlement UE
+n° 1169/2011) se cochent sur chaque plat dans « Ma carte », et s'affichent sur
+la fiche publique sous le plat. La liste est un enum (`Allergene`), pas du
+texte libre : elle est réglementaire et fermée, et un dîneur ne peut pas
+filtrer sur des orthographes libres.
+
+Le champ qui compte n'est pas la liste, c'est `PlatCuillere.allergenesDeclaresLe`.
+Une liste vide, seule, est ambiguë — elle décrit aussi bien un plat sans
+allergène qu'un plat que personne n'a renseigné, et les confondre revient à
+rassurer un dîneur allergique sur la foi d'un champ jamais rempli. D'où trois
+états, et non deux (`lireDeclaration`, `src/lib/allergenes.ts`) :
+
+| En base | À l'écran |
+|---|---|
+| liste vide, pas de date | « Allergènes non renseignés — demandez au restaurant » |
+| liste vide, **datée** | « Aucun des 14 allergènes majeurs » |
+| liste remplie, datée | une pastille par allergène |
+
+Conséquence directe sur le formulaire : on ne se déclare « sans allergène »
+qu'en cochant explicitement « Aucun de ces allergènes dans ce plat ». Sans
+cette case, un restaurateur qui corrige un prix daterait sans le savoir une
+déclaration vide sur un plat jamais renseigné. La règle est écrite une fois,
+dans `declarationDepuisFormulaire` — l'écran empêche de cocher à la fois
+« aucun » et un allergène, le serveur retranche quand même.
+
+Le plat non renseigné le dit, il ne se tait pas : ne rien afficher se lirait
+comme « rien à signaler », ce qui est exactement l'information qu'on n'a pas.
+Côté restaurateur, « Ma carte » compte les plats concernés en tête de liste.
+Le carrousel de l'accueil, lui, n'affiche pas les allergènes : c'est une
+vignette de 270 px qui mène à la fiche, pas une fiche produit.
 
 ## Ce qui n'existe pas encore
 
