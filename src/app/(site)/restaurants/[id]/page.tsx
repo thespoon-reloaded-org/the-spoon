@@ -11,6 +11,7 @@ import { MarqueIllustration } from "@/components/MarqueIllustration";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { auth } from "@/lib/auth";
+import { aEteServi } from "@/lib/avis";
 import { cleCreneau, construireDateCreneau, genererJoursReservables } from "@/lib/creneaux";
 import { lireDisponibilites } from "@/lib/disponibilites";
 import { formaterDate } from "@/lib/fuseau";
@@ -86,19 +87,9 @@ export default async function FicheRestaurantPage({ params }: { params: Promise<
 
   if (!restaurant) notFound();
 
-  // Réservé aux dîneurs déjà servis (réservation confirmée et passée) —
-  // cohérent avec la garde faite côté serveur dans `deposerAvis`.
-  const dejaServi = session
-    ? await prisma.booking.findFirst({
-        where: {
-          restaurantId: restaurant.id,
-          userId: session.user.id,
-          statut: "CONFIRMEE",
-          date: { lte: new Date() },
-        },
-        select: { id: true },
-      })
-    : null;
+  // Réservé aux dîneurs déjà servis — même règle que la garde faite côté
+  // serveur dans `deposerAvis` (voir `aEteServi`).
+  const dejaServi = session ? await aEteServi(prisma, restaurant.id, session.user.id) : false;
 
   const avisExistant = session
     ? (restaurant.avis.find((a) => a.userId === session.user.id) ?? null)
@@ -260,7 +251,7 @@ export default async function FicheRestaurantPage({ params }: { params: Promise<
               <AvisForm
                 restaurantId={restaurant.id}
                 estConnecte={!!session}
-                peutDeposer={!!dejaServi}
+                peutDeposer={dejaServi}
                 avisExistant={
                   avisExistant
                     ? {
