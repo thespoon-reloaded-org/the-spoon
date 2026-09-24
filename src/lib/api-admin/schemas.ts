@@ -108,6 +108,37 @@ export const schemaDineur = z.object({
   creeLe,
 });
 
+/**
+ * Un membre du staff TheSpoon — pour peupler l'équipe qui a instruit les
+ * litiges d'un historique. `role` est le libellé affiché (« Partenaires »,
+ * « Support restaurants »…), pas une permission : la Console n'en a pas.
+ */
+export const schemaStaff = z.object({
+  nom: texte.max(80),
+  email,
+  role: texte.max(60).optional(),
+  motDePasse,
+  creeLe,
+});
+
+/**
+ * Un avis de dîneur. Mêmes bornes que le formulaire de la fiche restaurant :
+ * 1 à 5 cuillères, 500 caractères de commentaire.
+ */
+export const schemaAvis = z.object({
+  restaurantId: texte,
+  dineurEmail: email,
+  noteCuilleres: z.number().int().min(1).max(5),
+  commentaire: z
+    .string()
+    .trim()
+    .max(500, "Commentaire trop long (500 caractères max).")
+    .nullish()
+    .transform((v) => (v ? v : null)),
+  /** Absent : le lendemain du dernier service où le dîneur a été servi. */
+  creeLe,
+});
+
 export const STATUTS_RESERVATION = ["CONFIRMEE", "ANNULEE", "HONOREE", "NO_SHOW"] as const;
 
 export const schemaReservation = z

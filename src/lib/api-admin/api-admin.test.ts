@@ -21,10 +21,12 @@ const { JETON, EMAIL_STAFF } = vi.hoisted(() => {
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 import * as racine from "@/app/api/admin/route";
+import * as avisRoute from "@/app/api/admin/avis/route";
 import * as dineurs from "@/app/api/admin/dineurs/route";
 import * as dossiers from "@/app/api/admin/dossiers/route";
 import * as factures from "@/app/api/admin/factures/route";
 import * as reservations from "@/app/api/admin/reservations/route";
+import * as staffRoute from "@/app/api/admin/staff/route";
 import * as restaurants from "@/app/api/admin/restaurants/route";
 import { ajouterJours, aujourdHuiIso, instantLocalDeJour } from "@/lib/fuseau";
 import { prisma } from "@/lib/prisma";
@@ -58,12 +60,18 @@ let staffBId: string;
 const emailStaffB = `api-b-${Date.now()}@staff.test.example`;
 let restaurantId: string;
 const restaurantsACleaner: string[] = [];
+const staffACleaner: string[] = [];
 let contactId: string;
 const emailDineur = `dineur-${suffixe}@test.example`;
 
 beforeAll(async () => {
-  staffId = (await prisma.staff.create({ data: { nom: "Admin API", email: EMAIL_STAFF } })).id;
-  staffBId = (await prisma.staff.create({ data: { nom: "Responsable", email: emailStaffB } })).id;
+  // Arrivés chez TheSpoon bien avant l'historique qu'ils instruisent.
+  const ilYaUnAn = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+  staffId = (
+    await prisma.staff.create({
+      data: { nom: "Admin API", email: EMAIL_STAFF, createdAt: ilYaUnAn },
+    })
+  ).id;
 });
 
 afterAll(async () => {
@@ -73,7 +81,9 @@ afterAll(async () => {
   }
   await prisma.user.deleteMany({ where: { email: emailDineur } });
   await prisma.journalAuditRestaurant.deleteMany({ where: { staffId } });
-  await prisma.staff.deleteMany({ where: { id: { in: [staffId, staffBId] } } });
+  const staffIds = [staffId, staffBId, ...staffACleaner].filter(Boolean);
+  await prisma.staffAccount.deleteMany({ where: { userId: { in: staffIds } } });
+  await prisma.staff.deleteMany({ where: { id: { in: staffIds } } });
   await prisma.$disconnect();
 });
 
@@ -208,6 +218,9 @@ describe("API d'administration", () => {
     );
     expect(creees.statut).toBe(201);
     expect(creees.corps.crees).toHaveLength(3);
+    expect(
+      creees.corps.crees.every((c: { dineurEmail: string }) => c.dineurEmail === emailDineur),
+    ).toBe(true);
 
     const generation = await appeler(factures.POST, requete({ mois: moisDuService }));
     expect(generation.statut).toBe(200);
@@ -269,6 +282,15 @@ describe("API d'administration", () => {
       }),
     );
     expect(doublon.statut).toBe(422);
+  });
+
+  test("crée un membre du staff daté, et refuse le doublon", async () => {
+    const membre = { nom: "Responsable", email: emailStaffB, role: "Partenaires", creeLe: arrivee };
+    const cree = await appeler(staffRoute.POST, requete(membre));
+    expect(cree.statut).toBe(201);
+    staffBId = cree.corps.crees[0].id;
+    expect(new Date(cree.corps.crees[0].creeLe).toISOString()).toBe(arrivee);
+    expect((await appeler(staffRoute.POST, requete(membre))).statut).toBe(409);
   });
 
   test("rejoue l'historique d'un litige : escaladé, puis accordé en partie", async () => {
@@ -371,6 +393,25 @@ describe("API d'administration", () => {
     expect(echec.corps.erreur).toMatch(/etapes\.1/);
     expect(await prisma.dossier.count({ where: { factureId: facture.id } })).toBe(avantEchec);
 
+    // Un instructeur arrivé après l'étape qu'il signe : refusé avant toute écriture.
+    const nouveau = await appeler(
+      staffRoute.POST,
+      requete({ nom: "Nouvelle recrue", email: `recrue-${suffixe}@staff.test.example` }),
+    );
+    staffACleaner.push(nouveau.corps.crees[0].id);
+    const tropTot = await appeler(
+      dossiers.POST,
+      requete({
+        factureId: facture.id,
+        contactId: gerantId,
+        lignes,
+        etapes: [{ type: "PRISE_EN_CHARGE", par: `recrue-${suffixe}@staff.test.example` }],
+      }),
+    );
+    expect(tropTot.statut).toBe(422);
+    expect(JSON.stringify(tropTot.corps.details)).toMatch(/arrivé/);
+    expect(await prisma.dossier.count({ where: { factureId: facture.id } })).toBe(avantEchec);
+
     const { statut, corps } = await appeler(
       dossiers.POST,
       requete({ factureId: facture.id, contactId: gerantId, lignes, etapes }),
@@ -398,6 +439,36 @@ describe("API d'administration", () => {
     const avoir = dossier.decisions.find((d) => d.avoir)!.avoir!;
     expect(avoir.montantCentimes).toBe(5000);
     expect(avoir.emisLe.getTime()).toBeLessThan(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  });
+
+  test("un avis après le service, et la note du restaurant suit", async () => {
+    const avant = await appeler(
+      avisRoute.POST,
+      requete({ restaurantId, dineurEmail: emailDineur, noteCuilleres: 4, creeLe: arrivee }),
+    );
+    expect(avant.statut).toBe(400);
+    expect(JSON.stringify(avant.corps.details)).toMatch(/avant le premier service/);
+
+    const { statut, corps } = await appeler(
+      avisRoute.POST,
+      requete({
+        restaurantId,
+        dineurEmail: emailDineur,
+        noteCuilleres: 4,
+        commentaire: "Quenelle parfaite.",
+      }),
+    );
+    expect(statut).toBe(201);
+    expect(corps.restaurants[0]).toMatchObject({ noteCuilleres: 4, nombreAvis: 1 });
+    const avis = await prisma.avis.findFirstOrThrow({ where: { restaurantId } });
+    expect(avis.createdAt.getTime()).toBeLessThanOrEqual(Date.now());
+
+    // Un seul avis par dîneur et par restaurant.
+    const encore = await appeler(
+      avisRoute.POST,
+      requete({ restaurantId, dineurEmail: emailDineur, noteCuilleres: 2 }),
+    );
+    expect(encore.statut).toBe(400);
   });
 
   test("dit quel champ corriger", async () => {

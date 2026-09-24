@@ -24,3 +24,7 @@ src/generated/
 
 # État local du CLI Netlify (`netlify link`) — propre à chaque poste.
 .netlify/
+
+# Jeu de formation (`pnpm jeu-formation`) : plan, état d'injection et
+# identifiants générés — des mots de passe, jamais dans le dépôt.
+.jeu-formation/

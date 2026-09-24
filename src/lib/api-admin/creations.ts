@@ -18,6 +18,7 @@ import { hashPassword } from "better-auth/crypto";
 import type { z } from "zod";
 
 import { trierAllergenes } from "@/lib/allergenes";
+import { recalculerNoteRestaurant } from "@/lib/avis";
 import {
   creerContactAvecAcces,
   genererMotDePasseTemporaire,
@@ -50,7 +51,9 @@ import type {
   schemaContact,
   schemaDineur,
   schemaDossier,
+  schemaAvis,
   schemaRestaurant,
+  schemaStaff,
 } from "./schemas";
 
 /**
@@ -345,6 +348,76 @@ export async function creerDineurs(
 }
 
 // ---------------------------------------------------------------------------
+// Staff
+// ---------------------------------------------------------------------------
+
+/**
+ * Des membres du staff, avec un accès à la Console. Même contrat de mot de
+ * passe que les autres comptes ; un mot de passe généré et jamais relevé
+ * laisse un compte qui ne se connecte pas — c'est le cas d'un instructeur
+ * d'historique, qui n'existe que pour signer son journal.
+ */
+export async function creerStaff(saisies: z.output<typeof schemaStaff>[], maintenant = new Date()) {
+  refuserSiErreurs(
+    400,
+    "Dates de création impossibles.",
+    datesFutures(
+      saisies.map((m) => m.creeLe),
+      maintenant,
+    ),
+  );
+  refuserSiErreurs(
+    400,
+    "Emails en double dans l'appel.",
+    doublonsInternes(saisies.map((m) => m.email)),
+  );
+  const dejaPris = new Set(
+    (
+      await prisma.staff.findMany({
+        where: { email: { in: saisies.map((m) => m.email) } },
+        select: { email: true },
+      })
+    ).map((p) => p.email),
+  );
+  refuserSiErreurs(
+    409,
+    "Emails de staff déjà utilisés.",
+    saisies.flatMap((m, element) =>
+      dejaPris.has(m.email) ? [{ element, message: `${m.email} fait déjà partie du staff.` }] : [],
+    ),
+  );
+
+  const motsDePasse = await Promise.all(saisies.map((m) => preparerMotDePasse(m.motDePasse)));
+  return prisma.$transaction(
+    async (tx) => {
+      const crees = [];
+      for (const [i, saisie] of saisies.entries()) {
+        const membre = await tx.staff.create({
+          data: {
+            nom: saisie.nom,
+            email: saisie.email,
+            role: saisie.role,
+            emailVerified: true,
+            createdAt: saisie.creeLe,
+          },
+        });
+        await tx.staffAccount.create({
+          data: nouveauCompteCredential(membre.id, motsDePasse[i]!.hash),
+        });
+        crees.push({
+          id: membre.id,
+          email: membre.email,
+          creeLe: membre.createdAt,
+          motDePasseGenere: motsDePasse[i]!.genere,
+        });
+      }
+      return crees;
+    },
+    { timeout: DELAI_TRANSACTION_MS },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Réservations
 // ---------------------------------------------------------------------------
 
@@ -496,7 +569,7 @@ export async function creerReservations(saisies: SaisieReservation[], maintenant
     }),
     prisma.user.findMany({
       where: { id: { in: saisies.flatMap((s) => (s.dineurId ? [s.dineurId] : [])) } },
-      select: { id: true, createdAt: true },
+      select: { id: true, email: true, createdAt: true },
     }),
     prisma.user.findMany({
       where: { email: { in: saisies.flatMap((s) => (s.dineurEmail ? [s.dineurEmail] : [])) } },
@@ -570,7 +643,115 @@ export async function creerReservations(saisies: SaisieReservation[], maintenant
         data: reservations.map(({ element: _element, ...r }) => r),
         select: { id: true, restaurantId: true, userId: true, date: true, statut: true },
       });
-      return creees;
+      // L'email du dîneur en retour : c'est par lui qu'un jeu de données
+      // désigne ses dîneurs, et qu'il retrouve ce qui a été créé.
+      const emailParId = new Map(
+        [...dineursParId, ...dineursParEmail].map((d) => [d.id, d.email] as const),
+      );
+      return creees.map((c) => ({ ...c, dineurEmail: emailParId.get(c.userId)! }));
+    },
+    { timeout: DELAI_TRANSACTION_MS },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Avis
+// ---------------------------------------------------------------------------
+
+/** Par défaut, un avis s'écrit le lendemain du service. */
+const AVIS_APRES_SERVICE_MS = 20 * 60 * 60 * 1000;
+
+/**
+ * Des avis de dîneurs, et la note de chaque restaurant touché recalculée
+ * comme après un dépôt depuis la fiche. Un avis ne s'écrit qu'après avoir
+ * été servi : le dîneur a, dans ce restaurant, un créneau passé honoré — ou
+ * confirmé, pas encore signalé — antérieur à l'avis. Un avis par dîneur et
+ * par restaurant, comme sur la fiche ; l'API crée, elle ne remplace pas.
+ */
+export async function creerAvis(saisies: z.output<typeof schemaAvis>[], maintenant = new Date()) {
+  const restaurantIds = [...new Set(saisies.map((a) => a.restaurantId))];
+  const emails = [...new Set(saisies.map((a) => a.dineurEmail))];
+  const [restaurants, dineurs] = await Promise.all([
+    prisma.restaurant.findMany({ where: { id: { in: restaurantIds } }, select: { id: true } }),
+    prisma.user.findMany({ where: { email: { in: emails } }, select: { id: true, email: true } }),
+  ]);
+  const idParEmail = new Map(dineurs.map((d) => [d.email, d.id]));
+  const restaurantsConnus = new Set(restaurants.map((r) => r.id));
+  const userIds = [...idParEmail.values()];
+  const [servis, existants] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        restaurantId: { in: restaurantIds },
+        userId: { in: userIds },
+        statut: { in: ["HONOREE", "CONFIRMEE"] },
+        date: { lte: maintenant },
+      },
+      select: { restaurantId: true, userId: true, date: true },
+    }),
+    prisma.avis.findMany({
+      where: { restaurantId: { in: restaurantIds }, userId: { in: userIds } },
+      select: { restaurantId: true, userId: true },
+    }),
+  ]);
+  const servicesPar = new Map<string, Date[]>();
+  for (const b of servis) {
+    const cle = `${b.restaurantId}|${b.userId}`;
+    (servicesPar.get(cle) ?? servicesPar.set(cle, []).get(cle)!).push(b.date);
+  }
+  const dejaDonne = new Set(existants.map((a) => `${a.restaurantId}|${a.userId}`));
+
+  const erreurs: Erreur[] = [];
+  const vus = new Set<string>();
+  const avis = saisies.flatMap((saisie, element) => {
+    const refuser = (message: string) => {
+      erreurs.push({ element, message });
+      return [];
+    };
+    if (!restaurantsConnus.has(saisie.restaurantId))
+      return refuser(`Restaurant ${saisie.restaurantId} introuvable.`);
+    const userId = idParEmail.get(saisie.dineurEmail);
+    if (!userId) return refuser(`Dîneur ${saisie.dineurEmail} introuvable.`);
+    const cle = `${saisie.restaurantId}|${userId}`;
+    if (vus.has(cle))
+      return refuser("Un seul avis par dîneur et par restaurant : déjà présent dans l'appel.");
+    vus.add(cle);
+    if (dejaDonne.has(cle)) return refuser("Ce dîneur a déjà donné son avis sur ce restaurant.");
+
+    const services = (servicesPar.get(cle) ?? []).sort((a, b) => a.getTime() - b.getTime());
+    if (services.length === 0) return refuser("Ce dîneur n'a jamais été servi dans ce restaurant.");
+    const dernier = services[services.length - 1]!;
+    const creeLe =
+      saisie.creeLe ??
+      new Date(Math.min(maintenant.getTime(), dernier.getTime() + AVIS_APRES_SERVICE_MS));
+    if (creeLe.getTime() > maintenant.getTime())
+      return refuser("creeLe ne peut pas être dans le futur.");
+    if (creeLe.getTime() <= services[0]!.getTime()) {
+      return refuser(
+        `Avis daté du ${formaterJourEtHeure(creeLe)}, avant le premier service du dîneur dans ce restaurant (${formaterJourEtHeure(services[0]!)}).`,
+      );
+    }
+    return [
+      {
+        restaurantId: saisie.restaurantId,
+        userId,
+        noteCuilleres: saisie.noteCuilleres,
+        commentaire: saisie.commentaire,
+        createdAt: creeLe,
+        updatedAt: creeLe,
+      },
+    ];
+  });
+  refuserSiErreurs(400, "Avis impossibles.", erreurs);
+
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.avis.createMany({ data: avis });
+      for (const restaurantId of restaurantIds) await recalculerNoteRestaurant(tx, restaurantId);
+      const notes = await tx.restaurant.findMany({
+        where: { id: { in: restaurantIds } },
+        select: { id: true, noteCuilleres: true, nombreAvis: true },
+      });
+      return { avisCrees: avis.length, restaurants: notes };
     },
     { timeout: DELAI_TRANSACTION_MS },
   );
@@ -753,7 +934,7 @@ export async function deposerDossier(
     }),
     prisma.staff.findMany({
       where: { email: { in: emailsStaff } },
-      select: { id: true, email: true },
+      select: { id: true, email: true, createdAt: true },
     }),
   ]);
   if (!facture) throw new ErreurApi(404, "Facture introuvable.");
@@ -772,6 +953,16 @@ export async function deposerDossier(
     { factureEmiseLe: facture.genereeLe, contactCreeLe: contact.createdAt },
     maintenant,
   );
+  // Personne n'instruit un dossier avant d'être arrivé chez TheSpoon.
+  const arriveeStaff = new Map(staff.map((m) => [m.email, m.createdAt]));
+  saisie.etapes.forEach((etape, i) => {
+    const arrive = arriveeStaff.get(etape.par)!;
+    if (dates.etapes[i]!.getTime() < arrive.getTime()) {
+      dates.erreurs.push(
+        `etapes.${i} : ${etape.par} n'est arrivé(e) chez TheSpoon que le ${formaterJourEtHeure(arrive)} — le dater avec creeLe (POST /api/admin/staff).`,
+      );
+    }
+  });
   if (dates.erreurs.length > 0) throw new ErreurApi(422, "Dates impossibles.", dates.erreurs);
 
   const depot = await creerDossierContestation({
