@@ -12,6 +12,10 @@
  */
 import { randomInt } from "node:crypto";
 
+import type { Prisma, RoleContactRestaurant } from "@/generated/prisma";
+
+import { LIBELLE_ROLE_CONTACT } from "./contacts";
+
 /** Le `providerId` attendu par better-auth pour une connexion par mot de passe. */
 export const FOURNISSEUR_CREDENTIAL = "credential";
 
@@ -46,4 +50,59 @@ export function genererMotDePasseTemporaire(longueur = 12): string {
     motDePasse += ALPHABET_MOT_DE_PASSE.charAt(randomInt(ALPHABET_MOT_DE_PASSE.length));
   }
   return motDePasse;
+}
+
+/**
+ * Un contact restaurant avec son accès de connexion, et sa trace dans le
+ * journal d'audit du restaurant (`AJOUT_CONTACT`) — accorder un accès est
+ * l'action la plus sensible de la fiche admin, elle ne s'écrit jamais sans
+ * sa trace. Partagé par la Console staff (`creerContactRestaurant`) et
+ * l'API d'administration, à appeler dans une transaction.
+ *
+ * `creeLe` ne sert qu'à l'API, pour dater un contact d'un historique
+ * reconstitué ; la trace d'audit porte alors la même date.
+ */
+export async function creerContactAvecAcces(
+  tx: Prisma.TransactionClient,
+  contact: {
+    restaurantId: string;
+    nom: string;
+    email: string;
+    role: RoleContactRestaurant;
+    motDePasseHash: string;
+    staffId: string;
+    creeLe?: Date;
+  },
+) {
+  const cree = await tx.restaurantContact.create({
+    data: {
+      restaurantId: contact.restaurantId,
+      nom: contact.nom,
+      email: contact.email,
+      role: contact.role,
+      // Pas de flux de vérification d'email dans ce projet — même
+      // convention que `pnpm creer-compte` et `seed:dev`.
+      emailVerified: true,
+      createdAt: contact.creeLe,
+    },
+  });
+  await tx.restaurantContactAccount.create({
+    data: nouveauCompteCredential(cree.id, contact.motDePasseHash),
+  });
+  await tx.journalAuditRestaurant.create({
+    data: {
+      restaurantId: contact.restaurantId,
+      staffId: contact.staffId,
+      action: "AJOUT_CONTACT",
+      createdAt: contact.creeLe,
+      champsModifies: [
+        {
+          champ: "contact",
+          avant: null,
+          apres: `${contact.nom} (${LIBELLE_ROLE_CONTACT[contact.role]}) — ${contact.email}`,
+        },
+      ],
+    },
+  });
+  return cree;
 }

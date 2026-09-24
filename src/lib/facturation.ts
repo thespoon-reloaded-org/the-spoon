@@ -37,7 +37,9 @@ const MILLISECONDES_PAR_JOUR = 24 * 60 * 60 * 1000;
 
 /** Jours restants avant expiration du délai de contestation — 0 si expiré. */
 export function joursRestantsContestation(genereeLe: Date, maintenant = new Date()): number {
-  const joursEcoules = Math.floor((maintenant.getTime() - genereeLe.getTime()) / MILLISECONDES_PAR_JOUR);
+  const joursEcoules = Math.floor(
+    (maintenant.getTime() - genereeLe.getTime()) / MILLISECONDES_PAR_JOUR,
+  );
   return Math.max(0, DELAI_CONTESTATION_JOURS - joursEcoules);
 }
 
@@ -97,9 +99,22 @@ export function formaterMoisFacture(mois: Date): string {
  * contestation, récapitulatif de dossier), pour ne pas le retaper à chaque
  * écran.
  */
-export function formaterDateReservation(date: Date, { avecHeure = true }: { avecHeure?: boolean } = {}): string {
+export function formaterDateReservation(
+  date: Date,
+  { avecHeure = true }: { avecHeure?: boolean } = {},
+): string {
   const jour = formaterJourCourt(date);
   return avecHeure ? `${jour} à ${formaterHeure(date)}` : jour;
+}
+
+/**
+ * Le repère de mois d'une facture : minuit UTC le 1er, depuis "AAAA-MM"
+ * (déjà validé, voir `moisIsoValide`). Un repère de calendrier, pas un
+ * instant — voir `formaterMoisFacture`.
+ */
+export function moisFacture(moisIso: string): Date {
+  const [annee, index] = moisIso.split("-").map(Number) as [number, number];
+  return new Date(Date.UTC(annee, index - 1, 1));
 }
 
 export type ResultatGenerationFactures = {
@@ -119,7 +134,20 @@ export type ResultatGenerationFactures = {
  * émise plutôt que de ne jamais être facturée — voir le commentaire sur
  * `LigneFacture` dans le schéma.
  */
-export async function genererFacturesMois(mois: Date): Promise<ResultatGenerationFactures> {
+export async function genererFacturesMois(
+  mois: Date,
+  {
+    genereeLe,
+  }: {
+    /**
+     * Date d'émission des factures *créées* par cet appel — une facture déjà
+     * émise garde la sienne. Absente : maintenant, comme depuis la Console.
+     * L'API d'administration la fixe pour reconstituer un mois passé tel
+     * qu'il aurait été facturé (le délai de contestation en dépend).
+     */
+    genereeLe?: Date;
+  } = {},
+): Promise<ResultatGenerationFactures> {
   // Bornes en UTC, alors que `Booking.date` porte un instant parisien : les
   // deux ne coïncident qu'aussi longtemps qu'aucun service ne tombe entre
   // minuit et 2h du matin. C'est le cas — le dernier créneau réservable est
@@ -147,7 +175,12 @@ export async function genererFacturesMois(mois: Date): Promise<ResultatGeneratio
   let lignesAjoutees = 0;
 
   for (const [restaurantId, bookingsRestaurant] of bookingsParRestaurant) {
-    const resultat = await genererOuCompleterFacture(restaurantId, debutMois, bookingsRestaurant);
+    const resultat = await genererOuCompleterFacture(
+      restaurantId,
+      debutMois,
+      bookingsRestaurant,
+      genereeLe,
+    );
     if (resultat.factureCreee) facturesCreees++;
     lignesAjoutees += resultat.lignesAjoutees;
   }
@@ -159,13 +192,18 @@ async function genererOuCompleterFacture(
   restaurantId: string,
   mois: Date,
   bookings: Booking[],
+  genereeLe: Date | undefined,
 ): Promise<{ factureCreee: boolean; lignesAjoutees: number }> {
   try {
     return await prisma.$transaction(async (tx) => {
-      let facture = await tx.facture.findUnique({ where: { restaurantId_mois: { restaurantId, mois } } });
+      let facture = await tx.facture.findUnique({
+        where: { restaurantId_mois: { restaurantId, mois } },
+      });
       const factureCreee = !facture;
       if (!facture) {
-        facture = await tx.facture.create({ data: { restaurantId, mois, montantTotalCentimes: 0 } });
+        facture = await tx.facture.create({
+          data: { restaurantId, mois, montantTotalCentimes: 0, genereeLe },
+        });
       }
 
       // Réservations déjà présentes sur UNE facture, peu importe laquelle —

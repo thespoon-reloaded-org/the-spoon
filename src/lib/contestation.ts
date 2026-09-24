@@ -115,12 +115,24 @@ export async function creerDossierContestation(params: {
   restaurantContactId: string;
   lignes: LigneASelectionner[];
   commentaire: string | null;
+  /**
+   * Instant du dépôt — absent : maintenant, et la base horodate. Seule l'API
+   * d'administration le fixe, pour rejouer un dossier d'historique ; le
+   * délai de contestation est alors jugé à cet instant-là.
+   */
+  le?: Date;
+  /**
+   * Refuser le dépôt, sans rien écrire, s'il serait crédité d'office : l'API
+   * d'administration rejoue ensuite une instruction qui n'aurait pas lieu
+   * d'être.
+   */
+  exigerInstruction?: boolean;
 }): Promise<ResultatCreationDossier> {
   const facture = await prisma.facture.findFirst({
     where: { id: params.factureId, restaurantId: params.restaurantId },
   });
   if (!facture) return { ok: false, erreur: "Facture introuvable." };
-  if (delaiContestationExpire(facture.genereeLe)) {
+  if (delaiContestationExpire(facture.genereeLe, params.le)) {
     return { ok: false, erreur: "Le délai de contestation de cette facture est dépassé." };
   }
 
@@ -151,6 +163,9 @@ export async function creerDossierContestation(params: {
     (dejaConteste._sum.montantContesteCentimes ?? 0) + montantContesteCentimes,
     config.seuilCreditOfficeCentimes,
   );
+  if (params.exigerInstruction && statut === "CREDITE_OFFICE") {
+    return { ok: false, erreur: "Sous le seuil d'instruction, ce dossier serait crédité d'office." };
+  }
   const motifParLigne = new Map(params.lignes.map((l) => [l.ligneFactureId, l.motif]));
   // Décrite une fois, écrite deux fois : sur la décision et dans le journal.
   // Deux blocs séparés finiraient par diverger le jour où la règle change.
@@ -169,6 +184,7 @@ export async function creerDossierContestation(params: {
         montantContesteCentimes,
         seuilAppliqueCentimes: config.seuilCreditOfficeCentimes,
         statut,
+        createdAt: params.le,
         lignes: {
           create: lignesFacture.map((ligne) => ({
             ligneFactureId: ligne.id,
@@ -183,13 +199,15 @@ export async function creerDossierContestation(params: {
             {
               type: "DEPOT",
               details: { montantContesteCentimes, nbLignes: lignesFacture.length },
+              createdAt: params.le,
             },
             ...(statut === "CREDITE_OFFICE"
               ? [
-                  { type: "DECISION" as const, details: decisionOffice },
+                  { type: "DECISION" as const, details: decisionOffice, createdAt: params.le },
                   {
                     type: "AVOIR_EMIS" as const,
                     details: { montantCentimes: montantContesteCentimes },
+                    createdAt: params.le,
                   },
                 ]
               : []),
@@ -210,8 +228,13 @@ export async function creerDossierContestation(params: {
               motif: `Crédit d'office : ${formaterMontant(
                 montantContesteCentimes,
               )} contestés, sous le seuil d'instruction.`,
+              createdAt: params.le,
               avoir: {
-                create: { factureId: params.factureId, montantCentimes: montantContesteCentimes },
+                create: {
+                  factureId: params.factureId,
+                  montantCentimes: montantContesteCentimes,
+                  emisLe: params.le,
+                },
               },
             },
           },
@@ -264,6 +287,8 @@ export type ResultatPriseEnCharge = { ok: true } | { ok: false; erreur: string }
 export async function prendreEnChargeDossier(
   dossierId: string,
   instructeurId: string,
+  /** Absent : maintenant. Voir `le` sur `creerDossierContestation`. */
+  le?: Date,
 ): Promise<ResultatPriseEnCharge> {
   const dossier = await prisma.dossier.findUnique({ where: { id: dossierId } });
   if (!dossier || dossier.statut !== "EN_ATTENTE_INSTRUCTION") {
@@ -275,12 +300,18 @@ export async function prendreEnChargeDossier(
   const prise = await prisma.$transaction(async (tx) => {
     const resultat = await tx.dossier.updateMany({
       where: { id: dossierId, instructeurId: null },
-      data: { instructeurId, priseEnChargeLe: new Date() },
+      data: { instructeurId, priseEnChargeLe: le ?? new Date() },
     });
     if (resultat.count === 0) return false;
 
     await tx.evenementDossier.create({
-      data: { dossierId, type: "PRISE_EN_CHARGE", auteurStaffId: instructeurId, interne: true },
+      data: {
+        dossierId,
+        type: "PRISE_EN_CHARGE",
+        auteurStaffId: instructeurId,
+        interne: true,
+        createdAt: le,
+      },
     });
     return true;
   });
@@ -327,6 +358,8 @@ export async function demanderComplementDossier(
   dossierId: string,
   staffId: string,
   message: string,
+  /** Absent : maintenant. Voir `le` sur `creerDossierContestation`. */
+  le?: Date,
 ): Promise<ResultatDemandeComplement> {
   const dossier = await prisma.dossier.findUnique({ where: { id: dossierId } });
   if (!dossier || !dossierATrancher(dossier.statut)) {
@@ -339,7 +372,7 @@ export async function demanderComplementDossier(
   await prisma.$transaction(async (tx) => {
     await tx.dossier.update({
       where: { id: dossierId },
-      data: { complementDemandeLe: new Date(), complementDemandeMessage: message },
+      data: { complementDemandeLe: le ?? new Date(), complementDemandeMessage: message },
     });
     // Le dossier n'en garde que la dernière ; le journal les garde toutes,
     // et c'est là que se lit un aller-retour qui traîne.
@@ -349,6 +382,7 @@ export async function demanderComplementDossier(
         type: "COMPLEMENT_DEMANDE",
         details: { message },
         auteurStaffId: staffId,
+        createdAt: le,
       },
     });
   });
@@ -488,6 +522,8 @@ export async function deciderDossier(
   dossierId: string,
   staffId: string,
   saisie: SaisieDecision,
+  /** Absent : maintenant. Voir `le` sur `creerDossierContestation`. */
+  le?: Date,
 ): Promise<ResultatDecision> {
   const dossier = await prisma.dossier.findUnique({ where: { id: dossierId } });
   if (!dossier) return { ok: false, erreur: "Dossier introuvable." };
@@ -525,9 +561,14 @@ export async function deciderDossier(
           imputation,
           motif: saisie.motif.trim(),
           decideParId: staffId,
+          createdAt: le,
           ...(montantAccordeCentimes > 0 && {
             avoir: {
-              create: { factureId: dossier.factureId, montantCentimes: montantAccordeCentimes },
+              create: {
+                factureId: dossier.factureId,
+                montantCentimes: montantAccordeCentimes,
+                emisLe: le,
+              },
             },
           }),
         },
@@ -545,6 +586,7 @@ export async function deciderDossier(
             details: { issue, montantAccordeCentimes, imputation },
             auteurStaffId: staffId,
             interne: issue === "ESCALADE",
+            createdAt: le,
           },
           ...(montantAccordeCentimes > 0
             ? [
@@ -553,6 +595,7 @@ export async function deciderDossier(
                   type: "AVOIR_EMIS" as const,
                   details: { montantCentimes: montantAccordeCentimes },
                   auteurStaffId: staffId,
+                  createdAt: le,
                 },
               ]
             : []),

@@ -143,6 +143,98 @@ Par défaut il crée les trois comptes ; `COMPTE_UNIVERS=restaurant,staff` en
 restreint la liste, `COMPTE_RESTAURANT='Chez Antoine'` choisit l'établissement
 du contact restaurateur.
 
+## API d'administration
+
+`/api/admin/*` sert à créer de la donnée en masse — un jeu de formation, un
+scénario de démo — depuis un script, `curl` ou un agent, sans passer par les
+écrans. Réservée à l'administratrice du produit : un seul jeton, pas de compte.
+
+**Désactivée par défaut.** Sans `ADMIN_API_TOKEN`, toutes les routes
+répondent 404. Pour l'ouvrir sur un environnement :
+
+- `ADMIN_API_TOKEN` — `openssl rand -hex 32`, 32 caractères minimum (plus
+  court, l'API reste fermée en 503 ; le reste du site n'est pas touché) ;
+- `ADMIN_API_STAFF_EMAIL` — un membre du staff déjà en base (`pnpm
+  creer-compte`) : les créations de restaurants et de contacts sont tracées
+  à son nom dans le journal d'audit, comme depuis la Console.
+
+**Une seule base, la vraie.** Les Deploy Previews et la production partagent
+la même base Neon (voir « Migrations de base de données »), et c'est voulu :
+les formations se bâtissent sur l'écosystème réel, pas sur une copie. Ce qui
+rend ces données acceptables en production, c'est qu'elles sont
+**réalistes** — la première règle ci-dessous — pas qu'elles soient isolées.
+Pas d'anomalie volontaire ni de piège pédagogique par cette API, et pas de
+suppression : ce qui est écrit reste.
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
+```
+
+| Route | Effet | Par appel |
+|---|---|---|
+| `GET /api/admin` | Sommaire des routes | |
+| `GET /api/admin/restaurants` | Restaurants et contacts, avec leurs ids | |
+| `POST /api/admin/restaurants` | Restaurants : `plats` (`allergenes` absent = non renseigné, `[]` = aucun), `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`), `contacts`, `creeLe?` | 20 |
+| `POST /api/admin/restaurants/{id}/contacts` | Contacts d'un restaurant existant | 10 |
+| `POST /api/admin/dineurs` | Comptes dîneur (`nom`, `email`, `motDePasse?`, `creeLe?`) | 50 |
+| `POST /api/admin/reservations` | Réservations : `restaurantId`, `dineurEmail` ou `dineurId`, `jour`, `creneau`, `couverts`, `statut?`, `couvertsServis?`, `signaleeLe?`, `creeLe?` | 1000 |
+| `GET /api/admin/factures?mois=AAAA-MM` | Factures du mois et leurs lignes | |
+| `POST /api/admin/factures` | Génère les factures de `{ mois }` — idempotent | |
+| `POST /api/admin/dossiers` | Dépose une contestation et rejoue son instruction : `factureId`, `contactId`, `lignes: [{ ligneFactureId, motif }]`, `deposeLe?`, `etapes?` (voir plus bas) | 1 |
+
+**L'API ne fabrique que des états que le produit aurait pu atteindre.**
+Chaque réservation passe les contrôles de la fiche restaurant, vus du jour où
+elle a été prise :
+
+- créneau de la grille (`12:00`…`13:30`, `18:30`…`22:00`, heure de Paris),
+  **ouvert** ce jour-là (horaires habituels et exceptions datées) ;
+- 1 à 6 couverts, capacité du restaurant respectée ;
+- prise au plus 5 jours avant le créneau, et après l'arrivée du restaurant
+  et du dîneur sur TheSpoon — d'où `creeLe` sur les restaurants et les
+  dîneurs : un historique de trois mois demande des comptes datés d'au
+  moins trois mois ;
+- honorée ou no-show seulement sur un créneau passé.
+
+Les dates absentes prennent les délais courants : réservée la veille,
+signalée trois heures après le service, facture d'un mois émise le 1er du
+mois suivant à 6h. Facturation et dépôt de contestation passent par les
+fonctions des écrans (commission, seuil de crédit d'office, délai de 30
+jours, pas de double contestation).
+
+**Litiges, ouverts ou clos.** Un dossier se dépose à `deposeLe` (par défaut
+5 jours après l'émission de la facture), et le délai de 30 jours est jugé à
+cette date : un litige de juin se rejoue sur la facture de juin. `etapes`
+rejoue ensuite son instruction, dans l'ordre, chaque geste par la fonction
+de la Console qui le fait — donc avec ses règles (seul l'instructeur qui a
+pris le dossier le tranche, une escalade le libère pour tout le staff, un
+accord partiel reste sous le montant contesté) :
+
+```json
+"etapes": [
+  { "type": "PRISE_EN_CHARGE", "par": "sophie@thespoon.fr" },
+  { "type": "COMPLEMENT", "par": "sophie@thespoon.fr", "message": "Merci de joindre le cahier." },
+  { "type": "DECISION", "par": "sophie@thespoon.fr", "issue": "ESCALADE", "motif": "Je passe la main." },
+  { "type": "DECISION", "par": "karim@thespoon.fr", "issue": "PARTIEL",
+    "montantAccordeCentimes": 5000, "imputation": "CLIENT", "motif": "Deux tables absentes confirmées." }
+]
+```
+
+`par` est l'email d'un membre du staff ; `le` (facultatif) date l'étape, par
+défaut un jour après la précédente. Sans `etapes`, le dossier reste en file
+d'instruction — ou crédité d'office s'il est sous le seuil. Journal, décision
+et avoir portent les dates rejouées.
+
+**Tout-ou-rien.** Les `POST` acceptent un objet ou une liste ; une liste avec
+une erreur n'écrit rien, et la réponse (400, 409 ou 422) désigne l'élément
+fautif. Les plafonds par appel tiennent dans le délai d'une fonction
+Netlify ; au-delà, découper en plusieurs appels.
+
+**Mots de passe.** Sans `motDePasse`, un mot de passe temporaire est généré
+et rendu **une seule fois** dans la réponse (`motDePasseGenere`).
+
+Code : `src/lib/api-admin/` (garde, schémas, écritures) et
+`src/app/api/admin/`.
+
 ## Migrations de base de données
 
 Tout changement de `prisma/schema.prisma` passe par une migration versionnée
