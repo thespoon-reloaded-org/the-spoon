@@ -18,6 +18,7 @@
     "db:studio": "prisma studio",
     "seed:dev": "tsx scripts/seed-dev.ts",
     "creer-compte": "tsx scripts/creer-compte.ts",
+    "jeu-formation": "tsx scripts/jeu-formation/index.ts",
     "postinstall": "prisma generate",
     "format": "prettier --write ."
   },

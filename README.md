@@ -177,6 +177,7 @@ curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
 | `POST /api/admin/restaurants` | Restaurants : `plats` (`allergenes` absent = non renseigné, `[]` = aucun), `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`), `contacts`, `creeLe?` | 20 |
 | `POST /api/admin/restaurants/{id}/contacts` | Contacts d'un restaurant existant | 10 |
 | `POST /api/admin/dineurs` | Comptes dîneur (`nom`, `email`, `motDePasse?`, `creeLe?`) | 50 |
+| `POST /api/admin/staff` | Membres du staff (`nom`, `email`, `role?`, `motDePasse?`, `creeLe?`) — un instructeur ne signe pas une étape antérieure à son arrivée | 20 |
 | `POST /api/admin/reservations` | Réservations : `restaurantId`, `dineurEmail` ou `dineurId`, `jour`, `creneau`, `couverts`, `statut?`, `couvertsServis?`, `signaleeLe?`, `creeLe?` | 1000 |
 | `GET /api/admin/factures?mois=AAAA-MM` | Factures du mois et leurs lignes | |
 | `POST /api/admin/factures` | Génère les factures de `{ mois }` — idempotent | |
@@ -234,6 +235,41 @@ et rendu **une seule fois** dans la réponse (`motDePasseGenere`).
 
 Code : `src/lib/api-admin/` (garde, schémas, écritures) et
 `src/app/api/admin/`.
+
+## Jeu de formation
+
+`pnpm jeu-formation` construit, puis injecte par l'API d'administration, un
+TheSpoon qui a six mois de vie : 50 restaurants (40 à Paris), leurs cartes et
+leurs horaires, quelques milliers de dîneurs, une dizaine de milliers de
+réservations, les factures de chaque mois terminé et des litiges à tous les
+stades — crédités d'office, tranchés, escaladés, et encore en file sur la
+dernière facture.
+
+```bash
+pnpm jeu-formation plan               # génère le plan et affiche son bilan
+pnpm jeu-formation injecter pilote    # trois restaurants, pour vérifier le rendu
+pnpm jeu-formation injecter tout      # le reste
+```
+
+Variables : `API_URL` (la cible), `ADMIN_API_TOKEN`, et
+`JEU_FORMATION_DOSSIER` — là où vivent le plan, l'état de l'injection et
+`identifiants.csv` (mots de passe des contacts, du staff et de quelques
+dîneurs « personas »). Ce dossier se garde **hors du dépôt**.
+
+- **Reproductible.** Le plan est une fonction de la date et d'une graine
+  (`JEU_FORMATION_GRAINE`) : on le relit avant d'injecter, et
+  `scripts/jeu-formation/generer.test.ts` le passe au crible des règles de
+  l'API — une règle ajoutée à l'API sans que le générateur suive casse la CI,
+  pas l'injection.
+- **Reprenable.** L'injection garde son état : relancée, elle reprend là où
+  elle s'est arrêtée. Un lot envoyé dont la réponse s'est perdue l'arrête
+  net plutôt que de risquer un doublon — rien ne se supprime.
+- **Réglable.** La demande (semaine, saison, croissance), les taux
+  d'annulation et de no-show, la fréquence et l'issue des litiges sont en
+  tête de `scripts/jeu-formation/generer.ts`.
+
+Hors d'atteinte de l'API, donc absents du jeu : les avis et les notes, les
+fermetures exceptionnelles (congés d'août), les pièces jointes des dossiers.
 
 ## Migrations de base de données
 

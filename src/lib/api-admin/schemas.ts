@@ -108,6 +108,19 @@ export const schemaDineur = z.object({
   creeLe,
 });
 
+/**
+ * Un membre du staff TheSpoon — pour peupler l'équipe qui a instruit les
+ * litiges d'un historique. `role` est le libellé affiché (« Partenaires »,
+ * « Support restaurants »…), pas une permission : la Console n'en a pas.
+ */
+export const schemaStaff = z.object({
+  nom: texte.max(80),
+  email,
+  role: texte.max(60).optional(),
+  motDePasse,
+  creeLe,
+});
+
 export const STATUTS_RESERVATION = ["CONFIRMEE", "ANNULEE", "HONOREE", "NO_SHOW"] as const;
 
 export const schemaReservation = z

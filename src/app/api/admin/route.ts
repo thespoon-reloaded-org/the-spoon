@@ -29,6 +29,11 @@ export const GET = routeAdmin(async () =>
       { methode: "POST", chemin: "/api/admin/dineurs", role: "Comptes dîneur" },
       {
         methode: "POST",
+        chemin: "/api/admin/staff",
+        role: "Membres du staff, datés (instructeurs d'historique)",
+      },
+      {
+        methode: "POST",
         chemin: "/api/admin/reservations",
         role: "Réservations, passées ou futures, avec leur statut",
       },

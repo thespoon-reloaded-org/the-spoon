@@ -25,6 +25,7 @@ import * as dineurs from "@/app/api/admin/dineurs/route";
 import * as dossiers from "@/app/api/admin/dossiers/route";
 import * as factures from "@/app/api/admin/factures/route";
 import * as reservations from "@/app/api/admin/reservations/route";
+import * as staffRoute from "@/app/api/admin/staff/route";
 import * as restaurants from "@/app/api/admin/restaurants/route";
 import { ajouterJours, aujourdHuiIso, instantLocalDeJour } from "@/lib/fuseau";
 import { prisma } from "@/lib/prisma";
@@ -58,12 +59,18 @@ let staffBId: string;
 const emailStaffB = `api-b-${Date.now()}@staff.test.example`;
 let restaurantId: string;
 const restaurantsACleaner: string[] = [];
+const staffACleaner: string[] = [];
 let contactId: string;
 const emailDineur = `dineur-${suffixe}@test.example`;
 
 beforeAll(async () => {
-  staffId = (await prisma.staff.create({ data: { nom: "Admin API", email: EMAIL_STAFF } })).id;
-  staffBId = (await prisma.staff.create({ data: { nom: "Responsable", email: emailStaffB } })).id;
+  // Arrivés chez TheSpoon bien avant l'historique qu'ils instruisent.
+  const ilYaUnAn = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+  staffId = (
+    await prisma.staff.create({
+      data: { nom: "Admin API", email: EMAIL_STAFF, createdAt: ilYaUnAn },
+    })
+  ).id;
 });
 
 afterAll(async () => {
@@ -73,7 +80,9 @@ afterAll(async () => {
   }
   await prisma.user.deleteMany({ where: { email: emailDineur } });
   await prisma.journalAuditRestaurant.deleteMany({ where: { staffId } });
-  await prisma.staff.deleteMany({ where: { id: { in: [staffId, staffBId] } } });
+  const staffIds = [staffId, staffBId, ...staffACleaner].filter(Boolean);
+  await prisma.staffAccount.deleteMany({ where: { userId: { in: staffIds } } });
+  await prisma.staff.deleteMany({ where: { id: { in: staffIds } } });
   await prisma.$disconnect();
 });
 
@@ -208,6 +217,9 @@ describe("API d'administration", () => {
     );
     expect(creees.statut).toBe(201);
     expect(creees.corps.crees).toHaveLength(3);
+    expect(
+      creees.corps.crees.every((c: { dineurEmail: string }) => c.dineurEmail === emailDineur),
+    ).toBe(true);
 
     const generation = await appeler(factures.POST, requete({ mois: moisDuService }));
     expect(generation.statut).toBe(200);
@@ -269,6 +281,15 @@ describe("API d'administration", () => {
       }),
     );
     expect(doublon.statut).toBe(422);
+  });
+
+  test("crée un membre du staff daté, et refuse le doublon", async () => {
+    const membre = { nom: "Responsable", email: emailStaffB, role: "Partenaires", creeLe: arrivee };
+    const cree = await appeler(staffRoute.POST, requete(membre));
+    expect(cree.statut).toBe(201);
+    staffBId = cree.corps.crees[0].id;
+    expect(new Date(cree.corps.crees[0].creeLe).toISOString()).toBe(arrivee);
+    expect((await appeler(staffRoute.POST, requete(membre))).statut).toBe(409);
   });
 
   test("rejoue l'historique d'un litige : escaladé, puis accordé en partie", async () => {
@@ -369,6 +390,25 @@ describe("API d'administration", () => {
     );
     expect(echec.statut).toBe(422);
     expect(echec.corps.erreur).toMatch(/etapes\.1/);
+    expect(await prisma.dossier.count({ where: { factureId: facture.id } })).toBe(avantEchec);
+
+    // Un instructeur arrivé après l'étape qu'il signe : refusé avant toute écriture.
+    const nouveau = await appeler(
+      staffRoute.POST,
+      requete({ nom: "Nouvelle recrue", email: `recrue-${suffixe}@staff.test.example` }),
+    );
+    staffACleaner.push(nouveau.corps.crees[0].id);
+    const tropTot = await appeler(
+      dossiers.POST,
+      requete({
+        factureId: facture.id,
+        contactId: gerantId,
+        lignes,
+        etapes: [{ type: "PRISE_EN_CHARGE", par: `recrue-${suffixe}@staff.test.example` }],
+      }),
+    );
+    expect(tropTot.statut).toBe(422);
+    expect(JSON.stringify(tropTot.corps.details)).toMatch(/arrivé/);
     expect(await prisma.dossier.count({ where: { factureId: facture.id } })).toBe(avantEchec);
 
     const { statut, corps } = await appeler(

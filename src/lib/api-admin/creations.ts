@@ -51,6 +51,7 @@ import type {
   schemaDineur,
   schemaDossier,
   schemaRestaurant,
+  schemaStaff,
 } from "./schemas";
 
 /**
@@ -345,6 +346,76 @@ export async function creerDineurs(
 }
 
 // ---------------------------------------------------------------------------
+// Staff
+// ---------------------------------------------------------------------------
+
+/**
+ * Des membres du staff, avec un accès à la Console. Même contrat de mot de
+ * passe que les autres comptes ; un mot de passe généré et jamais relevé
+ * laisse un compte qui ne se connecte pas — c'est le cas d'un instructeur
+ * d'historique, qui n'existe que pour signer son journal.
+ */
+export async function creerStaff(saisies: z.output<typeof schemaStaff>[], maintenant = new Date()) {
+  refuserSiErreurs(
+    400,
+    "Dates de création impossibles.",
+    datesFutures(
+      saisies.map((m) => m.creeLe),
+      maintenant,
+    ),
+  );
+  refuserSiErreurs(
+    400,
+    "Emails en double dans l'appel.",
+    doublonsInternes(saisies.map((m) => m.email)),
+  );
+  const dejaPris = new Set(
+    (
+      await prisma.staff.findMany({
+        where: { email: { in: saisies.map((m) => m.email) } },
+        select: { email: true },
+      })
+    ).map((p) => p.email),
+  );
+  refuserSiErreurs(
+    409,
+    "Emails de staff déjà utilisés.",
+    saisies.flatMap((m, element) =>
+      dejaPris.has(m.email) ? [{ element, message: `${m.email} fait déjà partie du staff.` }] : [],
+    ),
+  );
+
+  const motsDePasse = await Promise.all(saisies.map((m) => preparerMotDePasse(m.motDePasse)));
+  return prisma.$transaction(
+    async (tx) => {
+      const crees = [];
+      for (const [i, saisie] of saisies.entries()) {
+        const membre = await tx.staff.create({
+          data: {
+            nom: saisie.nom,
+            email: saisie.email,
+            role: saisie.role,
+            emailVerified: true,
+            createdAt: saisie.creeLe,
+          },
+        });
+        await tx.staffAccount.create({
+          data: nouveauCompteCredential(membre.id, motsDePasse[i]!.hash),
+        });
+        crees.push({
+          id: membre.id,
+          email: membre.email,
+          creeLe: membre.createdAt,
+          motDePasseGenere: motsDePasse[i]!.genere,
+        });
+      }
+      return crees;
+    },
+    { timeout: DELAI_TRANSACTION_MS },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Réservations
 // ---------------------------------------------------------------------------
 
@@ -496,7 +567,7 @@ export async function creerReservations(saisies: SaisieReservation[], maintenant
     }),
     prisma.user.findMany({
       where: { id: { in: saisies.flatMap((s) => (s.dineurId ? [s.dineurId] : [])) } },
-      select: { id: true, createdAt: true },
+      select: { id: true, email: true, createdAt: true },
     }),
     prisma.user.findMany({
       where: { email: { in: saisies.flatMap((s) => (s.dineurEmail ? [s.dineurEmail] : [])) } },
@@ -570,7 +641,12 @@ export async function creerReservations(saisies: SaisieReservation[], maintenant
         data: reservations.map(({ element: _element, ...r }) => r),
         select: { id: true, restaurantId: true, userId: true, date: true, statut: true },
       });
-      return creees;
+      // L'email du dîneur en retour : c'est par lui qu'un jeu de données
+      // désigne ses dîneurs, et qu'il retrouve ce qui a été créé.
+      const emailParId = new Map(
+        [...dineursParId, ...dineursParEmail].map((d) => [d.id, d.email] as const),
+      );
+      return creees.map((c) => ({ ...c, dineurEmail: emailParId.get(c.userId)! }));
     },
     { timeout: DELAI_TRANSACTION_MS },
   );
@@ -753,7 +829,7 @@ export async function deposerDossier(
     }),
     prisma.staff.findMany({
       where: { email: { in: emailsStaff } },
-      select: { id: true, email: true },
+      select: { id: true, email: true, createdAt: true },
     }),
   ]);
   if (!facture) throw new ErreurApi(404, "Facture introuvable.");
@@ -772,6 +848,16 @@ export async function deposerDossier(
     { factureEmiseLe: facture.genereeLe, contactCreeLe: contact.createdAt },
     maintenant,
   );
+  // Personne n'instruit un dossier avant d'être arrivé chez TheSpoon.
+  const arriveeStaff = new Map(staff.map((m) => [m.email, m.createdAt]));
+  saisie.etapes.forEach((etape, i) => {
+    const arrive = arriveeStaff.get(etape.par)!;
+    if (dates.etapes[i]!.getTime() < arrive.getTime()) {
+      dates.erreurs.push(
+        `etapes.${i} : ${etape.par} n'est arrivé(e) chez TheSpoon que le ${formaterJourEtHeure(arrive)} — le dater avec creeLe (POST /api/admin/staff).`,
+      );
+    }
+  });
   if (dates.erreurs.length > 0) throw new ErreurApi(422, "Dates impossibles.", dates.erreurs);
 
   const depot = await creerDossierContestation({
