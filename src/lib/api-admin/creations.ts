@@ -18,7 +18,7 @@ import { hashPassword } from "better-auth/crypto";
 import type { z } from "zod";
 
 import { trierAllergenes } from "@/lib/allergenes";
-import { recalculerNoteRestaurant } from "@/lib/avis";
+import { recalculerNoteRestaurant, reservationsServies } from "@/lib/avis";
 import {
   creerContactAvecAcces,
   genererMotDePasseTemporaire,
@@ -683,8 +683,7 @@ export async function creerAvis(saisies: z.output<typeof schemaAvis>[], maintena
       where: {
         restaurantId: { in: restaurantIds },
         userId: { in: userIds },
-        statut: { in: ["HONOREE", "CONFIRMEE"] },
-        date: { lte: maintenant },
+        ...reservationsServies(maintenant),
       },
       select: { restaurantId: true, userId: true, date: true },
     }),

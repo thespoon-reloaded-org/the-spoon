@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
-import { recalculerNoteRestaurant } from "@/lib/avis";
+import { aEteServi, recalculerNoteRestaurant } from "@/lib/avis";
 import { construireDateCreneau, estDansLaFenetreReservable, TAILLES_TABLE } from "@/lib/creneaux";
 import { creneauEstOuvert } from "@/lib/disponibilites";
 import { prisma } from "@/lib/prisma";
@@ -96,7 +96,7 @@ export type EtatAvis = { erreur?: string; ok?: boolean };
 
 /**
  * Dépose ou met à jour l'avis du dîneur connecté sur ce restaurant. Réservé
- * aux dîneurs ayant une réservation confirmée déjà passée ("après passage") —
+ * aux dîneurs déjà servis ("après passage", voir `aEteServi`) —
  * jamais de confiance dans un restaurantId seul sans revérifier la
  * réservation. Un avis par (dîneur, restaurant) : un deuxième dépôt met à
  * jour le premier (upsert). Recalcule `Restaurant.noteCuilleres`/`nombreAvis`
@@ -119,16 +119,7 @@ export async function deposerAvis(
     return { erreur: "Choisis une note entre 1 et 5 cuillères." };
   }
 
-  const dejaServi = await prisma.booking.findFirst({
-    where: {
-      restaurantId,
-      userId: session.user.id,
-      statut: "CONFIRMEE",
-      date: { lte: new Date() },
-    },
-    select: { id: true },
-  });
-  if (!dejaServi) {
+  if (!(await aEteServi(prisma, restaurantId, session.user.id))) {
     return { erreur: "Tu dois avoir été servi dans ce restaurant pour déposer un avis." };
   }
 
