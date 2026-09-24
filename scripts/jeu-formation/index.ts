@@ -98,6 +98,11 @@ function bilan(plan: Plan) {
       `  ${m} : ${e.resas} résas, ${e.couverts} couverts, ${(e.couverts * 2.5).toLocaleString("fr-FR")} €${facture}`,
     );
   }
+  const notes = plan.avis.map((a) => a.corps.noteCuilleres);
+  const moyenne = notes.reduce((a, b) => a + b, 0) / Math.max(1, notes.length);
+  console.log(
+    `Avis : ${plan.avis.length}, note moyenne ${moyenne.toFixed(2)} — ${[5, 4, 3, 2, 1].map((n) => `${n}★ ${pct(notes.filter((x) => x === n).length, notes.length)}`).join(", ")}`,
+  );
   console.log(`Litiges : ${plan.dossiers.length}`);
   for (const [etat, n] of compter(plan.dossiers.map(etatDossier))) console.log(`  ${etat} : ${n}`);
   const montants = plan.dossiers.map((d) => d.montantCentimes / 100).sort((a, b) => a - b);
@@ -404,7 +409,25 @@ async function injecter(plan: Plan, lot: "pilote" | "tout") {
   }
   if (aReserver.length) process.stdout.write("\n");
 
-  // 5. Factures — idempotent, relancé à chaque passage.
+  // 5. Avis — après les réservations : un avis suppose d'avoir été servi.
+  const avis = plan.avis.filter((a) => perimetre.has(a.restaurant));
+  const LOT_AVIS = 1000;
+  for (let i = 0; i < avis.length; i += LOT_AVIS) {
+    const tranche = avis.slice(i, i + LOT_AVIS);
+    await envoyerUneFois(
+      etat,
+      `avis:${i}:${tranche[0]!.restaurant}|${tranche[0]!.corps.dineurEmail}`,
+      () =>
+        api(
+          "POST",
+          "/api/admin/avis",
+          tranche.map((a) => ({ restaurantId: etat.restaurants[a.restaurant]!.id, ...a.corps })),
+        ),
+    );
+  }
+  if (avis.length) console.log(`  avis : ${avis.length}`);
+
+  // 6. Factures — idempotent, relancé à chaque passage.
   for (const mois of plan.moisFactures) {
     const r = await api<{ facturesCreees: number; lignesAjoutees: number }>(
       "POST",
@@ -418,7 +441,7 @@ async function injecter(plan: Plan, lot: "pilote" | "tout") {
     sauver(etat);
   }
 
-  // 6. Litiges, un par un.
+  // 7. Litiges, un par un.
   const dossiers = plan.dossiers.filter(
     (d) => perimetre.has(d.restaurant) && !etat.dossiers[d.cle],
   );

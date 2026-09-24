@@ -121,6 +121,24 @@ export const schemaStaff = z.object({
   creeLe,
 });
 
+/**
+ * Un avis de dîneur. Mêmes bornes que le formulaire de la fiche restaurant :
+ * 1 à 5 cuillères, 500 caractères de commentaire.
+ */
+export const schemaAvis = z.object({
+  restaurantId: texte,
+  dineurEmail: email,
+  noteCuilleres: z.number().int().min(1).max(5),
+  commentaire: z
+    .string()
+    .trim()
+    .max(500, "Commentaire trop long (500 caractères max).")
+    .nullish()
+    .transform((v) => (v ? v : null)),
+  /** Absent : le lendemain du dernier service où le dîneur a été servi. */
+  creeLe,
+});
+
 export const STATUTS_RESERVATION = ["CONFIRMEE", "ANNULEE", "HONOREE", "NO_SHOW"] as const;
 
 export const schemaReservation = z

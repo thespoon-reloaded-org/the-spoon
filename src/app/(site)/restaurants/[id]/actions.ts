@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { recalculerNoteRestaurant } from "@/lib/avis";
 import { construireDateCreneau, estDansLaFenetreReservable, TAILLES_TABLE } from "@/lib/creneaux";
 import { creneauEstOuvert } from "@/lib/disponibilites";
 import { prisma } from "@/lib/prisma";
@@ -147,19 +148,7 @@ export async function deposerAvis(
         },
       });
 
-      const agregat = await tx.avis.aggregate({
-        where: { restaurantId },
-        _avg: { noteCuilleres: true },
-        _count: true,
-      });
-
-      await tx.restaurant.update({
-        where: { id: restaurantId },
-        data: {
-          noteCuilleres: agregat._avg.noteCuilleres,
-          nombreAvis: agregat._count,
-        },
-      });
+      await recalculerNoteRestaurant(tx, restaurantId);
     });
   } catch {
     return { erreur: "Impossible d'enregistrer l'avis, réessaie." };

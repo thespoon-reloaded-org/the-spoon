@@ -21,6 +21,7 @@ const { JETON, EMAIL_STAFF } = vi.hoisted(() => {
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 import * as racine from "@/app/api/admin/route";
+import * as avisRoute from "@/app/api/admin/avis/route";
 import * as dineurs from "@/app/api/admin/dineurs/route";
 import * as dossiers from "@/app/api/admin/dossiers/route";
 import * as factures from "@/app/api/admin/factures/route";
@@ -438,6 +439,36 @@ describe("API d'administration", () => {
     const avoir = dossier.decisions.find((d) => d.avoir)!.avoir!;
     expect(avoir.montantCentimes).toBe(5000);
     expect(avoir.emisLe.getTime()).toBeLessThan(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  });
+
+  test("un avis après le service, et la note du restaurant suit", async () => {
+    const avant = await appeler(
+      avisRoute.POST,
+      requete({ restaurantId, dineurEmail: emailDineur, noteCuilleres: 4, creeLe: arrivee }),
+    );
+    expect(avant.statut).toBe(400);
+    expect(JSON.stringify(avant.corps.details)).toMatch(/avant le premier service/);
+
+    const { statut, corps } = await appeler(
+      avisRoute.POST,
+      requete({
+        restaurantId,
+        dineurEmail: emailDineur,
+        noteCuilleres: 4,
+        commentaire: "Quenelle parfaite.",
+      }),
+    );
+    expect(statut).toBe(201);
+    expect(corps.restaurants[0]).toMatchObject({ noteCuilleres: 4, nombreAvis: 1 });
+    const avis = await prisma.avis.findFirstOrThrow({ where: { restaurantId } });
+    expect(avis.createdAt.getTime()).toBeLessThanOrEqual(Date.now());
+
+    // Un seul avis par dîneur et par restaurant.
+    const encore = await appeler(
+      avisRoute.POST,
+      requete({ restaurantId, dineurEmail: emailDineur, noteCuilleres: 2 }),
+    );
+    expect(encore.statut).toBe(400);
   });
 
   test("dit quel champ corriger", async () => {

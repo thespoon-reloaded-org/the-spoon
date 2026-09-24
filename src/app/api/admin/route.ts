@@ -38,6 +38,11 @@ export const GET = routeAdmin(async () =>
         role: "Réservations, passées ou futures, avec leur statut",
       },
       {
+        methode: "POST",
+        chemin: "/api/admin/avis",
+        role: "Avis de dîneurs servis, note recalculée",
+      },
+      {
         methode: "GET",
         chemin: "/api/admin/factures?mois=AAAA-MM",
         role: "Factures d'un mois et leurs lignes",

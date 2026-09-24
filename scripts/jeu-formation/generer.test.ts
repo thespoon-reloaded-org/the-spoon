@@ -6,6 +6,7 @@ import {
   resoudreReservations,
 } from "../../src/lib/api-admin/creations";
 import {
+  schemaAvis,
   schemaDineur,
   schemaDossier,
   schemaReservation,
@@ -145,6 +146,31 @@ describe("jeu de formation", () => {
       expect(d.creditOffice).toBe(cumul.get(cle)! < SEUIL_SUPPOSE_CENTIMES);
       if (d.creditOffice) expect(d.etapes).toEqual([]);
     }
+  });
+
+  test("un avis vient après un service honoré, un seul par dîneur et par restaurant", () => {
+    const servis = new Map<string, Date[]>();
+    for (const r of plan.reservations) {
+      if (r.corps.statut !== "HONOREE") continue;
+      const cle = `${r.restaurant}|${r.corps.dineurEmail}`;
+      const date = new Date(r.cle.split("|").at(-1)!);
+      (servis.get(cle) ?? servis.set(cle, []).get(cle)!).push(date);
+    }
+    const paires = new Set<string>();
+    for (const a of plan.avis) {
+      const cle = `${a.restaurant}|${a.corps.dineurEmail}`;
+      expect(paires.has(cle)).toBe(false);
+      paires.add(cle);
+      const creeLe = new Date(a.corps.creeLe);
+      expect(servis.get(cle)?.some((d) => d.getTime() < creeLe.getTime())).toBe(true);
+      expect(creeLe.getTime()).toBeLessThanOrEqual(maintenant.getTime());
+      expect(schemaAvis.safeParse({ restaurantId: "x", ...a.corps }).success).toBe(true);
+    }
+    const notes = plan.avis.map((a) => a.corps.noteCuilleres);
+    const moyenne = notes.reduce((x, y) => x + y, 0) / notes.length;
+    expect(moyenne).toBeGreaterThan(3.8);
+    expect(moyenne).toBeLessThan(4.4);
+    expect(notes.filter((n) => n === 1).length).toBeGreaterThan(0);
   });
 
   test("ressemble à un vrai mois de restaurant", () => {

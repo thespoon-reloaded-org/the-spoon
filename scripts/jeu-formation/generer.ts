@@ -166,6 +166,11 @@ export type PlanDossier = {
   etapes: PlanEtape[];
 };
 
+export type PlanAvis = {
+  restaurant: string;
+  corps: { dineurEmail: string; noteCuilleres: number; commentaire: string | null; creeLe: string };
+};
+
 export type Plan = {
   graine: number;
   genereLe: string;
@@ -174,6 +179,7 @@ export type Plan = {
   restaurants: PlanRestaurant[];
   dineurs: PlanDineur[];
   reservations: PlanReservation[];
+  avis: PlanAvis[];
   moisFactures: string[];
   dossiers: PlanDossier[];
 };
@@ -289,6 +295,8 @@ type RestaurantInterne = PlanRestaurant & {
   arrivee: Date;
   plages: Plage[];
   demande: number;
+  /** Note moyenne vers laquelle tendent ses avis. */
+  qualite: number;
   capacite: number;
   contacts: { email: string; role: string }[];
 };
@@ -369,6 +377,12 @@ export function genererJeu({ maintenant, graine }: { maintenant: Date; graine: n
         finMinutes: h.fin === "24:00" ? 1440 : minutes(h.fin),
       })),
       demande: Math.max(0.3, demande),
+      // Les notes des plateformes penchent vers le haut ; un restaurant qui
+      // soigne mal ses réservations le paie un peu dans ses avis.
+      qualite: Math.min(
+        4.8,
+        Math.max(3.2, 4.2 + 0.35 * alea.normale() - (negligents.has(i) ? 0.4 : 0)),
+      ),
       capacite: fiche.capacite,
       contacts,
       corps: {
@@ -596,6 +610,10 @@ export function genererJeu({ maintenant, graine }: { maintenant: Date; graine: n
     }
   }
 
+  // --- Avis : une minorité de dîneurs servis en laisse un, le plus souvent
+  // le soir même ou le lendemain. Un seul par dîneur et par restaurant.
+  const avis = genererAvis({ alea, maintenant, restaurants, reservations });
+
   // --- Factures : chaque mois terminé de la période.
   const moisFactures: string[] = [];
   for (let m = du.slice(0, 7); m < moisIso(maintenant); m = moisAdjacent(m, 1))
@@ -619,6 +637,7 @@ export function genererJeu({ maintenant, graine }: { maintenant: Date; graine: n
     restaurants: restaurants.map(({ cle, negligent, corps }) => ({ cle, negligent, corps })),
     dineurs,
     reservations: reservations.map(({ cle, restaurant, corps }) => ({ cle, restaurant, corps })),
+    avis,
     moisFactures,
     dossiers,
   };
@@ -732,7 +751,7 @@ function genererDossiers({
       // mal, presque une fois sur deux.
       // La dernière facture vient d'arriver : c'est elle qu'on relit.
       const recent = mois === moisFactures[moisFactures.length - 1];
-      if (!alea.chance(r.negligent ? 0.5 : recent ? 0.25 : 0.17)) continue;
+      if (!alea.chance(r.negligent ? 0.5 : recent ? 0.35 : 0.17)) continue;
       const emission = instantLocalDeJour(`${moisAdjacent(mois, 1)}-01`, 6);
       const restantes = [...lignes];
       let cumul = 0;
@@ -916,4 +935,101 @@ function genererInstruction({
     etapes.push(decision(instructeur.email, issue));
   }
   return etapes;
+}
+
+// ---------------------------------------------------------------------------
+// Avis
+// ---------------------------------------------------------------------------
+
+const TAUX_AVIS = 0.14;
+
+/**
+ * Tournures indépendantes du genre du plat (« la burrata », « le risotto ») :
+ * le nom du plat n'est jamais accordé, seulement cité.
+ */
+const COMMENTAIRES_AVIS: Record<"excellent" | "bon" | "moyen" | "decu", string[]> = {
+  excellent: [
+    "Mention spéciale pour : {plat}. Service aux petits soins, on reviendra.",
+    "Une vraie adresse. {plat} : rien à redire, et une équipe adorable.",
+    "Coup de cœur : {plat}. Ambiance chaleureuse.",
+    "Tout était parfait, de l'entrée au dessert.",
+  ],
+  bon: [
+    "Très bon moment, mention pour : {plat}. Un peu d'attente entre les plats.",
+    "Bonne adresse, portions généreuses. Salle un peu bruyante le samedi.",
+    "Cuisine soignée, rapport qualité-prix correct.",
+    "Agréable soirée. À goûter : {plat}.",
+  ],
+  moyen: [
+    "Correct sans plus. {plat} : un peu fade ce soir-là.",
+    "Service lent ce soir-là, mais la cuisine était bonne.",
+    "Un peu cher pour ce que c'est.",
+  ],
+  decu: [
+    "Déçus : notre table n'était pas prête à l'heure réservée.",
+    "Plats servis tièdes, service expéditif. Dommage.",
+    "Réservation mal enregistrée, on a attendu vingt minutes au bar.",
+  ],
+};
+
+function genererAvis({
+  alea,
+  maintenant,
+  restaurants,
+  reservations,
+}: {
+  alea: Alea;
+  maintenant: Date;
+  restaurants: RestaurantInterne[];
+  reservations: (PlanReservation & { date: Date })[];
+}): PlanAvis[] {
+  const parCle = new Map(restaurants.map((r) => [r.cle, r]));
+  const dejaDonne = new Set<string>();
+  const avis: PlanAvis[] = [];
+  for (const res of reservations) {
+    if (res.corps.statut !== "HONOREE") continue;
+    const paire = `${res.restaurant}|${res.corps.dineurEmail}`;
+    if (dejaDonne.has(paire) || !alea.chance(TAUX_AVIS)) continue;
+    const creeLe = new Date(
+      res.date.getTime() +
+        alea.pondere([
+          [alea.entre(2, 20) * HEURE_MS, 55],
+          [alea.entre(20, 48) * HEURE_MS, 30],
+          [alea.entre(2, 10) * JOUR_MS, 15],
+        ] as const),
+    );
+    if (creeLe.getTime() > maintenant.getTime() - HEURE_MS) continue;
+    dejaDonne.add(paire);
+
+    const r = parCle.get(res.restaurant)!;
+    // Quelques soirées ratées, partout : une table oubliée, une heure d'attente.
+    const incident = alea.chance(0.04);
+    const note = incident
+      ? alea.pondere([
+          [1, 60],
+          [2, 40],
+        ] as const)
+      : Math.min(5, Math.max(1, Math.round(r.qualite + 0.85 * alea.normale())));
+    const plats = r.corps.plats.filter((p) => p.categorie === "PLAT");
+    const plat = (plats.length ? alea.parmi(plats) : alea.parmi(r.corps.plats)).nom;
+    const ton = note === 5 ? "excellent" : note === 4 ? "bon" : note === 3 ? "moyen" : "decu";
+    // On écrit plus volontiers quand on a été déçu.
+    const commente = alea.chance(ton === "decu" ? 0.9 : 0.6);
+    const commentaire = commente
+      ? alea
+          .parmi(COMMENTAIRES_AVIS[ton])
+          .replace("{plat}", plat)
+          .replace(/^./, (c) => c.toUpperCase())
+      : null;
+    avis.push({
+      restaurant: res.restaurant,
+      corps: {
+        dineurEmail: res.corps.dineurEmail,
+        noteCuilleres: note,
+        commentaire,
+        creeLe: iso(creeLe),
+      },
+    });
+  }
+  return avis;
 }

@@ -177,6 +177,7 @@ curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
 | `POST /api/admin/restaurants` | Restaurants : `plats` (`allergenes` absent = non renseigné, `[]` = aucun), `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`), `contacts`, `creeLe?` | 20 |
 | `POST /api/admin/restaurants/{id}/contacts` | Contacts d'un restaurant existant | 10 |
 | `POST /api/admin/dineurs` | Comptes dîneur (`nom`, `email`, `motDePasse?`, `creeLe?`) | 50 |
+| `POST /api/admin/avis` | Avis : `restaurantId`, `dineurEmail`, `noteCuilleres` (1 à 5), `commentaire?`, `creeLe?` — seulement après un service où le dîneur a été servi, un par dîneur et par restaurant ; la note du restaurant est recalculée | 1000 |
 | `POST /api/admin/staff` | Membres du staff (`nom`, `email`, `role?`, `motDePasse?`, `creeLe?`) — un instructeur ne signe pas une étape antérieure à son arrivée | 20 |
 | `POST /api/admin/reservations` | Réservations : `restaurantId`, `dineurEmail` ou `dineurId`, `jour`, `creneau`, `couverts`, `statut?`, `couvertsServis?`, `signaleeLe?`, `creeLe?` | 1000 |
 | `GET /api/admin/factures?mois=AAAA-MM` | Factures du mois et leurs lignes | |
@@ -241,7 +242,7 @@ Code : `src/lib/api-admin/` (garde, schémas, écritures) et
 `pnpm jeu-formation` construit, puis injecte par l'API d'administration, un
 TheSpoon qui a six mois de vie : 50 restaurants (40 à Paris), leurs cartes et
 leurs horaires, quelques milliers de dîneurs, une dizaine de milliers de
-réservations, les factures de chaque mois terminé et des litiges à tous les
+réservations et leurs avis, les factures de chaque mois terminé et des litiges à tous les
 stades — crédités d'office, tranchés, escaladés, et encore en file sur la
 dernière facture.
 
@@ -268,8 +269,10 @@ dîneurs « personas »). Ce dossier se garde **hors du dépôt**.
   d'annulation et de no-show, la fréquence et l'issue des litiges sont en
   tête de `scripts/jeu-formation/generer.ts`.
 
-Hors d'atteinte de l'API, donc absents du jeu : les avis et les notes, les
-fermetures exceptionnelles (congés d'août), les pièces jointes des dossiers.
+Avis et notes compris : environ un dîneur servi sur sept laisse un avis, le
+soir même ou dans les jours qui suivent, et la note de chaque restaurant
+suit. Hors d'atteinte de l'API, donc absents du jeu : les fermetures
+exceptionnelles (congés d'août) et les pièces jointes des dossiers.
 
 ## Migrations de base de données
 
