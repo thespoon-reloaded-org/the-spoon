@@ -263,8 +263,13 @@ dîneurs « personas »). Ce dossier se garde **hors du dépôt**.
   l'API — une règle ajoutée à l'API sans que le générateur suive casse la CI,
   pas l'injection.
 - **Reprenable.** L'injection garde son état : relancée, elle reprend là où
-  elle s'est arrêtée. Un lot envoyé dont la réponse s'est perdue l'arrête
-  net plutôt que de risquer un doublon — rien ne se supprime.
+  elle s'est arrêtée. Un lot envoyé dont la réponse s'est perdue (coupure,
+  erreur 5xx de la passerelle) l'arrête net plutôt que de risquer un
+  doublon — rien ne se supprime.
+- **Le même jour.** Le plan fige sa date : pilote et reste s'injectent dans
+  les 12 heures qui suivent sa génération, sinon l'historique s'arrêterait à
+  la veille. L'injection vérifie aussi que le seuil de crédit d'office en
+  base est celui que le plan a supposé.
 - **Réglable.** La demande (semaine, saison, croissance), les taux
   d'annulation et de no-show, la fréquence et l'issue des litiges sont en
   tête de `scripts/jeu-formation/generer.ts`.

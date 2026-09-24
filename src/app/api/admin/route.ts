@@ -1,4 +1,5 @@
 import { repondre, routeAdmin } from "@/lib/api-admin/reponses";
+import { getConfigContestation } from "@/lib/contestation";
 
 /**
  * Sommaire de l'API d'administration — de quoi s'y retrouver sans ouvrir le
@@ -7,6 +8,9 @@ import { repondre, routeAdmin } from "@/lib/api-admin/reponses";
 export const GET = routeAdmin(async () =>
   repondre({
     api: "TheSpoon — administration",
+    // Ce qui décide du sort d'un litige au dépôt : un jeu de données qui
+    // prévoit ses crédits d'office doit pouvoir le vérifier.
+    seuilCreditOfficeCentimes: (await getConfigContestation()).seuilCreditOfficeCentimes,
     authentification: "Authorization: Bearer <ADMIN_API_TOKEN>",
     regle:
       "Un appel est tout-ou-rien ; les POST acceptent un objet ou une liste et rendent toujours une liste.",

@@ -28,7 +28,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import { genererJeu, type Plan, type PlanDossier } from "./generer";
+import { genererJeu, SEUIL_SUPPOSE_CENTIMES, type Plan, type PlanDossier } from "./generer";
 
 const DOSSIER = path.resolve(process.env.JEU_FORMATION_DOSSIER ?? ".jeu-formation");
 const API_URL = (process.env.API_URL ?? "http://localhost:3100").replace(/\/$/, "");
@@ -41,6 +41,7 @@ const LOT_RESTAURANTS = 10;
 const LOT_DINEURS = 50;
 const LOT_RESERVATIONS = 500;
 const NB_PILOTES = 3;
+const AGE_MAX_PLAN_HEURES = 12;
 
 // ---------------------------------------------------------------------------
 // Bilan
@@ -164,6 +165,8 @@ type Etat = {
   /** Réservation du plan → id en base. */
   reservations: Record<string, string>;
   factures: string[];
+  /** Avis déjà en base, par `restaurant|dineurEmail`. */
+  avis: string[];
   dossiers: Record<string, string>;
 };
 
@@ -173,6 +176,7 @@ function lireEtat(plan: Plan): Etat {
       api: API_URL,
       graine: plan.graine,
       staff: [],
+      avis: [],
       restaurants: {},
       dineurs: [],
       lots: {},
@@ -220,8 +224,10 @@ async function envoyerUneFois<T>(
     sauver(etat);
     return resultat;
   } catch (erreur) {
-    // Refus explicite de l'API : rien n'a été écrit (tout-ou-rien).
-    if (erreur instanceof RefusApi) {
+    // Seul un refus de l'API elle-même (4xx) garantit que rien n'a été écrit
+    // (tout-ou-rien). Un 5xx — passerelle Netlify en délai dépassé, fonction
+    // coupée — peut suivre une écriture déjà commitée : le lot reste marqué.
+    if (erreur instanceof RefusApi && erreur.statut >= 400 && erreur.statut < 500) {
       delete etat.lots[cle];
       sauver(etat);
     }
@@ -266,6 +272,27 @@ async function injecter(plan: Plan, lot: "pilote" | "tout") {
     lot === "pilote" ? restaurantsPilotes(plan) : plan.restaurants.map((r) => r.cle),
   );
   console.log(`Injection « ${lot} » vers ${API_URL} : ${perimetre.size} restaurants.`);
+
+  // Le plan fige « maintenant » : injecté longtemps après, l'historique
+  // s'arrête à sa date — plus de réservations à venir, des « à venir »
+  // devenues passées sans signalement. Pilote et reste s'injectent le même jour.
+  const ageHeures = (Date.now() - new Date(plan.genereLe).getTime()) / 3_600_000;
+  if (ageHeures > AGE_MAX_PLAN_HEURES && process.env.JEU_FORMATION_PLAN_ANCIEN !== "1") {
+    throw new Error(
+      Object.keys(etat.restaurants).length === 0
+        ? `Plan vieux de ${Math.round(ageHeures)} h : le régénérer (« pnpm jeu-formation plan ») avant d'injecter.`
+        : `Plan vieux de ${Math.round(ageHeures)} h, et déjà en partie injecté : le reste de l'historique s'arrêtera au ${plan.genereLe.slice(0, 10)}. Relancer avec JEU_FORMATION_PLAN_ANCIEN=1 pour l'accepter.`,
+    );
+  }
+
+  // Le plan a décidé quels litiges sont crédités d'office avec un seuil
+  // supposé ; un autre seuil en base laisserait des litiges d'avril en file.
+  const sommaire = await api<{ seuilCreditOfficeCentimes: number }>("GET", "/api/admin");
+  if (sommaire.seuilCreditOfficeCentimes !== SEUIL_SUPPOSE_CENTIMES) {
+    throw new Error(
+      `Seuil de crédit d'office en base : ${sommaire.seuilCreditOfficeCentimes / 100} €, le plan suppose ${SEUIL_SUPPOSE_CENTIMES / 100} €. Ajuster SEUIL_SUPPOSE_CENTIMES (generer.ts) et régénérer le plan.`,
+    );
+  }
 
   // 1. Staff
   const staffAFaire = plan.staff.filter((m) => !etat.staff.includes(m.email));
@@ -410,13 +437,15 @@ async function injecter(plan: Plan, lot: "pilote" | "tout") {
   if (aReserver.length) process.stdout.write("\n");
 
   // 5. Avis — après les réservations : un avis suppose d'avoir été servi.
-  const avis = plan.avis.filter((a) => perimetre.has(a.restaurant));
+  const avisDonnes = new Set(etat.avis ?? []);
+  const paire = (a: Plan["avis"][number]) => `${a.restaurant}|${a.corps.dineurEmail}`;
+  const avis = plan.avis.filter((a) => perimetre.has(a.restaurant) && !avisDonnes.has(paire(a)));
   const LOT_AVIS = 1000;
   for (let i = 0; i < avis.length; i += LOT_AVIS) {
     const tranche = avis.slice(i, i + LOT_AVIS);
     await envoyerUneFois(
       etat,
-      `avis:${i}:${tranche[0]!.restaurant}|${tranche[0]!.corps.dineurEmail}`,
+      `avis:${paire(tranche[0]!)}→${paire(tranche[tranche.length - 1]!)}`,
       () =>
         api(
           "POST",
@@ -424,6 +453,8 @@ async function injecter(plan: Plan, lot: "pilote" | "tout") {
           tranche.map((a) => ({ restaurantId: etat.restaurants[a.restaurant]!.id, ...a.corps })),
         ),
     );
+    etat.avis = [...(etat.avis ?? []), ...tranche.map(paire)];
+    sauver(etat);
   }
   if (avis.length) console.log(`  avis : ${avis.length}`);
 
