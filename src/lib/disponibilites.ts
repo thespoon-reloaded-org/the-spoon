@@ -1,5 +1,5 @@
 /**
- * Ce qui est réservable, et quand — la seule lecture qui réponde à cette
+ * Ce qui est réservable, et quand, la seule lecture qui réponde à cette
  * question dans le produit.
  *
  * Deux plannings se superposent : les horaires d'ouverture habituels
