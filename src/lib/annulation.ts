@@ -34,7 +34,7 @@ export type ReservationAnnulable = {
  */
 export function limiteAnnulation(dateCreneau: Date, delaiHeures: number | null): Date | null {
   if (delaiHeures === null || delaiHeures <= 0) return null;
-  return new Date(dateCreneau.getTime() - delaiHeures * 60 * 60 * 1000);
+  return new Date(dateCreneau.getTime() - delaiHeures * 60 * 1000);
 }
 
 export type Annulabilite =
