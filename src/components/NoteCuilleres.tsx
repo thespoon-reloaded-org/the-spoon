@@ -1,5 +1,5 @@
 /**
- * La note d'un restaurant, en cuillères plutôt qu'en étoiles — signature de
+ * La note d'un restaurant, en cuillères plutôt qu'en étoiles, signature de
  * TheSpoon.
  *
  * Les cuillères sont dessinées plutôt qu'écrites en emoji : 🥄 ne se colore
