@@ -7,7 +7,7 @@
  * Les trois populations (dîneur, contact restaurant, staff) suivent la même
  * mécanique better-auth pour une connexion par mot de passe : une ligne
  * `*Account` avec `providerId: "credential"`, `id`/`accountId`/`userId` tous
- * égaux à l'id de l'utilisateur — convention posée par `creer-compte`,
+ * égaux à l'id de l'utilisateur, convention posée par `creer-compte`,
  * reprise ici pour ne pas la dupliquer.
  */
 import { randomInt } from "node:crypto";
