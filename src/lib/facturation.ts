@@ -10,7 +10,7 @@ export { formaterMontant } from "./montants";
 
 /**
  * TheSpoon ne facture pas la réservation, elle facture le couvert servi (voir
- * le ticket Notion "Génération de la facture mensuelle") — taux unique pour
+ * le ticket Notion "Génération de la facture mensuelle"), taux unique pour
  * tous les partenaires, pas de négociation par restaurant pour l'instant.
  */
 export const COMMISSION_CENTIMES_PAR_COUVERT = 250;
