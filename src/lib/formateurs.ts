@@ -10,7 +10,7 @@
  *
  * - « Se connecter avec Google » : Google atteste que la personne possède
  *   l'adresse, et qu'elle appartient au Workspace hymaia.com (claim `hd`).
- *   C'est la porte d'entrée — le compte se crée à la première connexion.
+ *   C'est la porte d'entrée, le compte se crée à la première connexion.
  * - `pnpm creer-compte` : un compte à mot de passe créé à la main, pour le
  *   développement local ou en secours ; le script applique la même règle.
  *
