@@ -2,7 +2,7 @@ import type { Prisma } from "@/generated/prisma";
 
 /**
  * Recalcule la note en cuillères et le nombre d'avis d'un restaurant à
- * partir de ses avis — dans la transaction qui vient de les écrire, pour que
+ * partir de ses avis, dans la transaction qui vient de les écrire, pour que
  * la fiche ne montre jamais une moyenne d'avant. Partagé par le dépôt d'avis
  * du dîneur et l'API d'administration.
  */
