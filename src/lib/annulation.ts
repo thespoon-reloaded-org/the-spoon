@@ -92,7 +92,7 @@ export const MESSAGES_REFUS_ANNULATION: Record<
 > = {
   "non-annulable": "Cette réservation n'est plus annulable.",
   "creneau-passe": "Ce créneau est déjà passé, impossible d'annuler.",
-  "delai-depasse": "Le délai d'annulation de ce restaurant est dépassé.",
+  "delai-depasse": "Le délai d'annulation fixé par ce restaurant est dépassé.",
 };
 
 /**
