@@ -7,7 +7,7 @@ import type { CategoriePlat } from "@/generated/prisma";
  * « [ PHOTO ] » ou un emoji 🥣 : la grille d'accueil ressemblait à une maquette
  * plutôt qu'à un produit. Tant que le partenaire n'a pas téléversé sa propre
  * photo (`/espace-restaurant/fiche` et `/espace-restaurant/menu`), on montre
- * une photo générique cohérente avec sa cuisine — elle est *remplacée* dès
+ * une photo générique cohérente avec sa cuisine, elle est *remplacée* dès
  * qu'une vraie photo existe, jamais superposée.
  *
  * Les fichiers vivent dans `public/images/` (voir `SOURCES.md`).
