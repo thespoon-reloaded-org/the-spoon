@@ -1,7 +1,7 @@
 /**
  * Créneaux de réservation : constantes partagées entre la fiche établissement
  * (génère les options affichées) et l'action serveur (valide ce qui est
- * reçu). Pas de moteur de disponibilité/capacité — un créneau est valide s'il
+ * reçu). Pas de moteur de disponibilité/capacité, un créneau est valide s'il
  * correspond à l'une de ces constantes et tombe dans la fenêtre réservable.
  *
  * Toutes les dates d'ici sont des heures murales parisiennes, jamais des
