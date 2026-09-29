@@ -8,7 +8,7 @@
  *
  * Une plage = un service continu sur un jour de semaine ISO (0 = lundi …
  * 6 = dimanche, voir `jourSemaineIso`). Ouvert midi et soir = deux plages sur
- * le même jour. Un jour sans plage est fermé — sauf si le restaurant n'a
+ * le même jour. Un jour sans plage est fermé, sauf si le restaurant n'a
  * aucune plage du tout, auquel cas il n'a rien déclaré et tous les créneaux
  * restent proposés (voir `horairesDeclares`).
  */
