@@ -85,7 +85,7 @@ export function peutPrevenirAbsence(
   return !verdict.annulable && verdict.raison === "delai-depasse";
 }
 
-/** Ce qu'on dit au dîneur quand le bouton n'est pas là. Une phrase, pas un code. */
+/** Ce qu'on dit au dîneur quand le bouton n'est pas là. Une phrase, jamais un code. */
 export const MESSAGES_REFUS_ANNULATION: Record<
   Exclude<Annulabilite, { annulable: true }>["raison"],
   string
