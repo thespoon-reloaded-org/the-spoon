@@ -5,7 +5,7 @@ import type { Allergene } from "@/generated/prisma";
  * UE n° 1169/2011). Libellés volontairement proches du texte réglementaire :
  * le dîneur allergique connaît ces mots-là, pas une reformulation maison.
  *
- * Module sans dépendance à Prisma runtime (seulement un `import type`) — il
+ * Module sans dépendance à Prisma runtime (seulement un `import type`), il
  * est importé par le formulaire client de « Ma carte », qui n'a rien à faire
  * de `pg` dans son bundle. Même raison que `contestation-labels.ts`.
  */
