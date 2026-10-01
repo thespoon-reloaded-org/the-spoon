@@ -117,10 +117,7 @@ export const schemaDemandeReferencement = z.object({
   nom: texte.max(100, "Nom trop long (100 caractères max)."),
   email: z.string().trim().min(1, "Obligatoire.").max(200).email("Email invalide."),
   etablissement: texte.max(150, "Nom d'établissement trop long (150 caractères max)."),
-  /** Facultative : les demandes d'avant l'ajout du champ n'en ont pas. */
-  adresse: texteOptionnel.pipe(
-    z.string().max(250, "Adresse trop longue (250 caractères max).").nullable(),
-  ),
+  adresse: texte.max(250, "Adresse trop longue (250 caractères max)."),
   message: texte.max(2000, "Message trop long (2000 caractères max)."),
   creeLe,
 });

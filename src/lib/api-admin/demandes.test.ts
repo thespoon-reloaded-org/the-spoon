@@ -42,6 +42,7 @@ const valide = (etablissement: string) => ({
   nom: "Sophie Laurent",
   email,
   etablissement: `${etablissement} ${suffixe}`,
+  adresse: "7 rue Exemple, 75009 Paris",
   message: "Nous souhaitons être référencés.",
 });
 
@@ -71,20 +72,17 @@ describe("POST /api/admin/demandes", () => {
     expect(r.corps.crees[0].createdAt).toBe("2026-09-24T07:12:00.000Z");
   });
 
-  test("enregistre l'adresse quand elle est donnée, null sinon", async () => {
-    const r = await appeler(
-      demandes.POST,
-      requete([
-        { ...valide("Avec adresse"), adresse: "7 rue Exemple, 75009 Paris" },
-        valide("Sans adresse"),
-      ]),
-    );
+  test("enregistre l'adresse et la rend obligatoire", async () => {
+    const r = await appeler(demandes.POST, requete(valide("Avec adresse")));
     expect(r.statut).toBe(201);
-    const lignes = await prisma.demandeContactRestaurateur.findMany({
-      where: { id: { in: r.corps.crees.map((c: { id: string }) => c.id) } },
-      orderBy: { etablissement: "asc" },
+    const ligne = await prisma.demandeContactRestaurateur.findUniqueOrThrow({
+      where: { id: r.corps.crees[0].id },
     });
-    expect(lignes.map((l) => l.adresse)).toEqual(["7 rue Exemple, 75009 Paris", null]);
+    expect(ligne.adresse).toBe("7 rue Exemple, 75009 Paris");
+
+    const sansAdresse: Record<string, unknown> = valide("Sans adresse");
+    delete sansAdresse.adresse;
+    expect((await appeler(demandes.POST, requete(sansAdresse))).statut).toBe(400);
   });
 
   test("accepte une liste", async () => {
@@ -127,7 +125,7 @@ describe("GET /api/admin/demandes", () => {
     const r = await appeler(demandes.GET, requete());
     expect(r.statut).toBe(200);
     const miennes = r.corps.demandes.filter((d: { email: string }) => d.email === email);
-    expect(miennes.length).toBeGreaterThanOrEqual(5);
+    expect(miennes.length).toBeGreaterThanOrEqual(4);
     const dates = r.corps.demandes.map((d: { createdAt: string }) => d.createdAt);
     expect(dates).toEqual([...dates].sort().reverse());
   });
