@@ -4,7 +4,19 @@ Used by the automated reviewer (Pi, run by the SDLC control plane) on every task
 
 ## How to judge
 
-Score each dimension from 1 (unacceptable) to 5 (excellent). Use **blocker** for anything that must not merge, **major** for a defect that should be fixed in this PR, **minor** for polish. Approve only when there is no blocker and no major finding.
+Score each dimension from 1 to 5 using the anchors below. A score must follow from your findings: every score below 5 needs at least one finding that explains it, and a finding you cannot point to in the diff (file and line when possible) must not lower a score. Do not give 5 out of politeness, and do not give 1 or 2 without a blocker or major finding.
+
+| Score | Meaning |
+| --- | --- |
+| 5 | No findings in this dimension. Nothing you would change. |
+| 4 | Only minor findings (polish, naming, small gaps). |
+| 3 | One major finding, or several minors that together hurt. Should be fixed before merging. |
+| 2 | Several major findings, or a major finding in a critical area. |
+| 1 | At least one blocker: the change must not merge as it is. |
+
+Severities: **blocker** = must not merge (wrong behaviour, security hole, broken build or tests, violates a hard rule). **major** = a defect or clear rule violation that should be fixed in this PR. **minor** = polish.
+
+Verdict: `approve` only when there is no blocker and no major finding in any dimension. Otherwise `changes_requested`.
 
 ## 1. Correctness
 
