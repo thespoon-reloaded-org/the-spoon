@@ -1,7 +1,7 @@
 ---
 id: 002
 title: Consistent footer link underline offset
-status: implemented
+status: done
 depends_on:
   - 001
 ---
