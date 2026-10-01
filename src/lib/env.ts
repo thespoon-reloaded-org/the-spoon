@@ -27,7 +27,7 @@ const schema = z.object({
     z.string().trim().toLowerCase().optional(),
   ),
   // Assistant de recherche de l'accueil (`/api/chatbot`) : l'une ou l'autre
-  // clé, Anthropic prioritaire (voir src/lib/chatbot/agent.ts). Aucune des
+  // clé, OpenRouter prioritaire (voir src/lib/chatbot/agent.ts). Aucune des
   // deux : la route répond 503 et le widget n'est pas affiché — le reste du
   // site n'en dépend pas.
   ANTHROPIC_API_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
