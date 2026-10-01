@@ -300,6 +300,7 @@ export async function creerDemandesReferencement(
           nom: d.nom,
           email: d.email,
           etablissement: d.etablissement,
+          adresse: d.adresse,
           message: d.message,
           createdAt: d.creeLe,
         },

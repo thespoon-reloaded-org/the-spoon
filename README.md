@@ -177,7 +177,7 @@ curl -H "Authorization: Bearer $ADMIN_API_TOKEN" http://localhost:3100/api/admin
 | `POST /api/admin/restaurants` | Restaurants : `plats` (`allergenes` absent = non renseigné, `[]` = aucun), `horaires` (`{ jourSemaine: 0-6, debut: "12:00", fin: "14:30" }`), `contacts`, `creeLe?` | 20 |
 | `POST /api/admin/restaurants/{id}/contacts` | Contacts d'un restaurant existant | 10 |
 | `GET /api/admin/demandes` | Demandes de référencement reçues | |
-| `POST /api/admin/demandes` | Demandes de référencement d'un restaurateur pas encore partenaire : `nom`, `email`, `etablissement`, `message`, `creeLe?` — mêmes bornes que le formulaire « Devenir partenaire » | 50 |
+| `POST /api/admin/demandes` | Demandes de référencement d'un restaurateur pas encore partenaire : `nom`, `email`, `etablissement`, `adresse?`, `message`, `creeLe?` — mêmes bornes que le formulaire « Devenir partenaire » | 50 |
 | `POST /api/admin/dineurs` | Comptes dîneur (`nom`, `email`, `motDePasse?`, `creeLe?`) | 50 |
 | `POST /api/admin/avis` | Avis : `restaurantId`, `dineurEmail`, `noteCuilleres` (1 à 5), `commentaire?`, `creeLe?` — seulement après un service où le dîneur a été servi, un par dîneur et par restaurant ; la note du restaurant est recalculée | 1000 |
 | `POST /api/admin/staff` | Membres du staff (`nom`, `email`, `role?`, `motDePasse?`, `creeLe?`) — un instructeur ne signe pas une étape antérieure à son arrivée | 20 |

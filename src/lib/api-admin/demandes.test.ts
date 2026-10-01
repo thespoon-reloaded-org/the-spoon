@@ -71,6 +71,22 @@ describe("POST /api/admin/demandes", () => {
     expect(r.corps.crees[0].createdAt).toBe("2026-09-24T07:12:00.000Z");
   });
 
+  test("enregistre l'adresse quand elle est donnée, null sinon", async () => {
+    const r = await appeler(
+      demandes.POST,
+      requete([
+        { ...valide("Avec adresse"), adresse: "7 rue Exemple, 75009 Paris" },
+        valide("Sans adresse"),
+      ]),
+    );
+    expect(r.statut).toBe(201);
+    const lignes = await prisma.demandeContactRestaurateur.findMany({
+      where: { id: { in: r.corps.crees.map((c: { id: string }) => c.id) } },
+      orderBy: { etablissement: "asc" },
+    });
+    expect(lignes.map((l) => l.adresse)).toEqual(["7 rue Exemple, 75009 Paris", null]);
+  });
+
   test("accepte une liste", async () => {
     const r = await appeler(demandes.POST, requete([valide("Liste A"), valide("Liste B")]));
     expect(r.statut).toBe(201);
@@ -111,7 +127,7 @@ describe("GET /api/admin/demandes", () => {
     const r = await appeler(demandes.GET, requete());
     expect(r.statut).toBe(200);
     const miennes = r.corps.demandes.filter((d: { email: string }) => d.email === email);
-    expect(miennes.length).toBeGreaterThanOrEqual(3);
+    expect(miennes.length).toBeGreaterThanOrEqual(5);
     const dates = r.corps.demandes.map((d: { createdAt: string }) => d.createdAt);
     expect(dates).toEqual([...dates].sort().reverse());
   });

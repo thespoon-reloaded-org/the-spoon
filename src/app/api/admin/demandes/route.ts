@@ -6,14 +6,6 @@ import { prisma } from "@/lib/prisma";
 export const GET = routeAdmin(async () => {
   const demandes = await prisma.demandeContactRestaurateur.findMany({
     orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      nom: true,
-      email: true,
-      etablissement: true,
-      message: true,
-      createdAt: true,
-    },
   });
   return repondre({ demandes });
 });
