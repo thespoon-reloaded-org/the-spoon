@@ -161,9 +161,15 @@ describe("outils de l'assistant de recherche", () => {
     }
   });
 
-  test("la recherche dit à l'agent quels restaurants étaient éligibles", async () => {
-    const { candidats } = await executerOutil("rechercher_restaurants", { villes: [VILLE] });
+  test("les éligibles comptent aussi ceux que la limite laisse dehors", async () => {
+    const { contenu, candidats } = await executerOutil("rechercher_restaurants", {
+      villes: [VILLE],
+      limite: 1,
+    });
+    // Un seul montré à l'agent, mais deux éligibles pour la mesure.
+    expect(JSON.parse(contenu).restaurants).toHaveLength(1);
     expect(candidats).toHaveLength(2);
+    expect(contenu).not.toContain("idsEligibles");
   });
 
   test("une entrée invalide revient à l'agent comme erreur, sans exception", async () => {
