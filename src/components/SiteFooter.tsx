@@ -27,7 +27,7 @@ export function SiteFooter() {
 
           <div className="grid grid-cols-2 gap-10 sm:grid-cols-3">
             <nav aria-label="Dîneurs" className="flex flex-col gap-3">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[#8a7f85]">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[#a89ea3]">
                 Dîneurs
               </p>
               <Link href="/" className="text-sm text-[#e3d9dc] hover:text-white hover:underline">
@@ -48,7 +48,7 @@ export function SiteFooter() {
             </nav>
 
             <nav aria-label="Restaurateurs" className="flex flex-col gap-3">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[#8a7f85]">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[#a89ea3]">
                 Restaurateurs
               </p>
               <Link
@@ -72,7 +72,7 @@ export function SiteFooter() {
             </nav>
 
             <nav aria-label="TheSpoon" className="flex flex-col gap-3">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[#8a7f85]">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[#a89ea3]">
                 TheSpoon
               </p>
               <Link
@@ -86,7 +86,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[#8a7f85]">
+          <p className="text-sm text-[#a89ea3]">
             © {new Date().getFullYear()} TheSpoon — la note s&apos;affiche en cuillères.
           </p>
           <Link
