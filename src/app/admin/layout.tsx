@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 const MENU: readonly EntreeMenu[] = [
+  { href: "/admin/tableau-de-bord", label: "Tableau de bord", icone: "tableauBord" },
   { href: "/admin/restaurants", label: "Restaurants", icone: "restaurants" },
   { href: "/admin/factures", label: "Facturation", icone: "facture" },
   { href: "/admin/litiges", label: "Litiges", icone: "litige" },
