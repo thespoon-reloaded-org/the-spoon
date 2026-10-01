@@ -70,12 +70,31 @@ A task with a broken frontmatter, an unknown status, a missing id/title or a dep
 
 ## Writing good specs and tasks
 
-- **One task = one PR = one reviewable change.** If a task needs more than a few files or more than a short conversation to review, split it. Tasks run in order, one at a time, each from the current `main`.
+- **Default to ONE task.** A spec has a single task unless there is a real reason to split (see "Sizing tasks"). Every task costs a full cycle: a sandbox run, an automated review, a PR, a human review and a merge. Tasks run in order, one at a time, each from the current `main`.
+- **Keep the spec proportional.** A small change gets a short `SPEC.md` (a few lines of goal and scope) and one task. Do not write more spec than the diff it describes.
 - Acceptance criteria must be **checkable**: a command that passes, a file that changes in a stated way, a behaviour a reviewer can see. Prefer "`pnpm typecheck` and `pnpm lint` pass" over "code is clean".
 - State the scope and the non-goals in `SPEC.md`. Name the files expected to change.
 - Put the reasoning in `SPEC.md` (goal, why, scope, non-goals, whole-spec acceptance criteria) and the concrete work in the tasks.
 - Do not put secrets, credentials or personal data in a spec: its text is sent to a model and shown on the board.
 - Write tasks in English (the agent's working language); the code may stay French where the codebase is.
+
+## Sizing tasks
+
+One task = one PR = one change a reviewer can understand and merge **on its own**.
+
+**Split only when all of these hold:**
+
+- Each task, merged alone, leaves `main` working and consistent (builds, no visible regression, no half-done behaviour).
+- The tasks are genuinely independent steps, for example a database migration that must ship before the code using it, or two unrelated features in one spec.
+- The single PR would be too large to review in one sitting (many files across unrelated areas), not merely "has two parts".
+
+**Do NOT split:**
+
+- By file, by line, or by "implementation then tuning". If part B only compensates for part A (a constant adjusted because a list got longer, a style tweak that follows a markup change, tests for the code just written), it belongs to the same task.
+- Because a spec has several acceptance criteria. Criteria go in one task's list.
+- Cosmetic or one-file changes: always one task.
+
+Rule of thumb: if two tasks edit the same file, or the second one only makes sense because of the first, merge them. Prefer one larger task over several tiny ones; if you are unsure, use one task. More than three tasks in a spec needs a justification in `SPEC.md`.
 
 ## Lifecycle
 
@@ -105,4 +124,5 @@ There is no validator command. Check by hand:
 - [ ] Every task file starts with `---`, has `id`, `title`, `status: pending`, and ids match filenames.
 - [ ] `depends_on` only references existing task ids and has no cycle.
 - [ ] Each task has acceptance criteria that can be checked.
+- [ ] The spec has as few tasks as possible (one by default); no task exists only to adjust what another task changes.
 - [ ] After merging, the board shows the spec without a "Parse error" badge.
