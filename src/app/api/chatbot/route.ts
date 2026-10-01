@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -58,6 +59,15 @@ export async function POST(request: Request) {
     return NextResponse.json(await lancerAgent(lu.data.messages, lu.data.dejaProposes));
   } catch (erreur) {
     console.error("Chatbot en échec :", erreur);
+    // Le fournisseur du modèle refuse ou sature (quota, débit, surcharge) :
+    // ce n'est pas la recherche du dîneur qui est en cause, et réessayer
+    // dans un instant peut suffire.
+    if (erreur instanceof Anthropic.APIError && [403, 429, 529].includes(erreur.status ?? 0)) {
+      return NextResponse.json(
+        { erreur: "L'assistant est très demandé en ce moment, réessaie dans une minute." },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ erreur: "La recherche a échoué, réessaie." }, { status: 502 });
   }
 }

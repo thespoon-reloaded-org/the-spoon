@@ -130,7 +130,14 @@ export function ChatbotRecherche() {
         (ReponseChatbot & { erreur?: undefined }) | { erreur: string } | null;
 
       if (!reponse.ok || !donnees || donnees.erreur !== undefined) {
-        setErreur(donnees?.erreur ?? "La recherche a échoué, réessaie.");
+        // Sans corps JSON, c'est l'hébergeur qui a répondu : 504, la fonction
+        // a été coupée faute de temps.
+        setErreur(
+          donnees?.erreur ??
+            (reponse.status === 504
+              ? "La recherche a pris trop de temps : essaie avec moins de critères."
+              : "La recherche a échoué, réessaie."),
+        );
         setBulles(bulles);
         if (!autreProposition) setSaisie(question);
         return;

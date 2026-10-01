@@ -12,29 +12,55 @@ import { ENTREE_PRESENTATION, executerOutil, OUTILS } from "./outils";
 const TOURS_MAX = 8;
 
 /**
- * Fournisseur du modèle : l'API Anthropic en direct si sa clé est posée,
- * sinon OpenRouter, qui expose une API compatible (même SDK, autre adresse,
- * autre nom de modèle). Le repli côté serveur (`fallbacks`) est une fonction
- * de l'API Anthropic : on ne l'envoie qu'à elle.
+ * Fournisseur du modèle : OpenRouter si sa clé est posée, sinon l'API
+ * Anthropic (même SDK, autre adresse, autre nom de modèle).
+ *
+ * OpenRouter passe en premier parce que c'est le seul des deux qu'on pose
+ * forcément à la main : sur Netlify, l'AI Gateway injecte d'office un
+ * `ANTHROPIC_API_KEY` (et son `ANTHROPIC_BASE_URL`) dans les fonctions du
+ * site qui n'en ont pas — c'est par lui que passait la production, et il
+ * répondait 403 passé quelques recherches. Une clé posée exprès doit
+ * l'emporter sur une clé injectée. Le repli côté serveur (`fallbacks`) est
+ * une fonction de l'API Anthropic : on ne l'envoie qu'à elle.
  */
 function fournisseur() {
-  if (env.ANTHROPIC_API_KEY) {
+  if (env.OPENROUTER_API_KEY) {
     return {
-      client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
-      modele: "claude-opus-5-5",
-      repli: true,
+      client: new Anthropic({
+        baseURL: "https://openrouter.ai/api",
+        apiKey: null,
+        authToken: env.OPENROUTER_API_KEY,
+        maxRetries: 0,
+      }),
+      modele: "anthropic/claude-opus-5.5",
+      repli: false,
     };
   }
   return {
-    client: new Anthropic({
-      baseURL: "https://openrouter.ai/api",
-      apiKey: null,
-      authToken: env.OPENROUTER_API_KEY,
-    }),
-    modele: "anthropic/claude-opus-5.5",
-    repli: false,
+    // Pas de nouvelle tentative automatique : chaque appel est déjà borné
+    // par le temps qu'il reste (voir `BUDGET_MS`), une relance le ferait
+    // déborder.
+    client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 0 }),
+    modele: "claude-opus-5-5",
+    repli: true,
   };
 }
+
+/**
+ * Temps total accordé à une recherche. Une fonction Netlify est coupée net
+ * à 30 secondes (le dîneur reçoit alors une page d'erreur, pas une réponse) :
+ * on garde de quoi enregistrer la proposition et répondre.
+ */
+const BUDGET_MS = 25_000;
+
+/** Passé ce délai, on demande à l'agent de conclure avec ce qu'il a déjà. */
+const CONCLURE_APRES_MS = 15_000;
+
+/** En dessous, un appel au modèle n'a pas le temps d'aboutir : on s'arrête. */
+const APPEL_MIN_MS = 3_000;
+
+const CONSIGNE_CONCLURE =
+  "Le temps de recherche est presque écoulé : n'appelle plus d'outil de recherche. Appelle maintenant presenter_top10 avec les meilleurs restaurants déjà trouvés ; si la demande avait beaucoup de critères, dis au dîneur lesquels tu as pu vérifier.";
 
 /** Une clé de l'un ou l'autre fournisseur suffit à activer l'assistant. */
 export function assistantDisponible(): boolean {
@@ -65,6 +91,12 @@ export type ReponseChatbot = {
 
 const REPLI_ERREUR: ReponseChatbot = {
   message: "Je n'ai pas réussi à faire cette recherche, tu peux la reformuler ?",
+  restaurants: [],
+};
+
+const REPLI_TROP_LONG: ReponseChatbot = {
+  message:
+    "Ta recherche me prend trop de temps. Essaie avec un ou deux critères de moins, je pourrai affiner ensuite.",
   restaurants: [],
 };
 
@@ -159,20 +191,34 @@ export async function lancerAgent(
   }));
   const systeme = consigne(dejaProposes.length);
   const candidats = new Set<string>();
+  const debut = Date.now();
 
   for (let tour = 0; tour < TOURS_MAX; tour++) {
-    const reponse = await client.beta.messages.create({
-      model: modele,
-      max_tokens: 8000,
-      system: systeme,
-      tools: OUTILS,
-      messages,
-      output_config: { effort: "low" },
-      // Repli côté serveur si un classificateur de sécurité décline la requête.
-      ...(repli
-        ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
-        : {}),
-    });
+    const restant = BUDGET_MS - (Date.now() - debut);
+    if (restant < APPEL_MIN_MS) return REPLI_TROP_LONG;
+
+    let reponse: Anthropic.Beta.Messages.BetaMessage;
+    try {
+      reponse = await client.beta.messages.create(
+        {
+          model: modele,
+          max_tokens: 8000,
+          system: systeme,
+          tools: OUTILS,
+          messages,
+          output_config: { effort: "low" },
+          // Repli côté serveur si un classificateur de sécurité décline la requête.
+          ...(repli
+            ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
+            : {}),
+        },
+        { timeout: restant },
+      );
+    } catch (erreur) {
+      // Le délai est atteint : un message clair plutôt qu'une coupure Netlify.
+      if (erreur instanceof Anthropic.APIConnectionTimeoutError) return REPLI_TROP_LONG;
+      throw erreur;
+    }
 
     if (reponse.stop_reason === "refusal" || reponse.stop_reason === "max_tokens") {
       return REPLI_ERREUR;
@@ -249,7 +295,14 @@ export async function lancerAgent(
         };
       }),
     );
-    messages.push({ role: "user", content: resultats });
+    // Passé le premier temps, on demande de conclure : la recherche suivante
+    // risquerait de faire déborder le budget sans laisser le temps de
+    // présenter quoi que ce soit.
+    const conclure = Date.now() - debut > CONCLURE_APRES_MS;
+    messages.push({
+      role: "user",
+      content: conclure ? [...resultats, { type: "text", text: CONSIGNE_CONCLURE }] : resultats,
+    });
   }
 
   return REPLI_ERREUR;
