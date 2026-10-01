@@ -1,7 +1,7 @@
 ---
 id: 001
 title: Accepter ou rejeter une demande restaurateur, avec journal
-status: pending
+status: done
 ---
 
 # Task
