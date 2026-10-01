@@ -1,7 +1,7 @@
 ---
 id: 001
 title: Ajouter SIREN, URL Google My Business et menus à la cuillère à la demande restaurateur
-status: pending
+status: done
 ---
 
 # Task

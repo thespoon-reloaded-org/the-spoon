@@ -225,14 +225,27 @@ model RestaurantContact {
 /// demande côté Console staff ; pas de statut de traitement pour l'instant,
 /// ça arrivera avec le ticket qui décrira le suivi de ces demandes.
 model DemandeContactRestaurateur {
-  id            String   @id @default(cuid())
-  nom           String
-  email         String
-  etablissement String
+  id                  String   @id @default(cuid())
+  nom                 String
+  email               String
+  etablissement       String
   /// Nullable : les demandes déposées avant l'ajout du champ n'en ont pas.
-  adresse       String?
-  message       String
-  createdAt     DateTime @default(now())
+  adresse             String?
+  /// Nullable : les demandes déposées avant l'ajout du champ n'en ont pas, et
+  /// un journal de demandes ne se réécrit pas. Neuf chiffres, stockés sans
+  /// espace. Sert au staff à identifier l'entreprise sans la rechercher à la
+  /// main.
+  siren               String?
+  /// Nullable : facultatif y compris pour les nouvelles demandes, et absent
+  /// des demandes antérieures. La fiche Google My Business de l'établissement,
+  /// pour situer son activité sans la vérifier hors de sa forme.
+  urlGoogleMyBusiness String?
+  /// Nullable : les demandes antérieures n'ont pas la réponse. Le critère
+  /// d'éligibilité de TheSpoon, déclaré par le restaurateur (oui / non), pas
+  /// deviné par le staff.
+  menusALaCuillere    Boolean?
+  message             String
+  createdAt           DateTime @default(now())
 }
 
 /// L'organigramme interne TheSpoon. Pas de rôles détaillés ici (instructeur
