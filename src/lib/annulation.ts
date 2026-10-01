@@ -34,8 +34,15 @@ export type ReservationAnnulable = {
  */
 export function limiteAnnulation(dateCreneau: Date, delaiHeures: number | null): Date | null {
   if (delaiHeures === null || delaiHeures <= 0) return null;
-  return new Date(dateCreneau.getTime() - delaiHeures * 60 * 1000);
+  return new Date(dateCreneau.getTime() - delaiHeures * MS_PAR_HEURE);
 }
+
+/** Une heure, en millisecondes. Nommée pour ne plus recompter les zéros. */
+const MS_PAR_HEURE = 60 * 1000;
+
+// TODO (Marc) : délais en minutes, demandé par Chez Antoine pour le service
+// du midi (« annulation jusqu'à 30 min avant »). Il faudra un champ
+// `delaiAnnulationMinutes` sur la fiche et une migration. À reprendre.
 
 export type Annulabilite =
   | { annulable: true }
