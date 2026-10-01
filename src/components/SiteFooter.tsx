@@ -30,18 +30,18 @@ export function SiteFooter() {
               <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[#a89ea3]">
                 Dîneurs
               </p>
-              <Link href="/" className="text-sm text-[#e3d9dc] hover:text-white hover:underline">
+              <Link href="/" className="text-sm text-[#e3d9dc] hover:text-white hover:underline underline-offset-4">
                 Rechercher un restaurant
               </Link>
               <Link
                 href="/mes-reservations"
-                className="text-sm text-[#e3d9dc] hover:text-white hover:underline"
+                className="text-sm text-[#e3d9dc] hover:text-white hover:underline underline-offset-4"
               >
                 Mes réservations
               </Link>
               <Link
                 href="/connexion"
-                className="text-sm text-[#e3d9dc] hover:text-white hover:underline"
+                className="text-sm text-[#e3d9dc] hover:text-white hover:underline underline-offset-4"
               >
                 Créer un compte
               </Link>
@@ -53,19 +53,19 @@ export function SiteFooter() {
               </p>
               <Link
                 href="/connexion-restaurant"
-                className="text-sm text-[#e3d9dc] hover:text-white hover:underline"
+                className="text-sm text-[#e3d9dc] hover:text-white hover:underline underline-offset-4"
               >
                 Espace restaurateur
               </Link>
               <Link
                 href="/espace-restaurant/reservations"
-                className="text-sm text-[#e3d9dc] hover:text-white hover:underline"
+                className="text-sm text-[#e3d9dc] hover:text-white hover:underline underline-offset-4"
               >
                 Réservations reçues
               </Link>
               <Link
                 href="/espace-restaurant/factures"
-                className="text-sm text-[#e3d9dc] hover:text-white hover:underline"
+                className="text-sm text-[#e3d9dc] hover:text-white hover:underline underline-offset-4"
               >
                 Mes factures
               </Link>
@@ -77,7 +77,7 @@ export function SiteFooter() {
               </p>
               <Link
                 href="/connexion-admin"
-                className="text-sm text-[#e3d9dc] hover:text-white hover:underline"
+                className="text-sm text-[#e3d9dc] hover:text-white hover:underline underline-offset-4"
               >
                 Console staff
               </Link>
@@ -91,7 +91,7 @@ export function SiteFooter() {
           </p>
           <Link
             href="/devenir-partenaire"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-yellow)] hover:underline"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-yellow)] hover:underline underline-offset-4"
           >
             Référencer mon restaurant
             <IconeFleche taille={16} />
