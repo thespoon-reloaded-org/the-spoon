@@ -19,7 +19,7 @@
     "seed:dev": "tsx scripts/seed-dev.ts",
     "creer-compte": "tsx scripts/creer-compte.ts",
     "jeu-formation": "tsx scripts/jeu-formation/index.ts",
-    "agent:qualifier": "tsx agents/qualification/index.ts",
+    "agent:qualifier": "tsx agents/qualification/index.mts",
     "postinstall": "prisma generate",
     "format": "prettier --write ."
   },

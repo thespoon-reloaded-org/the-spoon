@@ -45,7 +45,10 @@ const consignes = readFileSync(new URL("./prompt.md", import.meta.url), "utf8")
   .replace("{{ZONES_CIBLES}}", ZONES_CIBLES.join(", "))
   .replace("{{SUPPORT_EMAIL}}", SUPPORT_EMAIL)
   .replace("{{ETAPE_2_URL}}", ETAPE_2_URL);
-const schemaSortie = z.toJSONSchema(schemaAnalyseDemande, { io: "input" });
+// Sans `$schema` : le SDK ne connaît pas le méta-schéma 2020-12 que zod annonce.
+const { $schema: _metaSchema, ...schemaSortie } = z.toJSONSchema(schemaAnalyseDemande, {
+  io: "input",
+});
 
 async function api(chemin: string, init?: RequestInit) {
   const reponse = await fetch(`${API}/api/admin${chemin}`, {
