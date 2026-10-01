@@ -36,7 +36,7 @@ const ENTREE_RECHERCHE = z.object({
     .string()
     .regex(/^\d{2}:\d{2}$/)
     .optional(),
-  tri: z.enum(["note", "avis"]).optional(),
+  tri: z.enum(["pertinence", "note", "avis"]).optional(),
   limite: z.number().int().min(1).max(LIMITE_MAX).optional(),
 });
 
@@ -107,7 +107,12 @@ export const OUTILS: Anthropic.Tool[] = [
         note_min: { type: "number", description: "Note minimale en cuillères (0 à 5)." },
         jour: { type: "string", description: "Date AAAA-MM-JJ où le restaurant doit être ouvert." },
         heure: { type: "string", description: "Heure HH:MM (avec « jour »)." },
-        tri: { type: "string", enum: ["note", "avis"], description: "Défaut « note »." },
+        tri: {
+          type: "string",
+          enum: ["pertinence", "note", "avis"],
+          description:
+            "Défaut « pertinence » : mots-clés satisfaits, puis note pondérée par le nombre d'avis, ex æquo tirés au sort. « avis » : les plus populaires, seulement si le dîneur le demande.",
+        },
         limite: { type: "integer", description: "Nombre de candidats, 25 max." },
       },
     },
@@ -226,6 +231,89 @@ function platCorrespond(
   return criteres.some(Boolean);
 }
 
+/**
+ * Plafond de restaurants lus par recherche avant classement. Le catalogue en
+ * compte une quinzaine ; la marge sert le jour où il grossit, sans laisser
+ * une requête large tout charger.
+ */
+const CANDIDATS_MAX = 300;
+
+/**
+ * Poids de la moyenne du catalogue dans la note pondérée, compté en avis :
+ * un restaurant pèse comme s'il avait déjà reçu ce nombre d'avis à la note
+ * moyenne. Assez pour qu'un 4,9 sur 3 avis ne passe pas devant un 4,5 sur
+ * 150, assez peu pour qu'une centaine d'avis parle d'elle-même.
+ */
+export const POIDS_A_PRIORI = 10;
+
+/** Note moyenne des restaurants notés — l'a priori de `notePonderee`. */
+async function moyenneCatalogue(): Promise<number> {
+  const { _avg } = await prisma.restaurant.aggregate({
+    where: { nombreAvis: { gt: 0 }, noteCuilleres: { not: null } },
+    _avg: { noteCuilleres: true },
+  });
+  return _avg.noteCuilleres ?? 4;
+}
+
+/**
+ * Note bayésienne : la note du restaurant, tirée vers la moyenne du
+ * catalogue d'autant plus qu'il a peu d'avis. Un restaurant sans avis reçoit
+ * la moyenne — et non plus la dernière place, qui l'empêchait d'être jamais
+ * proposé, donc jamais noté.
+ */
+export function notePonderee(note: number | null, nombreAvis: number, moyenne: number): number {
+  if (note === null || nombreAvis <= 0) return moyenne;
+  return (POIDS_A_PRIORI * moyenne + note * nombreAvis) / (POIDS_A_PRIORI + nombreAvis);
+}
+
+/**
+ * Nombre de mots-clés distincts que le restaurant satisfait (nom,
+ * description, plats). Les filtres durs sont déjà tous respectés ; c'est la
+ * seule chose qui distingue un candidat plus pertinent qu'un autre.
+ */
+function pertinence(
+  restaurant: {
+    nom: string;
+    description: string | null;
+    platsCuillere: { nom: string; description: string | null }[];
+  },
+  motsCles: string[],
+): number {
+  if (motsCles.length === 0) return 0;
+  const texte = [
+    restaurant.nom,
+    restaurant.description ?? "",
+    ...restaurant.platsCuillere.flatMap((p) => [p.nom, p.description ?? ""]),
+  ]
+    .join(" ")
+    .toLowerCase();
+  const distincts = new Set(motsCles.map((m) => m.toLowerCase()));
+  return [...distincts].filter((m) => texte.includes(m)).length;
+}
+
+/**
+ * Ordre des candidats : la pertinence d'abord, la note pondérée ensuite
+ * (arrondie au dixième — 4,52 et 4,48 ne sont pas une vraie différence), et
+ * un tirage au sort entre ex æquo, pour que deux restaurants équivalents ne
+ * sortent pas toujours dans le même ordre. `tri: "avis"` reste un choix
+ * explicite du dîneur (« les plus populaires »).
+ */
+export function classerCandidats<
+  T extends { pertinence: number; notePonderee: number; nombreAvis: number },
+>(candidats: T[], tri: "pertinence" | "note" | "avis", aleatoire: () => number = Math.random): T[] {
+  return candidats
+    .map((c) => ({ c, tirage: aleatoire() }))
+    .sort((a, b) => {
+      if (tri === "avis") return b.c.nombreAvis - a.c.nombreAvis || a.tirage - b.tirage;
+      return (
+        b.c.pertinence - a.c.pertinence ||
+        Math.round(b.c.notePonderee * 10) - Math.round(a.c.notePonderee * 10) ||
+        a.tirage - b.tirage
+      );
+    })
+    .map(({ c }) => c);
+}
+
 async function rechercher(brut: unknown, dejaProposes: string[]) {
   const entree = ENTREE_RECHERCHE.parse(brut);
   if (entree.jour !== undefined && !jourIsoValide(entree.jour)) {
@@ -280,48 +368,49 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
 
   const filtreHoraire = entree.jour !== undefined && entree.heure !== undefined;
   const exclus = entree.sans_allergenes ?? [];
-  const filtreEnMemoire = filtreHoraire || exclus.length > 0;
   const limite = entree.limite ?? 10;
 
-  const restaurants = await prisma.restaurant.findMany({
-    where: { AND: et },
-    orderBy:
-      entree.tri === "avis"
-        ? [{ nombreAvis: "desc" }, { noteCuilleres: { sort: "desc", nulls: "last" } }]
-        : [{ noteCuilleres: { sort: "desc", nulls: "last" } }, { nombreAvis: "desc" }],
-    // Horaires et allergènes se filtrent en mémoire (voir ci-dessous) : on prend de la marge.
-    take: filtreEnMemoire ? LIMITE_MAX * 4 : limite,
-    select: {
-      id: true,
-      nom: true,
-      ville: true,
-      cuisine: true,
-      description: true,
-      noteCuilleres: true,
-      nombreAvis: true,
-      plagesOuverture: { select: { jourSemaine: true, debutMinutes: true, finMinutes: true } },
-      // Les exceptions du seul jour demandé (congés, fermeture ou ouverture
-      // ponctuelle) — la même règle que la carte de réservation, sinon
-      // l'agent annoncerait ouvert un créneau que la carte montre fermé.
-      exceptionsHoraires: {
-        where: { jour: entree.jour ?? "" },
-        select: { jour: true, creneau: true, ouvert: true },
-      },
-      platsCuillere: {
-        orderBy: { createdAt: "asc" },
-        select: {
-          nom: true,
-          description: true,
-          categorie: true,
-          prixCentimes: true,
-          allergenes: true,
-          allergenesDeclaresLe: true,
+  // Pas de tri ni de limite côté SQL : le classement (pertinence, note
+  // pondérée, rotation des ex æquo) se fait en mémoire sur tout ce qui passe
+  // les filtres. Trier en base par note brute puis couper à `limite`, c'était
+  // rendre toujours les mêmes dix restaurants les mieux notés.
+  const [restaurants, moyenne] = await Promise.all([
+    prisma.restaurant.findMany({
+      where: { AND: et },
+      take: CANDIDATS_MAX,
+      select: {
+        id: true,
+        nom: true,
+        ville: true,
+        cuisine: true,
+        description: true,
+        noteCuilleres: true,
+        nombreAvis: true,
+        plagesOuverture: { select: { jourSemaine: true, debutMinutes: true, finMinutes: true } },
+        // Les exceptions du seul jour demandé (congés, fermeture ou ouverture
+        // ponctuelle) — la même règle que la carte de réservation, sinon
+        // l'agent annoncerait ouvert un créneau que la carte montre fermé.
+        exceptionsHoraires: {
+          where: { jour: entree.jour ?? "" },
+          select: { jour: true, creneau: true, ouvert: true },
+        },
+        platsCuillere: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            nom: true,
+            description: true,
+            categorie: true,
+            prixCentimes: true,
+            allergenes: true,
+            allergenesDeclaresLe: true,
+          },
         },
       },
-    },
-  });
+    }),
+    moyenneCatalogue(),
+  ]);
 
-  const retenus = restaurants
+  const filtres = restaurants
     .filter(
       (r) =>
         !filtreHoraire ||
@@ -334,10 +423,21 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
     )
     .filter(
       (r) => exclus.length === 0 || r.platsCuillere.some((p) => platSansAllergenes(p, exclus)),
-    )
-    .slice(0, limite);
+    );
+
+  const retenus = classerCandidats(
+    filtres.map((r) => ({
+      ...r,
+      pertinence: pertinence(r, entree.mots_cles ?? []),
+      notePonderee: notePonderee(r.noteCuilleres, r.nombreAvis, moyenne),
+    })),
+    entree.tri ?? "pertinence",
+  ).slice(0, limite);
 
   return {
+    // Ce qui passe les filtres, pas seulement ce qui est montré : l'agent
+    // sait s'il en reste au-delà de `limite`.
+    eligibles: filtres.length,
     nombre: retenus.length,
     restaurants: retenus.map((r) => ({
       id: r.id,
@@ -346,6 +446,8 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
       cuisine: r.cuisine,
       note_cuilleres: r.noteCuilleres,
       nombre_avis: r.nombreAvis,
+      note_ponderee: Math.round(r.notePonderee * 100) / 100,
+      ...(r.nombreAvis === 0 ? { nouveau: true } : {}),
       description: tronquer(r.description, 200),
       // Les plats qui ont fait retenir le restaurant d'abord : sans ça, le
       // risotto qui justifiait le choix pouvait tomber au-delà des six montrés.
@@ -438,16 +540,21 @@ export async function executerOutil(
   nom: string,
   entree: unknown,
   dejaProposes: string[] = [],
-): Promise<{ contenu: string; erreur: boolean }> {
+): Promise<{ contenu: string; erreur: boolean; candidats?: string[] }> {
   try {
     let resultat: unknown;
     switch (nom) {
       case "lister_valeurs":
         resultat = await listerValeurs();
         break;
-      case "rechercher_restaurants":
-        resultat = await rechercher(entree, dejaProposes);
-        break;
+      case "rechercher_restaurants": {
+        const trouve = await rechercher(entree, dejaProposes);
+        // Les restaurants montrés à l'agent : ceux qu'il aurait pu proposer
+        // (voir `PropositionAssistant.candidatIds`).
+        const candidats =
+          "restaurants" in trouve ? (trouve.restaurants ?? []).map((r) => r.id) : [];
+        return { contenu: JSON.stringify(trouve), erreur: false, candidats };
+      }
       case "details_restaurant":
         resultat = await details(entree);
         break;

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { executerOutil } from "@/lib/chatbot/outils";
+import { classerCandidats, executerOutil, notePonderee } from "@/lib/chatbot/outils";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -147,6 +147,25 @@ describe("outils de l'assistant de recherche", () => {
     expect(bouillon.plats[1].correspond).toBeUndefined();
   });
 
+  test("un restaurant sans avis n'est plus relégué en dernier", async () => {
+    const nouveau = await prisma.restaurant.create({
+      data: { nom: "Nouveau Test", ville: VILLE, cuisine: "Bistrot", adresse: "3 rue du Test" },
+    });
+    try {
+      // Il reçoit la note moyenne du catalogue, au-dessus du bouillon (3,9).
+      const r = await rechercher({});
+      expect(noms(r).indexOf("Nouveau Test")).toBeLessThan(noms(r).indexOf("Bouillon Test"));
+      expect(r.restaurants.find((x) => x.nom === "Nouveau Test")).toMatchObject({ nouveau: true });
+    } finally {
+      await prisma.restaurant.delete({ where: { id: nouveau.id } });
+    }
+  });
+
+  test("la recherche dit à l'agent quels restaurants étaient éligibles", async () => {
+    const { candidats } = await executerOutil("rechercher_restaurants", { villes: [VILLE] });
+    expect(candidats).toHaveLength(2);
+  });
+
   test("une entrée invalide revient à l'agent comme erreur, sans exception", async () => {
     const r = await executerOutil("rechercher_restaurants", { note_min: 12 });
     expect(r.erreur).toBe(true);
@@ -162,5 +181,41 @@ describe("outils de l'assistant de recherche", () => {
     expect(detail.nom).toBe("Trattoria Test");
     expect(detail.plats[0].allergenes).toEqual(["lait"]);
     expect(contenu).not.toMatch(/userId|email/);
+  });
+});
+
+describe("classement des candidats", () => {
+  test("la note pondérée tient compte du nombre d'avis", () => {
+    expect(notePonderee(null, 0, 4.3)).toBe(4.3);
+    // Un 4,9 sur 3 avis ne passe plus devant un 4,5 sur 150.
+    expect(notePonderee(4.9, 3, 4.3)).toBeLessThan(notePonderee(4.5, 150, 4.3));
+  });
+
+  test("la pertinence passe avant la note", () => {
+    const classes = classerCandidats(
+      [
+        { nom: "bien noté", pertinence: 1, notePonderee: 4.8, nombreAvis: 200 },
+        { nom: "pertinent", pertinence: 2, notePonderee: 4.1, nombreAvis: 10 },
+      ],
+      "pertinence",
+    );
+    expect(classes.map((c) => c.nom)).toEqual(["pertinent", "bien noté"]);
+  });
+
+  test("les ex æquo tournent d'une recherche à l'autre", () => {
+    const candidats = [
+      { nom: "a", pertinence: 0, notePonderee: 4.52, nombreAvis: 50 },
+      { nom: "b", pertinence: 0, notePonderee: 4.48, nombreAvis: 80 },
+    ];
+    // Même dixième (4,5) : c'est le tirage qui départage.
+    const tirages = (valeurs: number[]) => () => valeurs.shift()!;
+    expect(classerCandidats(candidats, "note", tirages([0.1, 0.9])).map((c) => c.nom)).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(classerCandidats(candidats, "note", tirages([0.9, 0.1])).map((c) => c.nom)).toEqual([
+      "b",
+      "a",
+    ]);
   });
 });
