@@ -4,12 +4,13 @@ import Link from "next/link";
 
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { IconeChevron, IconeFleche } from "@/components/Icones";
+import { Indicateur } from "@/components/Indicateur";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { authRestaurant } from "@/lib/auth";
 import { formaterMoisFacture, formaterMontant } from "@/lib/facturation";
 import { ajouterJours, aujourdHuiIso, debutDeJournee, formaterHeure } from "@/lib/fuseau";
 import { prisma } from "@/lib/prisma";
-import { CARTE, CARTE_CLIQUABLE, ETAT_VIDE, TITRE_SECTION, pastilleEtat } from "@/lib/ui";
+import { CARTE_CLIQUABLE, ETAT_VIDE, TITRE_SECTION, pastilleEtat } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
 
@@ -21,39 +22,6 @@ export const metadata: Metadata = { title: "Tableau de bord" };
 function bornesDuJour(maintenant: Date) {
   const jour = aujourdHuiIso(maintenant);
   return { debut: debutDeJournee(jour), fin: debutDeJournee(ajouterJours(jour, 1)) };
-}
-
-function Indicateur({
-  libelle,
-  valeur,
-  precision,
-  href,
-}: {
-  libelle: string;
-  valeur: React.ReactNode;
-  precision?: string;
-  href?: string;
-}) {
-  const contenu = (
-    <>
-      <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-[var(--color-ink-muted)]">
-        {libelle}
-      </p>
-      <p className="mt-2 font-[family-name:var(--font-display)] text-3xl font-extrabold leading-none tracking-tight text-[var(--color-ink)]">
-        {valeur}
-      </p>
-      {precision && <p className="mt-1.5 text-sm text-[var(--color-ink-muted)]">{precision}</p>}
-    </>
-  );
-
-  if (href) {
-    return (
-      <Link href={href} className={CARTE_CLIQUABLE}>
-        {contenu}
-      </Link>
-    );
-  }
-  return <div className={CARTE}>{contenu}</div>;
 }
 
 /**
