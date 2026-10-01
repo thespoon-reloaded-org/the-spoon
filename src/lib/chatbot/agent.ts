@@ -11,39 +11,73 @@ import { ENTREE_PRESENTATION, executerOutil, OUTILS } from "./outils";
 /** Tours de boucle maximum : lister, 2-3 recherches, quelques détails, puis la présentation. */
 const TOURS_MAX = 8;
 
+type Fournisseur = {
+  nom: "OpenRouter" | "Anthropic";
+  client: Anthropic;
+  modele: string;
+  /** Le repli côté serveur (`fallbacks`) n'existe que sur l'API Anthropic. */
+  repli: boolean;
+};
+
+/** Une clé OpenRouter commence toujours ainsi — `sk-or-v1-…` aujourd'hui. */
+const PREFIXE_CLE_OPENROUTER = "sk-or-";
+
 /**
- * Fournisseur du modèle : OpenRouter si sa clé est posée, sinon l'API
- * Anthropic (même SDK, autre adresse, autre nom de modèle).
+ * Les fournisseurs du modèle utilisables, par ordre de préférence :
+ * OpenRouter, puis l'API Anthropic (même SDK, autre adresse, autre nom de
+ * modèle).
  *
  * OpenRouter passe en premier parce que c'est le seul des deux qu'on pose
  * forcément à la main : sur Netlify, l'AI Gateway injecte d'office un
  * `ANTHROPIC_API_KEY` (et son `ANTHROPIC_BASE_URL`) dans les fonctions du
- * site qui n'en ont pas — c'est par lui que passait la production, et il
- * répondait 403 passé quelques recherches. Une clé posée exprès doit
- * l'emporter sur une clé injectée. Le repli côté serveur (`fallbacks`) est
- * une fonction de l'API Anthropic : on ne l'envoie qu'à elle.
+ * site qui n'en ont pas, et une clé posée exprès doit l'emporter sur une clé
+ * injectée. Mais une clé OpenRouter mal recopiée (sans son préfixe, avec des
+ * guillemets…) ne doit pas faire tomber l'assistant : elle est écartée,
+ * bruyamment dans les logs, et Anthropic prend le relais.
+ *
+ * Pas de nouvelle tentative automatique : chaque appel est déjà borné par le
+ * temps qu'il reste (voir `BUDGET_MS`), une relance le ferait déborder.
  */
-function fournisseur() {
-  if (env.OPENROUTER_API_KEY) {
-    return {
+function fournisseurs(): Fournisseur[] {
+  const liste: Fournisseur[] = [];
+  const cleOpenRouter = env.OPENROUTER_API_KEY;
+  if (cleOpenRouter?.startsWith(PREFIXE_CLE_OPENROUTER)) {
+    liste.push({
+      nom: "OpenRouter",
       client: new Anthropic({
         baseURL: "https://openrouter.ai/api",
         apiKey: null,
-        authToken: env.OPENROUTER_API_KEY,
+        authToken: cleOpenRouter,
         maxRetries: 0,
       }),
       modele: "anthropic/claude-opus-5.5",
       repli: false,
-    };
+    });
+  } else if (cleOpenRouter) {
+    console.error(
+      `OPENROUTER_API_KEY ignorée : elle ne commence pas par « ${PREFIXE_CLE_OPENROUTER} » (${cleOpenRouter.length} caractères). Recopier la clé entière, sans guillemets.`,
+    );
   }
-  return {
-    // Pas de nouvelle tentative automatique : chaque appel est déjà borné
-    // par le temps qu'il reste (voir `BUDGET_MS`), une relance le ferait
-    // déborder.
-    client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 0 }),
-    modele: "claude-opus-5-5",
-    repli: true,
-  };
+  if (env.ANTHROPIC_API_KEY) {
+    liste.push({
+      nom: "Anthropic",
+      client: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 0 }),
+      modele: "claude-opus-5-5",
+      repli: true,
+    });
+  }
+  return liste;
+}
+
+/**
+ * Un refus d'authentification (clé invalide, révoquée, sans droits) : ce
+ * fournisseur ne répondra pas mieux au tour suivant, un autre peut-être.
+ */
+function refusDAuthentification(erreur: unknown): boolean {
+  return (
+    erreur instanceof Anthropic.AuthenticationError ||
+    erreur instanceof Anthropic.PermissionDeniedError
+  );
 }
 
 /**
@@ -62,9 +96,9 @@ const APPEL_MIN_MS = 3_000;
 const CONSIGNE_CONCLURE =
   "Le temps de recherche est presque écoulé : n'appelle plus d'outil de recherche. Appelle maintenant presenter_top10 avec les meilleurs restaurants déjà trouvés ; si la demande avait beaucoup de critères, dis au dîneur lesquels tu as pu vérifier.";
 
-/** Une clé de l'un ou l'autre fournisseur suffit à activer l'assistant. */
+/** Un fournisseur utilisable suffit à activer l'assistant. */
 export function assistantDisponible(): boolean {
-  return Boolean(env.ANTHROPIC_API_KEY || env.OPENROUTER_API_KEY);
+  return fournisseurs().length > 0;
 }
 
 export type MessageConversation = { role: "user" | "assistant"; content: string };
@@ -184,7 +218,11 @@ export async function lancerAgent(
   historique: MessageConversation[],
   dejaProposes: string[] = [],
 ): Promise<ReponseChatbot> {
-  const { client, modele, repli } = fournisseur();
+  const disponibles = fournisseurs();
+  const premier = disponibles[0];
+  if (!premier) return REPLI_ERREUR;
+  let fournisseur: Fournisseur = premier;
+  let rang = 0;
   const messages: Anthropic.Beta.Messages.BetaMessageParam[] = historique.map((m) => ({
     role: m.role,
     content: m.content,
@@ -199,16 +237,16 @@ export async function lancerAgent(
 
     let reponse: Anthropic.Beta.Messages.BetaMessage;
     try {
-      reponse = await client.beta.messages.create(
+      reponse = await fournisseur.client.beta.messages.create(
         {
-          model: modele,
+          model: fournisseur.modele,
           max_tokens: 8000,
           system: systeme,
           tools: OUTILS,
           messages,
           output_config: { effort: "low" },
           // Repli côté serveur si un classificateur de sécurité décline la requête.
-          ...(repli
+          ...(fournisseur.repli
             ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }
             : {}),
         },
@@ -217,6 +255,20 @@ export async function lancerAgent(
     } catch (erreur) {
       // Le délai est atteint : un message clair plutôt qu'une coupure Netlify.
       if (erreur instanceof Anthropic.APIConnectionTimeoutError) return REPLI_TROP_LONG;
+      // Clé refusée dès le premier appel : on reprend chez le fournisseur
+      // suivant. Seulement au premier tour — plus tard, la conversation
+      // porte déjà des blocs produits par le premier, qu'on ne mélange pas.
+      const suivant: Fournisseur | undefined = disponibles[rang + 1];
+      if (tour === 0 && suivant && refusDAuthentification(erreur)) {
+        console.error(
+          `Assistant : ${fournisseur.nom} refuse l'authentification, repli sur ${suivant.nom}.`,
+          erreur,
+        );
+        fournisseur = suivant;
+        rang++;
+        tour--;
+        continue;
+      }
       throw erreur;
     }
 
