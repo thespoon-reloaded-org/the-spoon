@@ -221,11 +221,13 @@ model RestaurantContact {
 /// Une prise de contact d'un restaurateur pas encore partenaire — déposée
 /// depuis la landing ou l'écran de connexion restaurant ("Pas encore
 /// partenaire ?"), qui n'ouvrent pas de compte (voir `RestaurantContact`,
-/// réservé aux établissements déjà référencés). Juste de quoi qualifier la
-/// demande côté Console staff ; pas de statut de traitement pour l'instant,
-/// ça arrivera avec le ticket qui décrira le suivi de ces demandes.
+/// réservé aux établissements déjà référencés).
+///
+/// La Console staff la qualifie : `statut` dit où elle en est, et
+/// `evenements` garde la trace de chaque geste (voir
+/// `EvenementDemandeRestaurateur`).
 model DemandeContactRestaurateur {
-  id                  String   @id @default(cuid())
+  id                  String                         @id @default(cuid())
   nom                 String
   email               String
   etablissement       String
@@ -245,7 +247,54 @@ model DemandeContactRestaurateur {
   /// deviné par le staff.
   menusALaCuillere    Boolean?
   message             String
-  createdAt           DateTime @default(now())
+  statut              StatutDemandeRestaurateur      @default(A_QUALIFIER)
+  evenements          EvenementDemandeRestaurateur[]
+  createdAt           DateTime                       @default(now())
+}
+
+/// Où en est le traitement d'une demande de contact restaurateur. `A_QUALIFIER`
+/// est l'état initial — c'est aussi la valeur que prennent les demandes
+/// déposées avant l'ajout du statut. ACCEPTEE et REJETEE sont terminaux : une
+/// demande décidée ne se redécide pas.
+enum StatutDemandeRestaurateur {
+  A_QUALIFIER
+  ACCEPTEE
+  REJETEE
+}
+
+/// Étape d'une demande de contact restaurateur, telle qu'elle apparaît dans
+/// son journal. `DEPOT` vient du restaurateur (pas d'auteur staff), `DECISION`
+/// du staff qui tranche.
+///
+/// Les valeurs sont déclarées dans leur ordre chronologique, et les écrans s'en
+/// servent : le dépôt d'une demande et sa décision peuvent partager leur
+/// horodatage à la milliseconde près, et Postgres trie un enum selon cet ordre
+/// de déclaration. Ne pas réordonner cette liste.
+enum TypeEvenementDemandeRestaurateur {
+  DEPOT
+  DECISION
+}
+
+/// Journal d'une demande de contact restaurateur : qui a fait quoi, quand. En
+/// ajout seul — rien dans le produit ne modifie ni ne supprime une ligne, c'est
+/// ce qui en fait une preuve. Même approche qu'`EvenementDossier`.
+model EvenementDemandeRestaurateur {
+  id            String                           @id @default(cuid())
+  demandeId     String
+  demande       DemandeContactRestaurateur       @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  type          TypeEvenementDemandeRestaurateur
+  /// Ce qui varie d'un type à l'autre (issue, motif...), figé à l'écriture : un
+  /// journal se relit des mois plus tard et ne doit pas dépendre de l'état
+  /// courant de la demande.
+  details       Json?
+  /// Membre du staff auteur du geste. `null` pour le dépôt, qui vient du
+  /// restaurateur.
+  auteurStaffId String?
+  auteurStaff   Staff?                           @relation(fields: [auteurStaffId], references: [id])
+  createdAt     DateTime                         @default(now())
+
+  @@index([demandeId])
+  @@index([auteurStaffId])
 }
 
 /// L'organigramme interne TheSpoon. Pas de rôles détaillés ici (instructeur
@@ -253,14 +302,14 @@ model DemandeContactRestaurateur {
 /// permissions". `role` reste un texte libre affiché, pas un contrôle
 /// d'accès : la Console staff est lisible par tout le staff connecté.
 model Staff {
-  id                String                   @id @default(cuid())
+  id                String                         @id @default(cuid())
   nom               String
-  email             String                   @unique
-  emailVerified     Boolean                  @default(false)
+  email             String                         @unique
+  emailVerified     Boolean                        @default(false)
   image             String?
   role              String?
-  createdAt         DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
+  createdAt         DateTime                       @default(now())
+  updatedAt         DateTime                       @updatedAt
   /// Date à laquelle cette personne a vu l'onboarding de son parcours jusqu'au
   /// bout. `null` : jamais vu, il s'ouvre tout seul à l'arrivée. Une fois
   /// renseigné il ne se rouvre plus seul, mais reste rejouable depuis le
@@ -273,6 +322,7 @@ model Staff {
   dossiersInstruits Dossier[]
   decisionsPrises   DecisionDossier[]
   evenementsDossier EvenementDossier[]
+  evenementsDemande EvenementDemandeRestaurateur[]
 }
 
 /// Action tracée dans le journal d'audit d'un restaurant partenaire.
