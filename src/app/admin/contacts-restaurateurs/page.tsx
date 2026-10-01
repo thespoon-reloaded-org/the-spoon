@@ -59,6 +59,11 @@ export default async function ContactsRestaurateursAdminPage() {
                       {demande.email}
                     </a>
                   </p>
+                  {demande.adresse && (
+                    <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+                      {demande.adresse}
+                    </p>
+                  )}
                 </div>
                 <span className="shrink-0 text-sm text-[var(--color-ink-muted)]">
                   {formaterAnciennete(demande.createdAt)}

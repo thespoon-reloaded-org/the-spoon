@@ -21,6 +21,11 @@ const schemaDemandeContact = z.object({
     .trim()
     .min(1, "Le nom de l'établissement est obligatoire.")
     .max(150, "Nom d'établissement trop long (150 caractères max)."),
+  adresse: z
+    .string()
+    .trim()
+    .min(1, "L'adresse de l'établissement est obligatoire.")
+    .max(250, "Adresse trop longue (250 caractères max)."),
   message: z
     .string()
     .trim()
@@ -44,6 +49,7 @@ export async function envoyerDemandeContactRestaurateur(
     nom: formData.get("nom"),
     email: formData.get("email"),
     etablissement: formData.get("etablissement"),
+    adresse: formData.get("adresse"),
     message: formData.get("message"),
   });
 

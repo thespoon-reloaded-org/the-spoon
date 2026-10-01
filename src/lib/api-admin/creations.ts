@@ -52,6 +52,7 @@ import type {
   schemaDineur,
   schemaDossier,
   schemaAvis,
+  schemaDemandeReferencement,
   schemaRestaurant,
   schemaStaff,
 } from "./schemas";
@@ -278,6 +279,34 @@ export async function ajouterContacts(
 
 function sansUtilisateur<T extends { userId: string }>({ userId: _userId, ...compte }: T) {
   return compte;
+}
+
+export async function creerDemandesReferencement(
+  saisies: z.output<typeof schemaDemandeReferencement>[],
+  maintenant = new Date(),
+) {
+  refuserSiErreurs(
+    400,
+    "Dates de création impossibles.",
+    datesFutures(
+      saisies.map((d) => d.creeLe),
+      maintenant,
+    ),
+  );
+  return prisma.$transaction(
+    saisies.map((d) =>
+      prisma.demandeContactRestaurateur.create({
+        data: {
+          nom: d.nom,
+          email: d.email,
+          etablissement: d.etablissement,
+          message: d.message,
+          createdAt: d.creeLe,
+        },
+        select: { id: true, etablissement: true, createdAt: true },
+      }),
+    ),
+  );
 }
 
 export async function creerDineurs(
