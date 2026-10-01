@@ -285,6 +285,7 @@ export const ICONES = {
   litige: IconeLitige,
   reglages: IconeReglages,
   message: IconeMessage,
+  etincelle: IconeEtincelle,
 } as const;
 
 export type CleIcone = keyof typeof ICONES;
