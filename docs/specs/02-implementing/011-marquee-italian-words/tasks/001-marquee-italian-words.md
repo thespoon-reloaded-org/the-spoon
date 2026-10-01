@@ -1,7 +1,7 @@
 ---
 id: 001
 title: Add Italian words to the home page marquee
-status: pending
+status: done
 ---
 
 # Task
