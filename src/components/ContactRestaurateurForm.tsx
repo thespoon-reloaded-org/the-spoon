@@ -94,6 +94,58 @@ export function ContactRestaurateurForm() {
       </label>
 
       <label className={LABEL_CHAMP}>
+        SIREN de l&apos;entreprise
+        <input
+          type="text"
+          name="siren"
+          required
+          inputMode="numeric"
+          maxLength={11}
+          className={CHAMP}
+          placeholder="123 456 789"
+        />
+      </label>
+
+      <label className={LABEL_CHAMP}>
+        Lien Google My Business (facultatif)
+        <input
+          type="url"
+          name="urlGoogleMyBusiness"
+          maxLength={500}
+          className={CHAMP}
+          placeholder="https://maps.app.goo.gl/…"
+        />
+      </label>
+
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className={LABEL_CHAMP}>
+          Proposez-vous des menus qui se mangent à la cuillère ?
+        </legend>
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-[var(--color-ink)]">
+            <input
+              type="radio"
+              name="menusALaCuillere"
+              value="oui"
+              required
+              className="h-4 w-4 accent-[var(--color-pro)]"
+            />
+            Oui
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-[var(--color-ink)]">
+            <input
+              type="radio"
+              name="menusALaCuillere"
+              value="non"
+              required
+              className="h-4 w-4 accent-[var(--color-pro)]"
+            />
+            Non
+          </label>
+        </div>
+      </fieldset>
+
+      <label className={LABEL_CHAMP}>
         Votre demande
         <textarea
           name="message"

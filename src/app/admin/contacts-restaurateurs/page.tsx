@@ -64,6 +64,28 @@ export default async function ContactsRestaurateursAdminPage() {
                       {demande.adresse}
                     </p>
                   )}
+                  {demande.siren && (
+                    <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+                      SIREN : {demande.siren}
+                    </p>
+                  )}
+                  {demande.urlGoogleMyBusiness && (
+                    <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+                      <a
+                        href={demande.urlGoogleMyBusiness}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline"
+                      >
+                        Fiche Google My Business
+                      </a>
+                    </p>
+                  )}
+                  {demande.menusALaCuillere !== null && (
+                    <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+                      Menus à la cuillère : {demande.menusALaCuillere ? "oui" : "non"}
+                    </p>
+                  )}
                 </div>
                 <span className="shrink-0 text-sm text-[var(--color-ink-muted)]">
                   {formaterAnciennete(demande.createdAt)}
