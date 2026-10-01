@@ -44,6 +44,10 @@ function pilleCuisine(actif: boolean): string {
  * un inventaire. C'est un élément de marque, pas un catalogue — il dit ce
  * qu'on vient chercher ici, des plats qui se mangent à la cuillère, en
  * alternant plats et cuisines.
+ *
+ * La cuisine italienne reçoit délibérément plusieurs entrées : c'est l'une
+ * des mieux représentées parmi les restaurants partenaires, et un seul mot
+ * italien par boucle la rendait presque invisible sur grand écran.
  */
 const MOTS_BANDEAU = [
   "VELOUTÉS",
@@ -54,18 +58,24 @@ const MOTS_BANDEAU = [
   "JAPONAIS",
   "RISOTTOS",
   "BISTROT",
+  "MINESTRONE",
+  "TRATTORIA",
   "CURRYS",
   "THAÏ",
   "POT-AU-FEU",
   "BOUCHON LYONNAIS",
   "DAHLS",
   "CORÉEN",
+  "TIRAMISU",
+  "SICILIEN",
   "CHORBAS",
   "VÉGÉ",
   "BOUILLONS PHO",
   "VIETNAMIEN",
   "BLANQUETTES",
   "INDIEN",
+  "RIBOLLITA",
+  "TOSCAN",
   "GASPACHOS",
   "PORTUGAIS",
   "TAJINES",
