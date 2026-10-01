@@ -19,6 +19,7 @@
     "seed:dev": "tsx scripts/seed-dev.ts",
     "creer-compte": "tsx scripts/creer-compte.ts",
     "jeu-formation": "tsx scripts/jeu-formation/index.ts",
+    "agent:qualifier": "tsx agents/qualification/index.ts",
     "postinstall": "prisma generate",
     "format": "prettier --write ."
   },
@@ -38,6 +39,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.286",
     "@eslint/eslintrc": "^3.3.6",
     "@prisma/config": "^7.10.0",
     "@tailwindcss/postcss": "^4.3.3",

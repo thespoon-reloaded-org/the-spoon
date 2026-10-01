@@ -22,7 +22,7 @@ Each criterion gets `OK`, `KO` or `INCONNU` plus a one-sentence justification an
 | `menu` | The menu offers dishes eaten with a spoon (soups, risottos, stews, desserts…), from an online menu, PDF or photos. |
 | `capacite` | A real dining room where clients can book a table, not takeaway only or a dark kitchen. |
 
-Decision rule (in code, not left to the model): any `KO` on `localisation`, `menu` or `capacite`, or `existence` = `KO` → `REFUSEE`; otherwise any `INCONNU` → `INFOS_MANQUANTES`; otherwise → `ACCEPTEE`.
+Decision rule (in code, not left to the model): any `KO` on `localisation`, `menu` or `capacite`, or `existence` = `KO` → `REFUSEE`; otherwise any criterion not `OK` (an `INCONNU`, or a `KO` on `reputation`, left to the staff) → `INFOS_MANQUANTES`; otherwise → `ACCEPTEE`.
 
 Email draft per verdict (French, polite, TheSpoon tone). The restaurateur receives one of three emails:
 - `ACCEPTEE` → **acceptance**: welcome, and a link to step 2 on the website, where the restaurateur provides the onboarding material (menu, photos, seats, diets, PMR access, allergens). The link points to `ETAPE_2_URL` (a constant; the step 2 page itself is a separate spec).
@@ -31,7 +31,7 @@ Email draft per verdict (French, polite, TheSpoon tone). The restaurateur receiv
 
 ## Scope
 
-- `prisma/schema.prisma` + a migration: request status and stored analysis.
+- `prisma/schema.prisma` + a migration: request status and stored analysis. **Done on another branch**: this spec only relies on the fields listed in task 001.
 - `src/app/api/admin/demandes/` and `src/lib/api-admin/`: list filter by status, and an endpoint to write the analysis.
 - A new standalone worker `agents/qualification/` (TypeScript, `@anthropic-ai/claude-agent-sdk`), run with `pnpm agent:qualifier`. It talks to the app only through the admin API (`ADMIN_API_TOKEN`), not the database.
 - `src/app/admin/contacts-restaurateurs/page.tsx`: show the verdict and the draft.

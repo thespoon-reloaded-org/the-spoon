@@ -17,6 +17,7 @@ const { JETON, EMAIL_STAFF } = vi.hoisted(() => {
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
+import * as demandeParId from "@/app/api/admin/demandes/[id]/route";
 import * as demandes from "@/app/api/admin/demandes/route";
 import { prisma } from "@/lib/prisma";
 
@@ -128,5 +129,68 @@ describe("GET /api/admin/demandes", () => {
     expect(miennes.length).toBeGreaterThanOrEqual(4);
     const dates = r.corps.demandes.map((d: { createdAt: string }) => d.createdAt);
     expect(dates).toEqual([...dates].sort().reverse());
+  });
+});
+
+describe("PATCH /api/admin/demandes/[id]", () => {
+  const critere = (verdict: string) => ({ verdict, justification: "Vu.", sources: [] });
+  const analyse = (verdicts: Record<string, string> = {}) => ({
+    criteres: Object.fromEntries(
+      ["existence", "localisation", "reputation", "menu", "capacite"].map((c) => [
+        c,
+        critere(verdicts[c] ?? "OK"),
+      ]),
+    ),
+    brouillonObjet: "Votre demande TheSpoon",
+    brouillonCorps: "Bonjour,",
+    statut: "ACCEPTEE",
+  });
+
+  async function patcher(id: string, corps: unknown) {
+    const r = new Request(`http://test/api/admin/demandes/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", authorization: `Bearer ${JETON}` },
+      body: JSON.stringify(corps),
+    });
+    const reponse = await demandeParId.PATCH(r, { params: Promise.resolve({ id }) });
+    return { statut: reponse.status, corps: await reponse.json() };
+  }
+
+  async function nouvelleDemande(adresse = "7 rue Exemple, 75009 Paris") {
+    const r = await appeler(demandes.POST, requete({ ...valide("Patch"), adresse }));
+    return r.corps.crees[0].id as string;
+  }
+
+  test("une nouvelle demande est à analyser, et le filtre par statut la trouve", async () => {
+    const id = await nouvelleDemande();
+    const r = await appeler(
+      demandes.GET,
+      new Request("http://test/api/admin/demandes?statut=A_ANALYSER", {
+        headers: { authorization: `Bearer ${JETON}` },
+      }),
+    );
+    expect(r.corps.demandes.some((d: { id: string }) => d.id === id)).toBe(true);
+    expect(r.corps.demandes.every((d: { statut: string }) => d.statut === "A_ANALYSER")).toBe(true);
+  });
+
+  test("calcule le statut, sans lire celui du corps", async () => {
+    const id = await nouvelleDemande();
+    expect((await patcher(id, analyse())).corps.demande.statut).toBe("ACCEPTEE");
+    expect((await patcher(id, analyse({ menu: "INCONNU" }))).corps.demande.statut).toBe(
+      "INFOS_MANQUANTES",
+    );
+    const r = await patcher(id, analyse({ capacite: "KO" }));
+    expect(r.corps.demande.statut).toBe("REFUSEE");
+    expect(r.corps.demande.analyseeLe).not.toBeNull();
+  });
+
+  test("une adresse hors Paris est refusée même si l'agent dit OK", async () => {
+    const id = await nouvelleDemande("12 rue de la Ré, 69002 Lyon");
+    expect((await patcher(id, analyse())).corps.demande.statut).toBe("REFUSEE");
+  });
+
+  test("404 pour un id inconnu, 400 pour une analyse invalide", async () => {
+    expect((await patcher("inconnu", analyse())).statut).toBe(404);
+    expect((await patcher(await nouvelleDemande(), { criteres: {} })).statut).toBe(400);
   });
 });
