@@ -1,37 +1,7 @@
 "use server";
 
-import { z } from "zod";
-
+import { schemaDemandeContact } from "@/lib/demande-contact-restaurateur";
 import { prisma } from "@/lib/prisma";
-
-const schemaDemandeContact = z.object({
-  nom: z
-    .string()
-    .trim()
-    .min(1, "Le nom est obligatoire.")
-    .max(100, "Nom trop long (100 caractères max)."),
-  email: z
-    .string()
-    .trim()
-    .min(1, "L'email est obligatoire.")
-    .max(200, "Email trop long (200 caractères max).")
-    .email("Email invalide."),
-  etablissement: z
-    .string()
-    .trim()
-    .min(1, "Le nom de l'établissement est obligatoire.")
-    .max(150, "Nom d'établissement trop long (150 caractères max)."),
-  adresse: z
-    .string()
-    .trim()
-    .min(1, "L'adresse de l'établissement est obligatoire.")
-    .max(250, "Adresse trop longue (250 caractères max)."),
-  message: z
-    .string()
-    .trim()
-    .min(1, "Décrivez brièvement votre demande.")
-    .max(2000, "Message trop long (2000 caractères max)."),
-});
 
 export type EtatDemandeContact = { erreur?: string; ok?: boolean };
 
@@ -54,6 +24,9 @@ export async function envoyerDemandeContactRestaurateur(
     email: formData.get("email"),
     etablissement: formData.get("etablissement"),
     adresse: formData.get("adresse"),
+    siren: formData.get("siren"),
+    urlGoogleMyBusiness: formData.get("urlGoogleMyBusiness"),
+    menusALaCuillere: formData.get("menusALaCuillere"),
     message: formData.get("message"),
   });
 

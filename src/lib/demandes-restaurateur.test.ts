@@ -33,6 +33,8 @@ describe("envoyerDemandeContactRestaurateur", () => {
     formData.set("email", email);
     formData.set("etablissement", "Le Test");
     formData.set("adresse", "1 rue du Test, 75009 Paris");
+    formData.set("siren", "123 456 789");
+    formData.set("menusALaCuillere", "oui");
     formData.set("message", "Nous souhaitons être référencés.");
 
     const etat = await envoyerDemandeContactRestaurateur({}, formData);
@@ -42,6 +44,8 @@ describe("envoyerDemandeContactRestaurateur", () => {
       where: { email },
       include: { evenements: true },
     });
+    expect(demande.siren).toBe("123456789");
+    expect(demande.menusALaCuillere).toBe(true);
     expect(demande.statut).toBe("A_QUALIFIER");
     expect(demande.evenements).toHaveLength(1);
     expect(demande.evenements[0]?.type).toBe("DEPOT");

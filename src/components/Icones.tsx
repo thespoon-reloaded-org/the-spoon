@@ -246,6 +246,31 @@ export function IconeMessage(p: ProprietesIcone) {
  * chaîne si. Les menus déclarent donc `icone: "calendrier"` plutôt que
  * `Icone: IconeCalendrier`.
  */
+const TRACE_COEUR =
+  "M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.6 4.5 7.1 4.5c2 0 3.6 1.1 4.9 2.9 1.3-1.8 2.9-2.9 4.9-2.9 3.5 0 5.6 3.5 4.4 6.8-1.8 4.6-9.3 9.2-9.3 9.2z";
+
+/**
+ * Cœur du vote sur les propositions de l'assistant — plein quand il est
+ * choisi, simple contour sinon, comme les cuillères de `NoteCuilleres`.
+ */
+export function IconeCoeur({ pleine = false, ...p }: ProprietesIcone & { pleine?: boolean }) {
+  return (
+    <Svg {...p}>
+      <path d={TRACE_COEUR} fill={pleine ? "currentColor" : "none"} />
+    </Svg>
+  );
+}
+
+/** Le même cœur, fêlé — la fêlure reste lisible quand il est plein. */
+export function IconeCoeurBrise({ pleine = false, ...p }: ProprietesIcone & { pleine?: boolean }) {
+  return (
+    <Svg {...p}>
+      <path d={TRACE_COEUR} fill={pleine ? "currentColor" : "none"} />
+      <path d="M12 7.4 10.3 11l3.2 2.2L11.8 17" stroke={pleine ? "white" : "currentColor"} />
+    </Svg>
+  );
+}
+
 export const ICONES = {
   calendrier: IconeCalendrier,
   boutique: IconeBoutique,
@@ -260,6 +285,7 @@ export const ICONES = {
   litige: IconeLitige,
   reglages: IconeReglages,
   message: IconeMessage,
+  etincelle: IconeEtincelle,
 } as const;
 
 export type CleIcone = keyof typeof ICONES;

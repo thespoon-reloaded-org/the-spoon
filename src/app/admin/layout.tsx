@@ -11,11 +11,13 @@ export const metadata: Metadata = {
 };
 
 const MENU: readonly EntreeMenu[] = [
+  { href: "/admin/tableau-de-bord", label: "Tableau de bord", icone: "tableauBord" },
   { href: "/admin/restaurants", label: "Restaurants", icone: "restaurants" },
   { href: "/admin/factures", label: "Facturation", icone: "facture" },
   { href: "/admin/litiges", label: "Litiges", icone: "litige" },
   { href: "/admin/contestation", label: "Réglages contestation", icone: "reglages" },
   { href: "/admin/contacts-restaurateurs", label: "Demandes restaurateurs", icone: "message" },
+  { href: "/admin/assistant", label: "Assistant de recherche", icone: "etincelle" },
 ];
 
 /** Sur fond sombre, le bouton se pose en creux plutôt qu'en pleine couleur. */

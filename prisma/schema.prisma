@@ -227,16 +227,29 @@ model RestaurantContact {
 /// `evenements` garde la trace de chaque geste (voir
 /// `EvenementDemandeRestaurateur`).
 model DemandeContactRestaurateur {
-  id            String                         @id @default(cuid())
-  nom           String
-  email         String
-  etablissement String
+  id                  String                         @id @default(cuid())
+  nom                 String
+  email               String
+  etablissement       String
   /// Nullable : les demandes déposées avant l'ajout du champ n'en ont pas.
-  adresse       String?
-  message       String
-  statut        StatutDemandeRestaurateur      @default(A_QUALIFIER)
-  evenements    EvenementDemandeRestaurateur[]
-  createdAt     DateTime                       @default(now())
+  adresse             String?
+  /// Nullable : les demandes déposées avant l'ajout du champ n'en ont pas, et
+  /// un journal de demandes ne se réécrit pas. Neuf chiffres, stockés sans
+  /// espace. Sert au staff à identifier l'entreprise sans la rechercher à la
+  /// main.
+  siren               String?
+  /// Nullable : facultatif y compris pour les nouvelles demandes, et absent
+  /// des demandes antérieures. La fiche Google My Business de l'établissement,
+  /// pour situer son activité sans la vérifier hors de sa forme.
+  urlGoogleMyBusiness String?
+  /// Nullable : les demandes antérieures n'ont pas la réponse. Le critère
+  /// d'éligibilité de TheSpoon, déclaré par le restaurateur (oui / non), pas
+  /// deviné par le staff.
+  menusALaCuillere    Boolean?
+  message             String
+  statut              StatutDemandeRestaurateur      @default(A_QUALIFIER)
+  evenements          EvenementDemandeRestaurateur[]
+  createdAt           DateTime                       @default(now())
 }
 
 /// Où en est le traitement d'une demande de contact restaurateur. `A_QUALIFIER`
@@ -791,6 +804,39 @@ model Avoir {
   emisLe          DateTime        @default(now())
 
   @@index([factureId])
+}
+
+/// Un top 10 servi par l'assistant de recherche de l'accueil (voir
+/// src/lib/chatbot/agent.ts), et le verdict du dîneur dessus — cœur plein ou
+/// cœur brisé. Garder la proposition elle-même, et pas seulement le vote,
+/// c'est ce qui rend le vote lisible : on sait ce qui a plu ou déplu, pour
+/// quelle demande. Anonyme : l'assistant est ouvert sans connexion, et rien
+/// ici ne rattache une demande à un dîneur.
+model PropositionAssistant {
+  id            String              @id @default(cuid())
+  /// Les messages du dîneur dans la conversation, dans l'ordre.
+  demande       String
+  /// La réponse de l'assistant qui accompagnait la liste.
+  message       String
+  /// Les restaurants proposés, dans l'ordre du classement. Pas de relation :
+  /// un restaurant supprimé ne doit pas effacer l'historique des votes.
+  restaurantIds String[]
+  /// Tous les restaurants que les recherches de l'agent ont renvoyés pour
+  /// cette demande — ceux qu'il aurait pu proposer. Comparé à
+  /// `restaurantIds`, c'est ce qui mesure l'exposition d'un restaurant
+  /// rapportée à son éligibilité : sans lui, on confondrait un biais du
+  /// classement avec la forme du catalogue.
+  candidatIds   String[]
+  verdict       VerdictProposition?
+  verdictLe     DateTime?
+  createdAt     DateTime            @default(now())
+
+  @@index([createdAt])
+}
+
+enum VerdictProposition {
+  AIME
+  AIME_PAS
 }
 
 /// Un avis déposé par un dîneur après son passage dans un restaurant — un

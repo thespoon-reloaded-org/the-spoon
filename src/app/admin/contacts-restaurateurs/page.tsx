@@ -64,6 +64,16 @@ export default async function ContactsRestaurateursAdminPage() {
                         {demande.adresse}
                       </p>
                     )}
+                    {demande.siren && (
+                      <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+                        SIREN : {demande.siren}
+                      </p>
+                    )}
+                    {demande.menusALaCuillere !== null && (
+                      <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+                        Menus à la cuillère : {demande.menusALaCuillere ? "oui" : "non"}
+                      </p>
+                    )}
                   </div>
                   <span className="flex shrink-0 flex-col items-end gap-1.5">
                     <span className={pastilleEtat(ETAT_STATUT_DEMANDE[demande.statut])}>
@@ -78,6 +88,18 @@ export default async function ContactsRestaurateursAdminPage() {
                   {demande.message}
                 </p>
               </Link>
+              {demande.urlGoogleMyBusiness && (
+                <p className="mt-2 text-sm text-[var(--color-ink-muted)]">
+                  <a
+                    href={demande.urlGoogleMyBusiness}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    Fiche Google My Business
+                  </a>
+                </p>
+              )}
             </li>
           ))}
         </ul>

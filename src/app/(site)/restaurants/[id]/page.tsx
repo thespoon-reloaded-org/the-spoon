@@ -12,8 +12,7 @@ import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
 import { auth } from "@/lib/auth";
 import { aEteServi } from "@/lib/avis";
-import { cleCreneau, construireDateCreneau, genererJoursReservables } from "@/lib/creneaux";
-import { lireDisponibilites } from "@/lib/disponibilites";
+import { lireCarteReservation } from "@/lib/disponibilites";
 import { formaterDate } from "@/lib/fuseau";
 import { formaterHoraires } from "@/lib/horaires";
 import { estPhotoReelle, photoPlat, photoRestaurant } from "@/lib/images";
@@ -95,28 +94,12 @@ export default async function FicheRestaurantPage({ params }: { params: Promise<
     ? (restaurant.avis.find((a) => a.userId === session.user.id) ?? null)
     : null;
 
-  // Ce que le restaurant ouvre (ses horaires, recouverts par ses exceptions
-  // datées) puis, dans ces créneaux-là seulement, ce qu'il lui reste de place
-  // (voir "Capacité & conflits de réservation") : un créneau fermé n'a pas à
-  // être proposé, et un créneau complet non plus.
-  const joursReservables = genererJoursReservables();
-  const { plages, ouvertures } = await lireDisponibilites(
-    restaurant.id,
-    joursReservables.map((jour) => jour.iso),
-  );
-  const datesCreneaux = joursReservables
-    .flatMap((jour) =>
-      (ouvertures[jour.iso] ?? []).map((creneau) => construireDateCreneau(jour.iso, creneau)),
-    )
-    .filter((date): date is Date => date !== null);
-  const occupationParCreneau = await prisma.booking.groupBy({
-    by: ["date"],
-    where: { restaurantId: restaurant.id, statut: "CONFIRMEE", date: { in: datesCreneaux } },
-    _sum: { couverts: true },
-  });
-  const occupation = Object.fromEntries(
-    occupationParCreneau.map((ligne) => [cleCreneau(ligne.date), ligne._sum.couverts ?? 0]),
-  );
+  const {
+    jours: joursReservables,
+    plages,
+    ouvertures,
+    occupation,
+  } = await lireCarteReservation(restaurant.id);
 
   // Les mêmes plages que celles qui décident des créneaux ci-dessus — la
   // fiche ne peut plus annoncer une chose et en proposer une autre.

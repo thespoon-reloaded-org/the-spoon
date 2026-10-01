@@ -1,10 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { ChatbotAccueil } from "@/components/ChatbotAccueil";
 import { IconeCuillere, IconeFleche, IconeLieu, IconeRecherche } from "@/components/Icones";
 import { MarqueIllustration } from "@/components/MarqueIllustration";
 import { Cuillere, NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
+import { assistantDisponible } from "@/lib/chatbot/agent";
 import { estPhotoReelle, photoCuisine, photoPlat, photoRestaurant } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
 
@@ -609,6 +611,9 @@ export default async function RecherchePage({
           </div>
         </div>
       </section>
+
+      {/* L'assistant n'apparaît que si une clé API est configurée (voir src/lib/env.ts). */}
+      {assistantDisponible() && <ChatbotAccueil />}
     </div>
   );
 }

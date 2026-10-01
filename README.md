@@ -408,7 +408,19 @@ saines (local, CI) où elle ne fait rien.
   `password123`). Pas de permissions par rôle pour l'instant : tout le staff
   connecté a le même accès (voir le ticket Notion "Auth staff TheSpoon &
   permissions" pour la suite).
-- Console staff / BO admin (`/admin`, qui renvoie sur `/admin/restaurants`) :
+- Tableau de bord staff (`/admin/tableau-de-bord`, l'écran d'arrivée de la
+  console, sur lequel `/admin` renvoie) : les habitudes des dîneurs sur 7, 30
+  ou 90 jours, comparées à la même durée juste avant — réservations prises,
+  couverts, dîneurs actifs, nouveaux inscrits ; fidélité, table moyenne,
+  annulations, no-show ; jours et services préférés ; restaurants, villes et
+  cuisines les plus réservés ; note des avis déposés et verdict des dîneurs
+  sur les propositions de l'assistant de recherche (taux de vote, part de
+  cœurs pleins, derniers cœurs brisés avec leur demande). Rien n'est stocké,
+  tout se recalcule à l'affichage ; les définitions sont écrites une fois,
+  dans `src/lib/indicateurs.ts`. Un taux sans rien à rapporter s'affiche
+  « — », pas 0 % : le no-show ne porte que sur les services pointés, la
+  satisfaction que sur les propositions votées.
+- Console staff / BO admin (`/admin`) :
   liste des restaurants partenaires
   avec recherche (nom/ville), fiche détail (infos, contacts, réservations
   récentes), création et modification d'un restaurant

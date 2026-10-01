@@ -56,6 +56,7 @@ export function BookingCard({
   occupation,
   capacite,
   delaiAnnulationHeures,
+  souhait,
 }: {
   restaurantId: string;
   estConnecte: boolean;
@@ -67,6 +68,12 @@ export function BookingCard({
   capacite: number;
   /** Délai d'annulation déclaré par le restaurant — annoncé ici, appliqué dans "Mes réservations". */
   delaiAnnulationHeures: number | null;
+  /**
+   * Pré-remplissage, quand le dîneur a déjà dit ce qu'il voulait (l'assistant
+   * de l'accueil le lit dans sa demande). Seulement des valeurs de départ :
+   * un jour fermé ou un créneau hors horaires retombent sur les défauts.
+   */
+  souhait?: { jourIso?: string; creneau?: string; couverts?: number };
 }) {
   // Ouverte d'emblée sur le premier jour que le restaurant ouvre. S'il n'en
   // ouvre aucun, ces deux valeurs ne servent à rien : la carte affiche plus
@@ -74,11 +81,20 @@ export function BookingCard({
   // avant ce retour anticipé.
   const joursOuverts = jours.filter((jour) => (ouvertures[jour.iso] ?? []).length > 0);
   const premierJourOuvert = joursOuverts[0];
-  const [couverts, setCouverts] = useState<number>(TAILLES_TABLE[1].valeur);
-  const [jourIso, setJourIso] = useState(premierJourOuvert?.iso ?? "");
-  const [creneau, setCreneau] = useState<string>(() =>
-    creneauParDefaut(ouvertures[premierJourOuvert?.iso ?? ""] ?? []),
+  const jourSouhaite = joursOuverts.find((jour) => jour.iso === souhait?.jourIso);
+  const jourInitial = jourSouhaite?.iso ?? premierJourOuvert?.iso ?? "";
+  const [couverts, setCouverts] = useState<number>(
+    () =>
+      TAILLES_TABLE.find((t) => t.valeur === Math.min(souhait?.couverts ?? 0, 6))?.valeur ??
+      TAILLES_TABLE[1].valeur,
   );
+  const [jourIso, setJourIso] = useState(jourInitial);
+  const [creneau, setCreneau] = useState<string>(() => {
+    const ouverts = ouvertures[jourInitial] ?? [];
+    return souhait?.creneau && ouverts.includes(souhait.creneau)
+      ? souhait.creneau
+      : creneauParDefaut(ouverts);
+  });
   const [etat, action, enCours] = useActionState(
     creerReservation.bind(null, restaurantId),
     ETAT_INITIAL,
