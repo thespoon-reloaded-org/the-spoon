@@ -96,7 +96,7 @@ Consequences:
 - Do not split off a part that only makes sense together with another (a value tuned because another task changed a list, tests for code that another task adds): the reviewer could not judge it alone, and `main` would be inconsistent in between.
 - A small, cohesive change is naturally one task. A spec has as many tasks as it has independently testable steps, and each one should be worth a review.
 
-## Lifecycle## Lifecycle
+## Lifecycle
 
 1. **Draft.** Create the spec in `00-backlog/` through a normal PR (after asking the user, see above). Nothing runs.
 2. **Approve.** A human moves the folder to `01-ready-to-implement/` (one PR, a pure rename). **Merging that PR starts an automated run.** Agents must not do this move on their own; ask a human.
@@ -107,6 +107,19 @@ Consequences:
 7. **Abandon.** To stop a spec, close its open PR and move the folder to `99-abandoned/` in a PR. Never leave an abandoned spec in `01-ready-to-implement/`: it would start again.
 
 Only one run is active per spec.
+
+## The runner's sandbox: what not to run
+
+The automated runner works in a small Daytona sandbox: about **1 GiB of memory, 1 CPU and a small disk** (`nproc` shows the host's cores and misleads tools into starting dozens of workers). A production build or a database does not fit and gets the agent killed, which wastes the run. CI is the authority for build, lint, database-backed tests and the full test suite, so the runner does not reproduce them.
+
+In the sandbox the runner **does not**: run production builds (`next build`, `pnpm build`, `prisma migrate`), start or install a database server or any long-running service, or replay migrations. It **does**: `pnpm typecheck` and the unit tests of the files it changed, one command at a time.
+
+What this means for specs and tasks:
+
+- Acceptance criteria that can only be checked by a build, a migration run or database-backed tests are verified by **CI on the PR**, not by the runner. Say so in "What to test" (for example "CI `build` passes").
+- Do not write criteria such as "the app builds locally" or "the migration applies on a fresh database" as something the agent must prove itself.
+- A task that needs a new migration is fine: the agent writes the migration file and CI applies it.
+- Review the CI result on the PR; for a failing check, comment `/pi` with what is wrong and the runner will fix it from the code and the failure text.
 
 ## What agents must not do
 
