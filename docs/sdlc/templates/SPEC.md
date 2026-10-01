@@ -1,5 +1,7 @@
 # Short title of the spec
 
+<!-- Keep this proportional to the change: size tasks for the reviewer: independently reviewable, enough to test but not too much (see docs/sdlc/README.md, "Sizing tasks"). Delete this comment. -->
+
 One or two sentences: what changes and for whom.
 
 ## Goal
