@@ -1,7 +1,7 @@
 ---
 id: 001
 title: Improve footer text contrast
-status: implemented
+status: done
 ---
 
 # Task
