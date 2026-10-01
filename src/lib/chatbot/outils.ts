@@ -317,7 +317,10 @@ export function classerCandidats<
 async function rechercher(brut: unknown, dejaProposes: string[]) {
   const entree = ENTREE_RECHERCHE.parse(brut);
   if (entree.jour !== undefined && !jourIsoValide(entree.jour)) {
-    return { erreur: "« jour » doit être une date AAAA-MM-JJ valide." };
+    return {
+      reponse: { erreur: "« jour » doit être une date AAAA-MM-JJ valide." },
+      idsEligibles: [],
+    };
   }
 
   const et: Prisma.RestaurantWhereInput[] = [];
@@ -377,6 +380,11 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
   const [restaurants, moyenne] = await Promise.all([
     prisma.restaurant.findMany({
       where: { AND: et },
+      // Seulement si plus de CANDIDATS_MAX passent les filtres : sans ordre,
+      // Postgres en rendrait un sous-ensemble arbitraire, et toujours le même.
+      // Ce pré-tri garde les nouveaux (sans note) et les mieux notés ; le
+      // classement en mémoire tranche ensuite.
+      orderBy: [{ noteCuilleres: { sort: "desc", nulls: "first" } }, { id: "asc" }],
       take: CANDIDATS_MAX,
       select: {
         id: true,
@@ -434,7 +442,12 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
     entree.tri ?? "pertinence",
   ).slice(0, limite);
 
-  return {
+  // Tous ceux qui passent les filtres, montrés ou non — pas seulement les
+  // `limite` premiers : ce sont justement ceux que le classement laisse
+  // dehors que la mesure d'exposition doit voir (voir `candidatIds`).
+  const idsEligibles = filtres.map((r) => r.id);
+
+  const reponse = {
     // Ce qui passe les filtres, pas seulement ce qui est montré : l'agent
     // sait s'il en reste au-delà de `limite`.
     eligibles: filtres.length,
@@ -462,6 +475,7 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
         })),
     })),
   };
+  return { reponse, idsEligibles };
 }
 
 async function details(brut: unknown) {
@@ -548,12 +562,10 @@ export async function executerOutil(
         resultat = await listerValeurs();
         break;
       case "rechercher_restaurants": {
-        const trouve = await rechercher(entree, dejaProposes);
-        // Les restaurants montrés à l'agent : ceux qu'il aurait pu proposer
+        // L'agent ne reçoit que la réponse ; les éligibles servent la mesure
         // (voir `PropositionAssistant.candidatIds`).
-        const candidats =
-          "restaurants" in trouve ? (trouve.restaurants ?? []).map((r) => r.id) : [];
-        return { contenu: JSON.stringify(trouve), erreur: false, candidats };
+        const { reponse, idsEligibles } = await rechercher(entree, dejaProposes);
+        return { contenu: JSON.stringify(reponse), erreur: false, candidats: idsEligibles };
       }
       case "details_restaurant":
         resultat = await details(entree);
