@@ -13,3 +13,8 @@ What to do, in a few sentences. Name the files that should change.
 - A checkable statement (a command that passes, a precise code change).
 - No other file changes.
 - `pnpm typecheck` and `pnpm lint` pass.
+
+## What to test
+
+- What the reviewer should open, run or check, and the expected result.
+- One or two edge cases or regressions worth a look.

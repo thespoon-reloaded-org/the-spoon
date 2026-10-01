@@ -1,6 +1,6 @@
 # Short title of the spec
 
-<!-- Keep this proportional to the change: a small change needs a few lines here and ONE task (see docs/sdlc/README.md, "Sizing tasks"). Delete this comment. -->
+<!-- Keep this proportional to the change: size tasks for the reviewer: independently reviewable, enough to test but not too much (see docs/sdlc/README.md, "Sizing tasks"). Delete this comment. -->
 
 One or two sentences: what changes and for whom.
 
@@ -24,4 +24,4 @@ The problem or evidence that justifies the work.
 
 - `pnpm typecheck` and `pnpm lint` pass.
 - A checkable statement per outcome.
-- Each task below is a separate PR (prefer a single task).
+- Each task below is a separate PR.
