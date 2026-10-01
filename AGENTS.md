@@ -10,4 +10,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## SDLC and specs
 
-Specs live in `docs/specs/` and are implemented by an automated runner, one task per PR. Before creating or editing anything under `docs/specs/`, read [`docs/sdlc/README.md`](docs/sdlc/README.md) and copy the templates in `docs/sdlc/templates/`. Do not move a spec to `01-ready-to-implement/` (that starts a run) without human approval. Automated PRs are reviewed against [`REVIEW.md`](REVIEW.md).
+Specs live in `docs/specs/` and are implemented by an automated runner, one task per PR. Before creating or editing anything under `docs/specs/`, read [`docs/sdlc/README.md`](docs/sdlc/README.md) and copy the templates in `docs/sdlc/templates/`. Always ask the user whether they want the spec to be implemented by the SDLC before writing it under `docs/specs/` (if not, keep it out of that folder or mark `SPEC.md` with `skip-sdlc-implementation: true`). Do not move a spec to `01-ready-to-implement/` (that starts a run) without human approval. Automated PRs are reviewed against [`REVIEW.md`](REVIEW.md).
