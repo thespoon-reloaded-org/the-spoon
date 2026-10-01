@@ -58,7 +58,7 @@ export type JourReservable = {
 };
 
 /** Abrégés des jours, dans l'ordre ISO (0 = lundi) — comme `jourSemaineIso`. */
-const JOURS_SEMAINE = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
+export const JOURS_SEMAINE_COURTS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
 
 /** Le quantième affiché, sans son zéro de tête : « 2 », pas « 02 ». */
 function numeroDuJour(jourIso: string): number {
@@ -71,7 +71,7 @@ export function genererJoursReservables(depuis = new Date()): JourReservable[] {
     const iso = ajouterJours(premier, i);
     return {
       iso,
-      jourSemaine: JOURS_SEMAINE[jourSemaineIso(iso)]!,
+      jourSemaine: JOURS_SEMAINE_COURTS[jourSemaineIso(iso)]!,
       numero: String(numeroDuJour(iso)),
     };
   });

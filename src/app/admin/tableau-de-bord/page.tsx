@@ -10,7 +10,7 @@ import {
 import { IconeChevron } from "@/components/Icones";
 import { Indicateur } from "@/components/Indicateur";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
-import { JOURS_SEMAINE_ISO } from "@/lib/creneaux";
+import { JOURS_SEMAINE_COURTS, JOURS_SEMAINE_ISO } from "@/lib/creneaux";
 import { formaterJourEtHeure, formaterJourSansSemaine } from "@/lib/fuseau";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import {
@@ -35,8 +35,6 @@ import { CARTE, EYEBROW, TITRE_SECTION } from "@/lib/ui";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
 
-const JOURS_COURTS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
-
 function nombre(valeur: number): string {
   return valeur.toLocaleString("fr-FR");
 }
@@ -60,7 +58,7 @@ function Tendance({
 
   const texte = formaterEvolution(valeur);
   const couleur =
-    texte === "stable"
+    Math.round(valeur * 100) === 0
       ? "text-[var(--color-ink-soft)]"
       : valeur > 0
         ? "text-[var(--color-success)]"
@@ -163,6 +161,7 @@ export default async function TableauDeBordAdminPage({
     avisParNote,
     propositionsParVerdict,
     coeursBrises,
+    restaurants,
   ] = await Promise.all([
     prisma.booking.findMany({
       where: creeSur(courante),
@@ -197,14 +196,10 @@ export default async function TableauDeBordAdminPage({
       take: 5,
       select: { id: true, demande: true, verdictLe: true, createdAt: true },
     }),
+    // Tous, sans attendre de savoir lesquels ont été réservés : quelques
+    // centaines de lignes coûtent moins qu'un second aller-retour en série.
+    prisma.restaurant.findMany({ select: { id: true, nom: true, ville: true, cuisine: true } }),
   ]);
-
-  const restaurants = await prisma.restaurant.findMany({
-    where: {
-      id: { in: [...new Set(reservations.map((reservation) => reservation.restaurantId))] },
-    },
-    select: { id: true, nom: true, ville: true, cuisine: true },
-  });
 
   const actuelle = activite(reservations);
   const precedenteActivite = activite(reservationsPrecedentes);
@@ -352,7 +347,7 @@ export default async function TableauDeBordAdminPage({
             <HistogrammeColonnes
               colonnes={lieux.parJourSemaine.map((valeur, jour) => ({
                 cle: String(jour),
-                libelle: JOURS_COURTS[jour]!,
+                libelle: JOURS_SEMAINE_COURTS[jour]!,
                 libelleLong: JOURS_SEMAINE_ISO[jour]!,
                 valeur,
                 detail: `${pluriel(valeur, "réservation")} (${formaterPart(part(valeur, lieux.total))})`,
