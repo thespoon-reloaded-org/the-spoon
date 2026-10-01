@@ -90,6 +90,39 @@ export default async function DemandeRestaurateurPage({
               </dd>
             </div>
             <div>
+              <dt className={EYEBROW}>SIREN</dt>
+              <dd className="mt-1 text-sm text-[var(--color-ink)]">
+                {demande.siren ?? "Non renseigné"}
+              </dd>
+            </div>
+            <div>
+              <dt className={EYEBROW}>Menus à la cuillère</dt>
+              <dd className="mt-1 text-sm text-[var(--color-ink)]">
+                {demande.menusALaCuillere === null
+                  ? "Non renseigné"
+                  : demande.menusALaCuillere
+                    ? "Oui"
+                    : "Non"}
+              </dd>
+            </div>
+            <div>
+              <dt className={EYEBROW}>Google My Business</dt>
+              <dd className="mt-1 text-sm text-[var(--color-ink)]">
+                {demande.urlGoogleMyBusiness ? (
+                  <a
+                    href={demande.urlGoogleMyBusiness}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    Voir la fiche
+                  </a>
+                ) : (
+                  "Non renseigné"
+                )}
+              </dd>
+            </div>
+            <div>
               <dt className={EYEBROW}>Reçue le</dt>
               <dd className="mt-1 text-sm text-[var(--color-ink)]">
                 {formaterHorodatageDemande(demande.createdAt)}
