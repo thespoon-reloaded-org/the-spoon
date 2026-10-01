@@ -7,6 +7,7 @@ import {
   HistogrammeColonnes,
   type BarreClassement,
 } from "@/components/GraphiquesIndicateurs";
+import { IconeChevron } from "@/components/Icones";
 import { Indicateur } from "@/components/Indicateur";
 import { NoteCuilleres } from "@/components/NoteCuilleres";
 import { JOURS_SEMAINE_ISO } from "@/lib/creneaux";
@@ -419,7 +420,16 @@ export default async function TableauDeBordAdminPage({
           </div>
 
           <div className={CARTE}>
-            <h3 className="font-semibold text-[var(--color-ink)]">Assistant de recherche</h3>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="font-semibold text-[var(--color-ink)]">Assistant de recherche</h3>
+              <Link
+                href="/admin/assistant"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-staff)] hover:underline"
+              >
+                Toutes les propositions
+                <IconeChevron taille={15} />
+              </Link>
+            </div>
             {assistant.servies === 0 ? (
               <RienSurLaPeriode>
                 L&apos;assistant n&apos;a servi aucune proposition sur la période.
@@ -463,17 +473,22 @@ export default async function TableauDeBordAdminPage({
 
                 <h4 className={`${EYEBROW} mb-2 mt-6`}>Derniers cœurs brisés</h4>
                 {coeursBrises.length === 0 ? (
-                  <p className="text-sm text-[var(--color-ink-muted)]">Aucune sur la période.</p>
+                  <p className="text-sm text-[var(--color-ink-muted)]">Aucun sur la période.</p>
                 ) : (
                   <ul className="flex flex-col divide-y divide-[var(--color-line)]">
                     {coeursBrises.map((proposition) => (
-                      <li key={proposition.id} className="py-2.5 text-sm">
-                        <p className="line-clamp-2 text-[var(--color-ink)]">
-                          « {proposition.demande} »
-                        </p>
-                        <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                          {formaterJourEtHeure(proposition.verdictLe ?? proposition.createdAt)}
-                        </p>
+                      <li key={proposition.id}>
+                        <Link
+                          href={`/admin/assistant/${proposition.id}`}
+                          className="group block py-2.5 text-sm"
+                        >
+                          <p className="line-clamp-2 text-[var(--color-ink)] group-hover:underline">
+                            « {proposition.demande} »
+                          </p>
+                          <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                            {formaterJourEtHeure(proposition.verdictLe ?? proposition.createdAt)}
+                          </p>
+                        </Link>
                       </li>
                     ))}
                   </ul>
