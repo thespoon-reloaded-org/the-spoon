@@ -17,3 +17,13 @@ pnpm agent:qualifier
 - Outils de l'agent : `WebSearch` et `WebFetch`, rien d'autre (pas de shell, pas de fichiers). Le texte de la demande est traité comme une donnée.
 - Une sortie qui ne respecte pas le schéma est ignorée : la demande reste à analyser et sera reprise au prochain lancement.
 - Les consignes sont dans `prompt.md`, les zones cibles et l'adresse du support dans `src/lib/qualification.ts`.
+
+## Simulation (sans base locale)
+
+Contre une API qui n'a pas encore la route d'enregistrement (par exemple l'app déployée), l'agent peut lire les demandes sans rien écrire :
+
+```bash
+QUALIFIER_SIMULATION=1 QUALIFIER_API_URL="https://…" ADMIN_API_TOKEN="…" pnpm agent:qualifier
+```
+
+Le statut calculé s'affiche dans le terminal et chaque analyse est posée dans `agents/qualification/sortie/<id>.json` (ignoré par Git). `QUALIFIER_LIMITE` borne le nombre de demandes analysées (3 par défaut en simulation).

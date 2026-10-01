@@ -28,3 +28,4 @@ src/generated/
 # Jeu de formation (`pnpm jeu-formation`) : plan, état d'injection et
 # identifiants générés — des mots de passe, jamais dans le dépôt.
 .jeu-formation/
+agents/qualification/sortie/

@@ -20,6 +20,7 @@ export type Dependances = {
   analyser: (demande: Demande) => Promise<unknown>;
   enregistrer: (id: string, analyse: AnalyseDemande) => Promise<void>;
   journal?: (ligne: string) => void;
+  apresAnalyse?: (demande: Demande, analyse: AnalyseDemande) => void;
 };
 
 /** Les champs de la demande, balisés comme données et non comme consignes. */
@@ -50,6 +51,7 @@ export async function qualifierDemandes(deps: Dependances) {
       await deps.enregistrer(demande.id, resultat.data);
       analysees++;
       journal(`✓ ${demande.etablissement}`);
+      deps.apresAnalyse?.(demande, resultat.data);
     } catch (erreur) {
       erreurs++;
       journal(`✗ ${demande.etablissement} : ${erreur instanceof Error ? erreur.message : erreur}`);
