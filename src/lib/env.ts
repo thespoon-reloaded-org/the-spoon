@@ -32,6 +32,9 @@ const schema = z.object({
   // site n'en dépend pas.
   ANTHROPIC_API_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   OPENROUTER_API_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  // Modèle demandé à OpenRouter — Claude Opus 5.5 si absent (voir
+  // MODELE_OPENROUTER_PAR_DEFAUT, src/lib/chatbot/agent.ts).
+  OPENROUTER_MODELE: z.preprocess((v) => (v === "" ? undefined : v), z.string().trim().optional()),
 });
 
 function lire() {

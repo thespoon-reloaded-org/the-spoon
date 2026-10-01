@@ -19,13 +19,26 @@ type Fournisseur = {
   repli: boolean;
 };
 
+/**
+ * Modèle demandé à OpenRouter : Claude Opus 5.5 par défaut.
+ * `OPENROUTER_MODELE` permet d'en changer sans toucher au code (tout
+ * identifiant OpenRouter qui accepte les outils, ex.
+ * `deepseek/deepseek-v4-pro`), pour comparer des modèles sur la grille
+ * d'évaluation. DeepSeek V4 Pro et Flash ont été essayés le 01/10/2026 :
+ * plus lents (Flash dépasse les 30 s d'une fonction Netlify) et moins
+ * pertinents — ils ne trouvaient rien là où Claude proposait des
+ * restaurants. Le repli Anthropic, lui, reste toujours sur Claude.
+ */
+export const MODELE_OPENROUTER_PAR_DEFAUT = "anthropic/claude-opus-5.5";
+
 /** Une clé OpenRouter commence toujours ainsi — `sk-or-v1-…` aujourd'hui. */
 const PREFIXE_CLE_OPENROUTER = "sk-or-";
 
 /**
  * Les fournisseurs du modèle utilisables, par ordre de préférence :
- * OpenRouter, puis l'API Anthropic (même SDK, autre adresse, autre nom de
- * modèle).
+ * OpenRouter (modèle réglable, voir `MODELE_OPENROUTER_PAR_DEFAUT`), puis
+ * l'API Anthropic avec Claude. Les deux passent par le SDK Anthropic :
+ * OpenRouter expose la même API Messages pour tous ses modèles.
  *
  * OpenRouter passe en premier parce que c'est le seul des deux qu'on pose
  * forcément à la main : sur Netlify, l'AI Gateway injecte d'office un
@@ -50,7 +63,7 @@ function fournisseurs(): Fournisseur[] {
         authToken: cleOpenRouter,
         maxRetries: 0,
       }),
-      modele: "anthropic/claude-opus-5.5",
+      modele: env.OPENROUTER_MODELE ?? MODELE_OPENROUTER_PAR_DEFAUT,
       repli: false,
     });
   } else if (cleOpenRouter) {

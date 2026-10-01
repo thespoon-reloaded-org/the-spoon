@@ -13,6 +13,8 @@ const etat = vi.hoisted(() => ({
   appels: [] as string[],
   /** Le fournisseur qui refuse l'authentification. */
   refuse: null as string | null,
+  /** Modèles demandés, dans l'ordre. */
+  modeles: [] as string[],
 }));
 
 vi.mock("@/lib/env", () => ({ env: etat.env }));
@@ -21,13 +23,14 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@anthropic-ai/sdk", async (importOriginal) => {
   const { default: Vraie } = await importOriginal<typeof import("@anthropic-ai/sdk")>();
   class Factice {
-    beta: { messages: { create: () => Promise<unknown> } };
+    beta: { messages: { create: (params: { model: string }) => Promise<unknown> } };
     constructor(options: { baseURL?: string }) {
       const nom = options.baseURL?.includes("openrouter") ? "openrouter" : "anthropic";
       this.beta = {
         messages: {
-          create: async () => {
+          create: async (params: { model: string }) => {
             etat.appels.push(nom);
+            etat.modeles.push(params.model);
             if (etat.refuse === nom) {
               throw Vraie.APIError.generate(401, undefined, "clé refusée", new Headers());
             }
@@ -52,6 +55,7 @@ const DEMANDE = [{ role: "user" as const, content: "Un bistrot à Lyon" }];
 beforeEach(() => {
   for (const cle of Object.keys(etat.env)) delete etat.env[cle];
   etat.appels = [];
+  etat.modeles = [];
   etat.refuse = null;
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -61,6 +65,15 @@ test("OpenRouter passe avant la clé Anthropic quand sa clé est valide", async 
   etat.env.ANTHROPIC_API_KEY = "cle-injectee";
   expect((await lancerAgent(DEMANDE)).message).toBe("réponse openrouter");
   expect(etat.appels).toEqual(["openrouter"]);
+});
+
+test("OpenRouter demande Claude par défaut, ou le modèle configuré", async () => {
+  etat.env.OPENROUTER_API_KEY = "sk-or-v1-cle-de-test";
+  await lancerAgent(DEMANDE);
+  expect(etat.modeles).toEqual(["anthropic/claude-opus-5.5"]);
+  etat.env.OPENROUTER_MODELE = "deepseek/deepseek-v4-pro";
+  await lancerAgent(DEMANDE);
+  expect(etat.modeles.at(-1)).toBe("deepseek/deepseek-v4-pro");
 });
 
 test("une clé OpenRouter sans son préfixe est écartée", async () => {
