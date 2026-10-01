@@ -1,7 +1,7 @@
 ---
 id: 002
 title: Keep the marquee speed constant after the new words
-status: pending
+status: done
 depends_on:
   - 001
 ---

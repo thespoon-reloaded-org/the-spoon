@@ -309,7 +309,9 @@ export default async function RecherchePage({
            à droite, là où le bandeau incliné ne touchait plus les bords. */}
       <div className="overflow-x-clip">
         <div className="-ml-[3%] w-[106%] -rotate-[0.6deg] overflow-hidden bg-[var(--color-ink)] py-3.5">
-          <div className="flex w-max animate-[spoon-marquee_120s_linear_infinite] whitespace-nowrap font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-[var(--color-cream)] md:text-xl">
+          {/* Durée calée sur le nombre d'entrées de MOTS_BANDEAU : la
+              rallonger en même temps que la liste, sinon le ruban accélère. */}
+          <div className="flex w-max animate-[spoon-marquee_150s_linear_infinite] whitespace-nowrap font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-[var(--color-cream)] md:text-xl">
             {/* Deux copies strictement identiques : l'animation translate de
                 -50 %, la seconde vient donc prendre exactement la place de la
                 première et la boucle ne se voit pas. La seconde est masquée
