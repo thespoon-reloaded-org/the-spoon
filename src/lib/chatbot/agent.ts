@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 
 import { env } from "@/lib/env";
 import { aujourdHuiIso, formaterJourLong } from "@/lib/fuseau";
@@ -220,8 +221,11 @@ export async function lancerAgent(
           tool_use_id: a.id,
           is_error: true,
           content:
+            // Le détail de Zod, pas un message générique : un « message » trop
+            // long ou une raison de 300 caractères ne se corrige que si
+            // l'agent sait lequel des deux est en cause.
             a.id === presentation.id
-              ? "Classement invalide : « message » et « restaurants » (id + raison, 10 au plus) sont requis."
+              ? `Classement invalide, corrige et rappelle presenter_top10 :\n${z.prettifyError(lue.error)}`
               : "Ignoré : termine d'abord par un classement valide.",
         })),
       });

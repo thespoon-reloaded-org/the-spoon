@@ -117,6 +117,36 @@ describe("outils de l'assistant de recherche", () => {
     expect(noms(JSON.parse(contenu))).toEqual(["Bouillon Test"]);
   });
 
+  test("une fermeture exceptionnelle l'emporte sur les horaires habituels", async () => {
+    const { restaurants } = await rechercher({ cuisines: ["italien"] });
+    // Samedi 10 octobre : la trattoria, ouverte le samedi soir, ferme à 20h.
+    await prisma.exceptionHoraire.create({
+      data: {
+        restaurantId: restaurants[0]!.id,
+        jour: "2026-10-10",
+        creneau: "20:00",
+        ouvert: false,
+      },
+    });
+    expect(noms(await rechercher({ jour: "2026-10-10", heure: "20:00" }))).toEqual([
+      "Bouillon Test",
+    ]);
+    expect(noms(await rechercher({ jour: "2026-10-10", heure: "20:30" }))).toEqual([
+      "Trattoria Test",
+      "Bouillon Test",
+    ]);
+  });
+
+  test("les plats qui ont fait retenir le restaurant passent en premier", async () => {
+    const { contenu } = await executerOutil("rechercher_restaurants", {
+      villes: [VILLE],
+      mots_cles: ["mystère"],
+    });
+    const [bouillon] = JSON.parse(contenu).restaurants;
+    expect(bouillon.plats[0]).toMatchObject({ nom: "Soupe mystère", correspond: true });
+    expect(bouillon.plats[1].correspond).toBeUndefined();
+  });
+
   test("une entrée invalide revient à l'agent comme erreur, sans exception", async () => {
     const r = await executerOutil("rechercher_restaurants", { note_min: 12 });
     expect(r.erreur).toBe(true);

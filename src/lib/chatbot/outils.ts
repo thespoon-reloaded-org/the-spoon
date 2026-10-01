@@ -4,8 +4,9 @@ import { z } from "zod";
 import type { Allergene, Prisma } from "@/generated/prisma";
 import { CRENEAUX_HORAIRES } from "@/lib/creneaux";
 import { ALLERGENES, LIBELLE_ALLERGENE, VALEURS_ALLERGENES } from "@/lib/allergenes";
-import { jourSemaineIso, jourIsoValide } from "@/lib/fuseau";
-import { creneauDansLesHoraires, formaterHoraires } from "@/lib/horaires";
+import { creneauOuvert } from "@/lib/disponibilites";
+import { jourIsoValide } from "@/lib/fuseau";
+import { formaterHoraires } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -74,7 +75,7 @@ export const OUTILS: Anthropic.Tool[] = [
   {
     name: "rechercher_restaurants",
     description:
-      "Cherche des restaurants selon n'importe quelle combinaison de filtres, tous optionnels, et renvoie jusqu'à 25 candidats avec nom, ville, cuisine, note, nombre d'avis et les plats qui correspondent. Les filtres se cumulent (ET) ; au sein d'une liste, une seule valeur suffit (OU). Si aucun résultat, assouplis un filtre et relance. Les allergènes se filtrent sur les plats dont le restaurant a déclaré les allergènes : « sans_allergenes » garde les restaurants proposant au moins un tel plat, sans garantir le reste de la carte.",
+      "Cherche des restaurants selon n'importe quelle combinaison de filtres, tous optionnels, et renvoie jusqu'à 25 candidats avec nom, ville, cuisine, note, nombre d'avis et six plats, ceux qui répondent aux critères sur les plats en premier (marqués « correspond »). Les filtres se cumulent (ET) ; au sein d'une liste, une seule valeur suffit (OU). Si aucun résultat, assouplis un filtre et relance. Les allergènes se filtrent sur les plats dont le restaurant a déclaré les allergènes : « sans_allergenes » garde les restaurants proposant au moins un tel plat, sans garantir le reste de la carte.",
     input_schema: {
       type: "object",
       properties: {
@@ -190,6 +191,41 @@ function platSansAllergenes(
   return !(plat.allergenes ?? []).some((a) => exclus.includes(a));
 }
 
+/**
+ * Un plat répond-il à l'un des critères qui portent sur les plats
+ * (mots-clés, allergènes, budget) ? `false` quand aucun n'est posé : rien ne
+ * distingue alors un plat d'un autre.
+ */
+function platCorrespond(
+  plat: {
+    nom: string;
+    description: string | null;
+    categorie: string;
+    prixCentimes: number;
+    allergenes: Allergene[] | null;
+    allergenesDeclaresLe: Date | null;
+  },
+  entree: z.infer<typeof ENTREE_RECHERCHE>,
+): boolean {
+  const criteres: boolean[] = [];
+  if (entree.mots_cles?.length) {
+    const texte = `${plat.nom} ${plat.description ?? ""}`.toLowerCase();
+    criteres.push(entree.mots_cles.some((mot) => texte.includes(mot.toLowerCase())));
+  }
+  if (entree.sans_allergenes?.length) {
+    criteres.push(platSansAllergenes(plat, entree.sans_allergenes));
+  }
+  if (entree.prix_plat_max_euros !== undefined) {
+    criteres.push(
+      plat.categorie === "PLAT" &&
+        plat.prixCentimes > 0 &&
+        plat.prixCentimes <= Math.round(entree.prix_plat_max_euros * 100),
+    );
+  }
+  // Un seul suffit : le mot-clé peut viser un plat et le budget un autre.
+  return criteres.some(Boolean);
+}
+
 async function rechercher(brut: unknown, dejaProposes: string[]) {
   const entree = ENTREE_RECHERCHE.parse(brut);
   if (entree.jour !== undefined && !jourIsoValide(entree.jour)) {
@@ -264,10 +300,18 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
       noteCuilleres: true,
       nombreAvis: true,
       plagesOuverture: { select: { jourSemaine: true, debutMinutes: true, finMinutes: true } },
+      // Les exceptions du seul jour demandé (congés, fermeture ou ouverture
+      // ponctuelle) — la même règle que la carte de réservation, sinon
+      // l'agent annoncerait ouvert un créneau que la carte montre fermé.
+      exceptionsHoraires: {
+        where: { jour: entree.jour ?? "" },
+        select: { jour: true, creneau: true, ouvert: true },
+      },
       platsCuillere: {
         orderBy: { createdAt: "asc" },
         select: {
           nom: true,
+          description: true,
           categorie: true,
           prixCentimes: true,
           allergenes: true,
@@ -281,7 +325,12 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
     .filter(
       (r) =>
         !filtreHoraire ||
-        creneauDansLesHoraires(r.plagesOuverture, jourSemaineIso(entree.jour!), entree.heure!),
+        creneauOuvert({
+          plages: r.plagesOuverture,
+          exceptions: r.exceptionsHoraires,
+          jourIso: entree.jour!,
+          creneau: entree.heure!,
+        }),
     )
     .filter(
       (r) => exclus.length === 0 || r.platsCuillere.some((p) => platSansAllergenes(p, exclus)),
@@ -298,11 +347,17 @@ async function rechercher(brut: unknown, dejaProposes: string[]) {
       note_cuilleres: r.noteCuilleres,
       nombre_avis: r.nombreAvis,
       description: tronquer(r.description, 200),
-      plats: r.platsCuillere.slice(0, 6).map((p) => ({
-        nom: p.nom,
-        categorie: p.categorie,
-        prix_euros: p.prixCentimes > 0 ? p.prixCentimes / 100 : null,
-      })),
+      // Les plats qui ont fait retenir le restaurant d'abord : sans ça, le
+      // risotto qui justifiait le choix pouvait tomber au-delà des six montrés.
+      plats: [...r.platsCuillere]
+        .sort((a, b) => Number(platCorrespond(b, entree)) - Number(platCorrespond(a, entree)))
+        .slice(0, 6)
+        .map((p) => ({
+          nom: p.nom,
+          categorie: p.categorie,
+          prix_euros: p.prixCentimes > 0 ? p.prixCentimes / 100 : null,
+          ...(platCorrespond(p, entree) ? { correspond: true } : {}),
+        })),
     })),
   };
 }
