@@ -743,6 +743,33 @@ model Avoir {
   @@index([factureId])
 }
 
+/// Un top 10 servi par l'assistant de recherche de l'accueil (voir
+/// src/lib/chatbot/agent.ts), et le verdict du dîneur dessus — cœur plein ou
+/// cœur brisé. Garder la proposition elle-même, et pas seulement le vote,
+/// c'est ce qui rend le vote lisible : on sait ce qui a plu ou déplu, pour
+/// quelle demande. Anonyme : l'assistant est ouvert sans connexion, et rien
+/// ici ne rattache une demande à un dîneur.
+model PropositionAssistant {
+  id            String              @id @default(cuid())
+  /// Les messages du dîneur dans la conversation, dans l'ordre.
+  demande       String
+  /// La réponse de l'assistant qui accompagnait la liste.
+  message       String
+  /// Les restaurants proposés, dans l'ordre du classement. Pas de relation :
+  /// un restaurant supprimé ne doit pas effacer l'historique des votes.
+  restaurantIds String[]
+  verdict       VerdictProposition?
+  verdictLe     DateTime?
+  createdAt     DateTime            @default(now())
+
+  @@index([createdAt])
+}
+
+enum VerdictProposition {
+  AIME
+  AIME_PAS
+}
+
 /// Un avis déposé par un dîneur après son passage dans un restaurant — un
 /// seul avis par (restaurant, dîneur), modifiable (voir `deposerAvis`, qui
 /// fait un upsert et recalcule `Restaurant.noteCuilleres`/`nombreAvis` à

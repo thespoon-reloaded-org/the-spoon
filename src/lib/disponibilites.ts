@@ -12,7 +12,13 @@
  * de la même règle, c'est trois occasions qu'elles divergent.
  */
 
-import { CRENEAUX_HORAIRES } from "./creneaux";
+import {
+  CRENEAUX_HORAIRES,
+  cleCreneau,
+  construireDateCreneau,
+  genererJoursReservables,
+  type JourReservable,
+} from "./creneaux";
 import { jourSemaineIso } from "./fuseau";
 import { creneauDansLesHoraires, type Plage } from "./horaires";
 import { prisma } from "./prisma";
@@ -110,4 +116,40 @@ export async function creneauEstOuvert(
 ): Promise<boolean> {
   const { plages, exceptions } = await lirePlanning(restaurantId, { du: jourIso, au: jourIso });
   return creneauOuvert({ plages, exceptions, jourIso, creneau });
+}
+
+/**
+ * Tout ce que la carte de réservation (`BookingCard`) doit savoir d'un
+ * restaurant : les jours de la fenêtre réservable, ce qu'il y ouvre (ses
+ * horaires, recouverts par ses exceptions datées) puis, dans ces créneaux-là
+ * seulement, ce qu'il reste de place (voir "Capacité & conflits de
+ * réservation") — un créneau fermé n'a pas à être proposé, un créneau
+ * complet non plus. Partagé par la fiche restaurant et l'assistant de
+ * l'accueil : réserver depuis l'un ou l'autre suit la même règle.
+ */
+export async function lireCarteReservation(restaurantId: string): Promise<{
+  jours: JourReservable[];
+  plages: Plage[];
+  ouvertures: Record<string, string[]>;
+  occupation: Record<string, number>;
+}> {
+  const jours = genererJoursReservables();
+  const { plages, ouvertures } = await lireDisponibilites(
+    restaurantId,
+    jours.map((jour) => jour.iso),
+  );
+  const datesCreneaux = jours
+    .flatMap((jour) =>
+      (ouvertures[jour.iso] ?? []).map((creneau) => construireDateCreneau(jour.iso, creneau)),
+    )
+    .filter((date): date is Date => date !== null);
+  const occupationParCreneau = await prisma.booking.groupBy({
+    by: ["date"],
+    where: { restaurantId, statut: "CONFIRMEE", date: { in: datesCreneaux } },
+    _sum: { couverts: true },
+  });
+  const occupation = Object.fromEntries(
+    occupationParCreneau.map((ligne) => [cleCreneau(ligne.date), ligne._sum.couverts ?? 0]),
+  );
+  return { jours, plages, ouvertures, occupation };
 }
