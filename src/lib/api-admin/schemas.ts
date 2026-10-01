@@ -109,6 +109,19 @@ export const schemaDineur = z.object({
 });
 
 /**
+ * Une demande de référencement d'un restaurateur pas encore partenaire — mêmes
+ * bornes que le formulaire « Devenir partenaire » (`envoyerDemandeContactRestaurateur`).
+ * `creeLe` date la demande, comme les autres données d'historique.
+ */
+export const schemaDemandeReferencement = z.object({
+  nom: texte.max(100, "Nom trop long (100 caractères max)."),
+  email: z.string().trim().min(1, "Obligatoire.").max(200).email("Email invalide."),
+  etablissement: texte.max(150, "Nom d'établissement trop long (150 caractères max)."),
+  message: texte.max(2000, "Message trop long (2000 caractères max)."),
+  creeLe,
+});
+
+/**
  * Un membre du staff TheSpoon — pour peupler l'équipe qui a instruit les
  * litiges d'un historique. `role` est le libellé affiché (« Partenaires »,
  * « Support restaurants »…), pas une permission : la Console n'en a pas.

@@ -229,6 +229,8 @@ model DemandeContactRestaurateur {
   nom           String
   email         String
   etablissement String
+  /// Nullable : les demandes déposées avant l'ajout du champ n'en ont pas.
+  adresse       String?
   message       String
   createdAt     DateTime @default(now())
 }

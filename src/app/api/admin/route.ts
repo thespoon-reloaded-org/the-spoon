@@ -30,6 +30,16 @@ export const GET = routeAdmin(async () =>
         chemin: "/api/admin/restaurants/{id}/contacts",
         role: "Contacts d'un restaurant existant",
       },
+      {
+        methode: "GET",
+        chemin: "/api/admin/demandes",
+        role: "Demandes de référencement reçues (restaurants pas encore partenaires)",
+      },
+      {
+        methode: "POST",
+        chemin: "/api/admin/demandes",
+        role: "Demandes de référencement : nom, email, etablissement, message",
+      },
       { methode: "POST", chemin: "/api/admin/dineurs", role: "Comptes dîneur" },
       {
         methode: "POST",

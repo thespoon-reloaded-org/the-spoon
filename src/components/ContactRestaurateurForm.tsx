@@ -81,6 +81,19 @@ export function ContactRestaurateurForm() {
       </label>
 
       <label className={LABEL_CHAMP}>
+        Adresse de l&apos;établissement
+        <input
+          type="text"
+          name="adresse"
+          required
+          maxLength={250}
+          autoComplete="street-address"
+          className={CHAMP}
+          placeholder="12 rue de la Paix, 75002 Paris"
+        />
+      </label>
+
+      <label className={LABEL_CHAMP}>
         Votre demande
         <textarea
           name="message"
