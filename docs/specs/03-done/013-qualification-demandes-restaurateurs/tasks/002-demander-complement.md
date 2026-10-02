@@ -1,7 +1,7 @@
 ---
 id: 002
 title: Demander un complément d'informations à un restaurateur
-status: pending
+status: done
 depends_on:
   - 001
 ---
