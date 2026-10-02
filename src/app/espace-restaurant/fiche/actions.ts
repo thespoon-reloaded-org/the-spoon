@@ -27,6 +27,7 @@ const schemaFiche = z.object({
     .number()
     .int()
     .positive()
+    .max(500, "Capacité trop grande (500 couverts max).")
     .nullable()
     .optional()
     .or(z.literal("").transform(() => null)),

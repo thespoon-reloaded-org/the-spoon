@@ -111,6 +111,7 @@ export function FicheEtablissementForm({
               type="number"
               name="capacite"
               min={1}
+              max={500}
               defaultValue={fiche.capacite ?? ""}
               className={CHAMP}
             />
