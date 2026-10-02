@@ -254,17 +254,21 @@ model DemandeContactRestaurateur {
 
 /// Où en est le traitement d'une demande de contact restaurateur. `A_QUALIFIER`
 /// est l'état initial — c'est aussi la valeur que prennent les demandes
-/// déposées avant l'ajout du statut. ACCEPTEE et REJETEE sont terminaux : une
-/// demande décidée ne se redécide pas.
+/// déposées avant l'ajout du statut. `INFOS_DEMANDEES` dit qu'un complément a
+/// été demandé sans trancher : la demande peut encore être acceptée ou
+/// rejetée. ACCEPTEE et REJETEE sont terminaux : une demande décidée ne se
+/// redécide pas.
 enum StatutDemandeRestaurateur {
   A_QUALIFIER
+  INFOS_DEMANDEES
   ACCEPTEE
   REJETEE
 }
 
 /// Étape d'une demande de contact restaurateur, telle qu'elle apparaît dans
 /// son journal. `DEPOT` vient du restaurateur (pas d'auteur staff), `DECISION`
-/// du staff qui tranche.
+/// du staff qui tranche, `COMPLEMENT_DEMANDE` du staff qui réclame une
+/// précision sans trancher.
 ///
 /// Les valeurs sont déclarées dans leur ordre chronologique, et les écrans s'en
 /// servent : le dépôt d'une demande et sa décision peuvent partager leur
@@ -272,6 +276,7 @@ enum StatutDemandeRestaurateur {
 /// de déclaration. Ne pas réordonner cette liste.
 enum TypeEvenementDemandeRestaurateur {
   DEPOT
+  COMPLEMENT_DEMANDE
   DECISION
 }
 

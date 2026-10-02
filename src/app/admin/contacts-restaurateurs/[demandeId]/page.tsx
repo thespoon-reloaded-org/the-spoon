@@ -3,10 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DeciderDemandeForm } from "@/components/DeciderDemandeForm";
+import { DemanderComplementDemandeForm } from "@/components/DemanderComplementDemandeForm";
 import { EnteteEspace } from "@/components/EnteteEspace";
 import { JournalDemande } from "@/components/JournalDemande";
 import { formaterAnciennete } from "@/lib/contestation";
-import { ETAT_STATUT_DEMANDE, LABELS_STATUT_DEMANDE } from "@/lib/demande-labels";
+import {
+  demandeEstOuverte,
+  ETAT_STATUT_DEMANDE,
+  LABELS_STATUT_DEMANDE,
+} from "@/lib/demande-labels";
 import { formaterHorodatageDemande } from "@/lib/evenements-demande";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +22,8 @@ export const metadata: Metadata = { title: "Demande restaurateur" };
 /**
  * Fiche d'une demande de contact restaurateur : toutes les informations
  * déposées, son statut, son journal (du plus récent au plus ancien) et, tant
- * qu'elle est à qualifier, le formulaire qui l'accepte ou la rejette.
+ * qu'elle n'est pas décidée, les formulaires qui demandent un complément ou
+ * la tranche.
  *
  * La garde d'accès est refaite ici, pas seulement dans le layout — voir
  * `exigerSessionStaff`.
@@ -46,7 +52,7 @@ export default async function DemandeRestaurateurPage({
   });
   if (!demande) notFound();
 
-  const encoreAQualifier = demande.statut === "A_QUALIFIER";
+  const encoreOuverte = demandeEstOuverte(demande.statut);
 
   return (
     <>
@@ -139,7 +145,20 @@ export default async function DemandeRestaurateurPage({
         </div>
       </section>
 
-      {encoreAQualifier && (
+      {encoreOuverte && (
+        <section className="mt-10 max-w-3xl">
+          <h2 className={`${TITRE_SECTION} mb-1`}>Demander des informations</h2>
+          <p className="mb-4 text-sm text-[var(--color-ink-muted)]">
+            Le message est enregistré au journal ; le contact part à la main. La demande reste
+            ouverte, vous pouvez la trancher plus tard.
+          </p>
+          <div className={CARTE}>
+            <DemanderComplementDemandeForm demandeId={demande.id} />
+          </div>
+        </section>
+      )}
+
+      {encoreOuverte && (
         <section className="mt-10 max-w-3xl">
           <h2 className={`${TITRE_SECTION} mb-4`}>Décision</h2>
           <div className={CARTE}>

@@ -5,7 +5,10 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { envoyerDemandeContactRestaurateur } from "@/app/(site)/devenir-partenaire/actions";
-import { deciderDemandeRestaurateur } from "./demandes-restaurateur";
+import {
+  deciderDemandeRestaurateur,
+  demanderComplementDemandeRestaurateur,
+} from "./demandes-restaurateur";
 import { prisma } from "./prisma";
 
 /**
@@ -192,5 +195,173 @@ describe("deciderDemandeRestaurateur", () => {
       where: { id: demande.id },
     });
     expect(relue.statut).toBe("ACCEPTEE");
+  });
+});
+
+/**
+ * Demander un complément d'informations — nécessite une vraie base Postgres,
+ * comme le describe ci-dessus. La demande ne retient que son statut courant,
+ * le journal garde toutes les relances.
+ */
+describe("demanderComplementDemandeRestaurateur", () => {
+  let staffId: string;
+  const email = `demande-complement-${randomUUID()}@test.example`;
+
+  beforeAll(async () => {
+    const staff = await prisma.staff.create({
+      data: { nom: "Staff Complément", email: `${randomUUID()}@staff.test.example` },
+    });
+    staffId = staff.id;
+  });
+
+  afterAll(async () => {
+    const demandes = await prisma.demandeContactRestaurateur.findMany({
+      where: { email },
+      select: { id: true },
+    });
+    await prisma.evenementDemandeRestaurateur.deleteMany({
+      where: { demandeId: { in: demandes.map((d) => d.id) } },
+    });
+    await prisma.demandeContactRestaurateur.deleteMany({ where: { email } });
+    await prisma.staff.delete({ where: { id: staffId } });
+  });
+
+  async function creerDemande() {
+    const demande = await prisma.demandeContactRestaurateur.create({
+      data: {
+        nom: "Contact test",
+        email,
+        etablissement: "Test",
+        adresse: null,
+        message: "Bonjour",
+      },
+    });
+    await prisma.evenementDemandeRestaurateur.create({
+      data: { demandeId: demande.id, type: "DEPOT" },
+    });
+    return demande;
+  }
+
+  test("passe le statut à INFOS_DEMANDEES et journalise l'auteur et le message", async () => {
+    const demande = await creerDemande();
+
+    const resultat = await demanderComplementDemandeRestaurateur(
+      demande.id,
+      staffId,
+      "Pouvez-vous préciser votre carte de desserts ?",
+    );
+    expect(resultat.ok).toBe(true);
+
+    const relue = await prisma.demandeContactRestaurateur.findUniqueOrThrow({
+      where: { id: demande.id },
+    });
+    expect(relue.statut).toBe("INFOS_DEMANDEES");
+
+    const evenement = await prisma.evenementDemandeRestaurateur.findFirstOrThrow({
+      where: { demandeId: demande.id, type: "COMPLEMENT_DEMANDE" },
+    });
+    expect(evenement.auteurStaffId).toBe(staffId);
+    expect(evenement.createdAt).toBeInstanceOf(Date);
+    expect(evenement.details).toMatchObject({
+      message: "Pouvez-vous préciser votre carte de desserts ?",
+    });
+  });
+
+  test("deux demandes successives produisent deux lignes de journal", async () => {
+    const demande = await creerDemande();
+
+    expect(
+      (await demanderComplementDemandeRestaurateur(demande.id, staffId, "Première précision.")).ok,
+    ).toBe(true);
+    expect(
+      (await demanderComplementDemandeRestaurateur(demande.id, staffId, "Seconde précision.")).ok,
+    ).toBe(true);
+
+    const relue = await prisma.demandeContactRestaurateur.findUniqueOrThrow({
+      where: { id: demande.id },
+    });
+    expect(relue.statut).toBe("INFOS_DEMANDEES");
+
+    const evenements = await prisma.evenementDemandeRestaurateur.findMany({
+      where: { demandeId: demande.id, type: "COMPLEMENT_DEMANDE" },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(evenements).toHaveLength(2);
+    expect(evenements[0]?.details).toMatchObject({ message: "Première précision." });
+    expect(evenements[1]?.details).toMatchObject({ message: "Seconde précision." });
+  });
+
+  test("refuse une demande déjà acceptée et n'écrit rien", async () => {
+    const demande = await creerDemande();
+    expect((await deciderDemandeRestaurateur(demande.id, staffId, "ACCEPTEE", "Validée.")).ok).toBe(
+      true,
+    );
+
+    const resultat = await demanderComplementDemandeRestaurateur(demande.id, staffId, "Trop tard.");
+    expect(resultat.ok).toBe(false);
+    if (resultat.ok) return;
+    expect(resultat.erreur).toMatch(/traitée/);
+
+    expect(
+      await prisma.evenementDemandeRestaurateur.count({
+        where: { demandeId: demande.id, type: "COMPLEMENT_DEMANDE" },
+      }),
+    ).toBe(0);
+  });
+
+  test("refuse une demande déjà rejetée", async () => {
+    const demande = await creerDemande();
+    expect(
+      (await deciderDemandeRestaurateur(demande.id, staffId, "REJETEE", "Hors zone.")).ok,
+    ).toBe(true);
+
+    const resultat = await demanderComplementDemandeRestaurateur(demande.id, staffId, "Trop tard.");
+    expect(resultat.ok).toBe(false);
+    if (resultat.ok) return;
+    expect(resultat.erreur).toMatch(/traitée/);
+  });
+
+  test("un message vide est refusé et rien n'est écrit", async () => {
+    const demande = await creerDemande();
+
+    const resultat = await demanderComplementDemandeRestaurateur(demande.id, staffId, "   ");
+    expect(resultat.ok).toBe(false);
+    if (resultat.ok) return;
+    expect(resultat.erreur).toMatch(/message/i);
+
+    const relue = await prisma.demandeContactRestaurateur.findUniqueOrThrow({
+      where: { id: demande.id },
+    });
+    expect(relue.statut).toBe("A_QUALIFIER");
+    expect(
+      await prisma.evenementDemandeRestaurateur.count({
+        where: { demandeId: demande.id, type: "COMPLEMENT_DEMANDE" },
+      }),
+    ).toBe(0);
+  });
+
+  test("accepter une demande après un complément reste possible et garde le journal", async () => {
+    const demande = await creerDemande();
+    expect(
+      (await demanderComplementDemandeRestaurateur(demande.id, staffId, "Précisez la carte.")).ok,
+    ).toBe(true);
+
+    const resultat = await deciderDemandeRestaurateur(
+      demande.id,
+      staffId,
+      "ACCEPTEE",
+      "Finalement validée.",
+    );
+    expect(resultat.ok).toBe(true);
+
+    const relue = await prisma.demandeContactRestaurateur.findUniqueOrThrow({
+      where: { id: demande.id },
+    });
+    expect(relue.statut).toBe("ACCEPTEE");
+    expect(
+      await prisma.evenementDemandeRestaurateur.count({
+        where: { demandeId: demande.id, type: "COMPLEMENT_DEMANDE" },
+      }),
+    ).toBe(1);
   });
 });

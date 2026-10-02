@@ -48,6 +48,15 @@ export function decrireEvenementDemande(evenement: EvenementDemandeAvecAuteur): 
   switch (evenement.type) {
     case "DEPOT":
       return { horodatage, titre: "Demande déposée", auteur: "Le restaurateur" };
+    case "COMPLEMENT_DEMANDE": {
+      const message = texte(evenement.details, "message")?.trim();
+      return {
+        horodatage,
+        titre: "Complément demandé au restaurateur",
+        detail: message ? message : undefined,
+        auteur: evenement.auteurStaff?.nom ?? "Traitement automatique",
+      };
+    }
     case "DECISION": {
       const issue = texte(evenement.details, "issue");
       const motif = texte(evenement.details, "motif")?.trim();

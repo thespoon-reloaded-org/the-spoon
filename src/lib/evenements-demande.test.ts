@@ -37,6 +37,27 @@ describe("decrireEvenementDemande", () => {
     expect(ligne.detail).toBeUndefined();
   });
 
+  test("une demande de complément porte l'auteur connecté et le message", () => {
+    const ligne = decrireEvenementDemande(
+      evenement({
+        type: "COMPLEMENT_DEMANDE",
+        details: { message: "Pouvez-vous préciser votre carte de desserts ?" },
+        auteurStaffId: "staff",
+        auteurStaff: { nom: "Léa Fontaine" },
+      }),
+    );
+    expect(ligne.titre).toBe("Complément demandé au restaurateur");
+    expect(ligne.detail).toBe("Pouvez-vous préciser votre carte de desserts ?");
+    expect(ligne.auteur).toBe("Léa Fontaine");
+  });
+
+  test("une demande de complément sans message ne casse pas la ligne", () => {
+    const ligne = decrireEvenementDemande(evenement({ type: "COMPLEMENT_DEMANDE", details: null }));
+    expect(ligne.titre).toBe("Complément demandé au restaurateur");
+    expect(ligne.detail).toBeUndefined();
+    expect(ligne.auteur).toBe("Traitement automatique");
+  });
+
   test("une acceptation porte l'auteur connecté et le motif", () => {
     const ligne = decrireEvenementDemande(
       evenement({

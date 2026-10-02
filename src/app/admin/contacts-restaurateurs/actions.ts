@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ISSUES_DECISION_DEMANDE } from "@/lib/demande-labels";
-import { deciderDemandeRestaurateur as deciderDemandeRestaurateurLib } from "@/lib/demandes-restaurateur";
+import {
+  deciderDemandeRestaurateur as deciderDemandeRestaurateurLib,
+  demanderComplementDemandeRestaurateur as demanderComplementDemandeRestaurateurLib,
+} from "@/lib/demandes-restaurateur";
 import { exigerSessionStaff } from "@/lib/garde-staff";
 
 const schemaDecision = z.object({
@@ -51,4 +54,45 @@ export async function deciderDemandeRestaurateur(
   revalidatePath(`/admin/contacts-restaurateurs/${demandeId}`);
   revalidatePath("/admin/contacts-restaurateurs");
   return { message: "Décision enregistrée." };
+}
+
+const schemaComplement = z.object({
+  message: z
+    .string()
+    .trim()
+    .min(1, "Le message est obligatoire : c'est ce que gardera le journal.")
+    .max(2000, "Message trop long (2000 caractères max)."),
+});
+
+export type EtatComplementDemande = { erreur?: string; message?: string };
+
+/**
+ * Demande un complément d'informations au restaurateur, sans trancher la
+ * demande. Sous garde staff, comme le reste de la Console. La règle métier
+ * (demande encore ouverte, message présent) est revalidée dans
+ * `demanderComplementDemandeRestaurateur` : le formulaire masque des champs,
+ * il ne les protège pas.
+ */
+export async function demanderComplementDemandeRestaurateur(
+  demandeId: string,
+  _etatPrecedent: EtatComplementDemande,
+  formData: FormData,
+): Promise<EtatComplementDemande> {
+  const session = await exigerSessionStaff();
+
+  const donnees = schemaComplement.safeParse({ message: formData.get("message") });
+  if (!donnees.success) {
+    return { erreur: donnees.error.issues[0]?.message ?? "Message invalide." };
+  }
+
+  const resultat = await demanderComplementDemandeRestaurateurLib(
+    demandeId,
+    session.user.id,
+    donnees.data.message,
+  );
+  if (!resultat.ok) return { erreur: resultat.erreur };
+
+  revalidatePath(`/admin/contacts-restaurateurs/${demandeId}`);
+  revalidatePath("/admin/contacts-restaurateurs");
+  return { message: "Demande d'informations enregistrée." };
 }
