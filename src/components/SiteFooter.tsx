@@ -87,7 +87,7 @@ export function SiteFooter() {
 
         <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-[#a89ea3]">
-            © {new Date().getFullYear()} TheSpoon — la note s&apos;affiche en cuillères.
+            © {new Date().getFullYear()} TheSpoon — réservez, dégustez, notez en cuillères.
           </p>
           <Link
             href="/devenir-partenaire"
