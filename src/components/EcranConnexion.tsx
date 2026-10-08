@@ -6,7 +6,7 @@ import { LogoTheSpoon } from "@/components/LogoTheSpoon";
 import { UNIVERS_PUBLICS, type Univers } from "@/lib/univers";
 
 /**
- * Cadre commun aux trois écrans de connexion.
+ * Cadre commun aux écrans de connexion.
  *
  * À gauche le formulaire de l'univers, à droite sa photo teintée de sa
  * couleur. Au-dessus du formulaire, le sélecteur « vous êtes… » : c'est lui
@@ -46,12 +46,12 @@ export function EcranConnexion({
         </div>
 
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10">
-          {univers.cle === "staff" ? (
+          {univers.interne ? (
             <p
               className="mb-6 w-fit rounded-full px-3.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wide"
-              style={{ background: "var(--color-staff-accent)", color: "#ffffff" }}
+              style={{ background: univers.interne.fondBadge, color: univers.interne.texteBadge }}
             >
-              Accès interne
+              {univers.interne.badge}
             </p>
           ) : (
             <SelecteurUnivers actif={univers} />
@@ -77,13 +77,13 @@ export function EcranConnexion({
         </div>
 
         <div className="mx-auto w-full max-w-md">
-          {univers.cle === "staff" ? (
+          {univers.interne ? (
             <Link
               href="/connexion"
               className="text-xs hover:underline"
               style={{ color: univers.encreDouce }}
             >
-              ← Je ne suis pas du staff TheSpoon
+              ← {univers.interne.sortie}
             </Link>
           ) : (
             <Link

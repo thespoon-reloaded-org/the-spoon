@@ -12,7 +12,7 @@ répété en travers de l'image. Si vous remplacez un visuel, écartez-les.
 | Fichier | Sujet |
 |---|---|
 | `hero-salle.jpg` | Salle de restaurant chaleureuse — hero de la landing |
-| `hero-tablee.jpg` | Tablée vue du dessus — vignette du hero |
+| `hero-tablee.jpg` | Tablée vue du dessus — vignette du hero, et panneau de `/connexion-formateur` |
 | `univers-client.jpg` | Convives à table — panneau de `/connexion` |
 | `univers-restaurant.jpg` | Chef en cuisine — panneau de `/connexion-restaurant` |
 | `univers-staff.jpg` | Salle vide, tons froids — panneau de `/connexion-admin` |

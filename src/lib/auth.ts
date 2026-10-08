@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 
 import { env } from "./env";
+import { estEmailFormateur } from "./formateurs";
 import { prisma } from "./prisma";
 
 // BETTER_AUTH_URL reste l'URL de prod (même valeur partagée par tous les
@@ -85,5 +86,46 @@ export const authAdmin = betterAuth({
   account: { modelName: "staffAccount" },
   verification: { modelName: "staffVerification" },
   advanced: { cookiePrefix: "admin-auth" },
+  plugins: [nextCookies()],
+});
+
+/**
+ * Auth formateur — quatrième instance better-auth, table `Formateur`. Le
+ * formateur n'est pas un membre du staff : il ne voit pas la Console staff,
+ * le staff ne voit pas la sienne.
+ *
+ * Pas d'inscription libre. Et une session ne s'ouvre que pour une adresse
+ * @hymaia.com : un compte d'un autre domaine, glissé en base à la main, se
+ * voit refuser la connexion elle-même, pas seulement l'accès aux pages (voir
+ * src/lib/formateurs.ts).
+ */
+export const authFormateur = betterAuth({
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  emailAndPassword: { enabled: true, disableSignUp: true },
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.BETTER_AUTH_URL,
+  basePath: "/api/auth-formateur",
+  trustedOrigins,
+  user: {
+    modelName: "formateur",
+    fields: { name: "nom" },
+  },
+  session: { modelName: "formateurSession" },
+  account: { modelName: "formateurAccount" },
+  verification: { modelName: "formateurVerification" },
+  advanced: { cookiePrefix: "formateur-auth" },
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const formateur = await prisma.formateur.findUnique({
+            where: { id: session.userId },
+            select: { email: true },
+          });
+          return formateur !== null && estEmailFormateur(formateur.email);
+        },
+      },
+    },
+  },
   plugins: [nextCookies()],
 });

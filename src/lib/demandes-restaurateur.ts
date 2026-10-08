@@ -1,5 +1,28 @@
+import type { SaisieDemandeContact } from "./demande-contact-restaurateur";
 import type { IssueDemande } from "./demande-labels";
 import { prisma } from "./prisma";
+
+/**
+ * Dépose des demandes de référencement, telles que le formulaire « Devenir
+ * partenaire » les a validées (`schemaDemandeContact`). Chaque demande part
+ * avec son événement `DEPOT`, dans la même transaction : le journal commence
+ * au dépôt, et un dépôt sans première ligne serait un début manquant plutôt
+ * qu'une demande sans histoire.
+ *
+ * Partagé par le formulaire public et la console formateur : une demande
+ * déclenchée pendant une formation est celle que le formulaire aurait
+ * déposée.
+ */
+export async function deposerDemandesRestaurateur(demandes: SaisieDemandeContact[]) {
+  await prisma.$transaction(async (tx) => {
+    for (const donnees of demandes) {
+      const demande = await tx.demandeContactRestaurateur.create({ data: donnees });
+      await tx.evenementDemandeRestaurateur.create({
+        data: { demandeId: demande.id, type: "DEPOT" },
+      });
+    }
+  });
+}
 
 /** Longueur maximale du motif d'une décision — même borne que le formulaire public. */
 export const LONGUEUR_MAX_MOTIF_DECISION = 2000;

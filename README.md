@@ -10,14 +10,16 @@ données n'est pas conçu à l'avance en un bloc — chaque table arrive avec
 l'écran qui en a besoin. `prisma/schema.prisma` contient aujourd'hui
 `Restaurant`/`PlatCuillere` (recherche + fiche établissement),
 `PlageOuverture`/`ExceptionHoraire` (horaires & disponibilités), `Booking`
-(réservation), `Avis` (dépôt d'avis), `Staff` (organigramme interne) et,
-pour chacune des trois populations qui se connectent (dîneur, contact
-restaurant, staff), un jeu de tables d'auth dédié généré par better-auth
+(réservation), `Avis` (dépôt d'avis), `Staff` (organigramme interne),
+`Fonctionnalite`/`JournalFormateur` (console formateur) et, pour chacune des
+quatre populations qui se connectent (dîneur, contact restaurant, staff,
+formateur), un jeu de tables d'auth dédié généré par better-auth
 (`User`/`Session`/`Account`/`Verification` ; `RestaurantContact` +
 `RestaurantContactSession`/`RestaurantContactAccount`/
 `RestaurantContactVerification` ; `Staff` +
-`StaffSession`/`StaffAccount`/`StaffVerification`) — même mécanique, tables
-et cookies séparés par population.
+`StaffSession`/`StaffAccount`/`StaffVerification` ; `Formateur` +
+`FormateurSession`/`FormateurAccount`/`FormateurVerification`) — même
+mécanique, tables et cookies séparés par population.
 
 L'identité visuelle est celle de TheSpoon, pas celle d'Hymaïa (TheSpoon est sa
 propre marque, pas une interface interne) — voir « Charte & structure des
@@ -25,18 +27,19 @@ propre marque, pas une interface interne) — voir « Charte & structure des
 
 ## Un onboarding par univers
 
-Trois populations, trois produits : le dîneur ne gagne rien à lire comment on
-instruit un litige. Chaque univers a donc son propre parcours, en quatre
+Une population, un produit : le dîneur ne gagne rien à lire comment on
+instruit un litige. Chaque univers a donc son propre parcours, en quelques
 étapes, déclaré comme du contenu dans `src/lib/onboarding.ts` — ajouter une
 étape ne demande pas de toucher à la mécanique, qui vit une seule fois dans
 `src/components/Onboarding.tsx`.
 
 Il **se rejoue** : un bouton « Comment ça marche » dans le header du site et
-dans la barre latérale des deux espaces connectés. Ce n'est pas un tunnel
+dans la barre latérale des espaces connectés. Ce n'est pas un tunnel
 d'accueil qu'on subit une fois, c'est un écran qui reste à portée. Il s'ouvre
 tout seul à la première arrivée, puis plus jamais sans qu'on le demande —
 `onboardingVuLe` porte cette trace, une colonne par population (`User`,
-`RestaurantContact`, `Staff`), comme les trois instances better-auth.
+`RestaurantContact`, `Staff`, `Formateur`), comme les quatre instances
+better-auth.
 `marquerOnboardingVu` résout la session de l'univers concerné et n'accepte
 jamais d'identifiant venu du client.
 
@@ -63,8 +66,8 @@ quel fuseau machine — c'est ce qui rend la garantie vérifiable.
 
 ## Charte & structure des écrans
 
-**Trois univers, trois couleurs.** Trois populations se connectent, sur trois
-instances better-auth séparées, vers trois produits qui n'ont rien à voir. Elles
+**Un univers, une couleur.** Quatre populations se connectent, sur quatre
+instances better-auth séparées, vers des produits qui n'ont rien à voir. Elles
 ne partagent donc pas la même peau (`src/lib/univers.ts`, tokens dans
 `globals.css`) :
 
@@ -73,18 +76,21 @@ ne partagent donc pas la même peau (`src/lib/univers.ts`, tokens dans
 | Dîneur | framboise `--color-accent` | site public + `/connexion` |
 | Restaurateur | vert profond `--color-pro` + jaune | `/espace-restaurant` + `/connexion-restaurant` |
 | Staff | encre bleutée `--color-staff` + violet | `/admin` + `/connexion-admin` |
+| Formateur | brun encre `--color-formateur` + orange | `/formateur` + `/connexion-formateur` |
 
 `/connexion` et `/connexion-restaurant` affichent le sélecteur « Vous êtes… » :
 les deux portes sont visibles d'emblée, chacune avec sa couleur et sa photo.
-Le staff n'y figure pas (accès interne, lien discret en pied de page).
+Le staff et les formateurs n'y figurent pas : accès internes, avec un badge à
+la place du sélecteur (lien discret en pied de page pour le staff, aucun lien
+public vers `/connexion-formateur`).
 
-**Groupes de routes.** Les trois univers n'ont pas le même cadre, d'où le
+**Groupes de routes.** Les univers n'ont pas le même cadre, d'où le
 découpage de `src/app/` (les parenthèses n'apparaissent pas dans les URLs) :
 
 - `(site)/` — recherche, fiche établissement, mes réservations : header collant
   + pied de page (`SiteHeader`, `SiteFooter`).
-- `(connexion)/` — les trois écrans de connexion, en pleine page.
-- `espace-restaurant/` et `admin/` — menu latéral (`BarreLaterale`), fixe à
+- `(connexion)/` — les écrans de connexion, en pleine page.
+- `espace-restaurant/`, `admin/` et `formateur/` — menu latéral (`BarreLaterale`), fixe à
   partir de `lg`, tiroir en dessous. Le contrôle d'accès est fait une fois dans
   le layout, pas page par page.
 
@@ -116,9 +122,10 @@ pnpm dev                # http://localhost:3100
 
 `BETTER_AUTH_SECRET` se génère avec `openssl rand -hex 32`.
 
-`pnpm seed:dev` crée les restaurants, les contacts et le staff de dev, tous
-avec le mot de passe `password123` — connexion dîneur sur `/connexion`,
-restaurateur sur `/connexion-restaurant`, staff sur `/connexion-admin`.
+`pnpm seed:dev` crée les restaurants, les contacts, le staff et un formateur
+(`formateur.dev@hymaia.com`) de dev, tous avec le mot de passe `password123` —
+connexion dîneur sur `/connexion`, restaurateur sur `/connexion-restaurant`,
+staff sur `/connexion-admin`, formateur sur `/connexion-formateur`.
 
 ## Se donner un accès sur un environnement déployé
 
@@ -139,9 +146,12 @@ DATABASE_URL="$(netlify env:get DATABASE_URL --context production)" \
 pnpm creer-compte
 ```
 
-Par défaut il crée les trois comptes ; `COMPTE_UNIVERS=restaurant,staff` en
-restreint la liste, `COMPTE_RESTAURANT='Chez Antoine'` choisit l'établissement
-du contact restaurateur.
+Par défaut il crée les comptes dîneur, restaurateur et staff ;
+`COMPTE_UNIVERS=restaurant,staff` en restreint la liste,
+`COMPTE_RESTAURANT='Chez Antoine'` choisit l'établissement du contact
+restaurateur. Un compte formateur se demande explicitement
+(`COMPTE_UNIVERS=formateur`) et n'est accepté que pour une adresse
+@hymaia.com — voir « Console formateur ».
 
 ## API d'administration
 
@@ -280,6 +290,52 @@ Avis et notes compris : environ un dîneur servi sur sept laisse un avis, le
 soir même ou dans les jours qui suivent, et la note de chaque restaurant
 suit. Hors d'atteinte de l'API, donc absents du jeu : les fermetures
 exceptionnelles (congés d'août) et les pièces jointes des dossiers.
+
+## Console formateur
+
+`/formateur` sert aux formateurs Hymaia à mettre TheSpoon en mouvement
+pendant une session. C'est une **quatrième population**, distincte du staff :
+le staff fait tourner le produit, le formateur met en scène ce qui lui arrive.
+Il ne voit pas la Console staff, et le staff ne voit pas la sienne.
+
+**Qui est formateur.** Une adresse @hymaia.com, et rien d'autre
+(`estEmailFormateur`, `src/lib/formateurs.ts`) — le domaine exact, pas
+« contient hymaia ». Le domaine seul ne prouve rien, puisque n'importe qui
+peut taper une adresse dans un formulaire. La règle ne protège donc que parce
+qu'aucun compte formateur ne se crée soi-même : pas d'inscription,
+`pnpm creer-compte` est la seule porte et refuse tout autre domaine. La
+connexion (`authFormateur`) et chaque page (`exigerSessionFormateur`) la
+revérifient pour un compte glissé en base à la main.
+
+```bash
+COMPTE_UNIVERS=formateur COMPTE_EMAIL=prenom.nom@hymaia.com \
+COMPTE_MOT_DE_PASSE='…' COMPTE_NOM='Prénom Nom' \
+DATABASE_URL="$(netlify env:get DATABASE_URL --context production)" \
+pnpm creer-compte
+```
+
+**Événements.** Demandes de référencement, réservations, avis et
+contestations, par lots (`src/lib/evenements-formation.ts`). Même règle que
+l'API d'administration : on ne fabrique que des états que le produit aurait pu
+atteindre. Chaque événement passe par la fonction qu'emprunte l'écran
+correspondant — formulaire « Devenir partenaire », création de réservation,
+dépôt d'avis, dépôt de contestation — et en hérite les règles. Quand le
+produit n'en permet pas autant que demandé (créneaux pleins, pas assez de
+dîneurs servis, plus de facture contestable), l'événement en crée moins et
+le dit. Tout est daté de maintenant, écrit dans la vraie base, et y reste.
+
+**Fonctionnalités.** Un formateur coupe et rallume une fonctionnalité
+(`src/lib/fonctionnalites.ts`) — aujourd'hui l'assistant de recherche. Les
+interrupteurs sont **globaux** : la production et les Deploy Previews
+partagent la même base, une fonctionnalité coupée l'est pour tout TheSpoon.
+Pas de ligne en base = active. Ajouter une fonctionnalité, c'est une valeur de
+`CleFonctionnalite` (migration) et l'interrupteur qui la coupe, côté écran
+**et** côté serveur — comme `assistantOuvert` pour l'accueil et
+`/api/chatbot`.
+
+**Journal.** Chaque bascule et chaque événement s'inscrit dans
+`JournalFormateur` — qui, quand, combien demandés, combien créés — affiché
+sous chaque écran de la console.
 
 ## Migrations de base de données
 
@@ -429,6 +485,11 @@ saines (local, CI) où elle ne fait rien.
   changé et leurs valeurs avant/après), affiché sur la fiche détail. Pas de
   section factures : l'epic Facturation & commission n'existe pas encore,
   l'afficher aurait été fictif.
+- Console formateur (`/formateur`, `/connexion-formateur`) : réservée aux
+  adresses @hymaia.com. Déclenche des demandes de référencement, des
+  réservations, des avis et des contestations par lots, et coupe ou rallume
+  l'assistant de recherche pour tout TheSpoon, avec un journal — voir
+  « Console formateur ».
 - Ma carte (`/espace-restaurant/menu`) : le contact restaurant connecté gère
   la carte de son établissement — ajoute, modifie, supprime un plat (nom,
   description/ingrédients, catégorie entrée/plat/dessert, prix, allergènes,

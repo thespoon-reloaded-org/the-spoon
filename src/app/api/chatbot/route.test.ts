@@ -6,11 +6,11 @@ import { beforeEach, expect, test, vi } from "vitest";
  * production passait par l'AI Gateway de Netlify, qui répondait 403 sans
  * corps, et le dîneur ne lisait que « La recherche a échoué ».
  */
-const agent = vi.hoisted(() => ({ erreur: null as unknown }));
+const agent = vi.hoisted(() => ({ erreur: null as unknown, ouvert: true }));
 
 vi.mock("@/lib/env", () => ({ env: { OPENROUTER_API_KEY: "cle-de-test" } }));
 vi.mock("@/lib/chatbot/agent", () => ({
-  assistantDisponible: () => true,
+  assistantOuvert: async () => agent.ouvert,
   lancerAgent: async () => {
     throw agent.erreur;
   },
@@ -28,6 +28,7 @@ function requete() {
 }
 
 beforeEach(() => {
+  agent.ouvert = true;
   reinitialiserLimite();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -46,4 +47,11 @@ test("toute autre panne reste une erreur générique", async () => {
   const reponse = await POST(requete());
   expect(reponse.status).toBe(502);
   expect((await reponse.json()).erreur).toBe("La recherche a échoué, réessaie.");
+});
+
+test("coupé par un formateur, l'assistant refuse même une conversation déjà ouverte", async () => {
+  agent.ouvert = false;
+  const reponse = await POST(requete());
+  expect(reponse.status).toBe(503);
+  expect((await reponse.json()).erreur).toBe("Assistant indisponible.");
 });

@@ -6,7 +6,7 @@ import { IconeCuillere, IconeFleche, IconeLieu, IconeRecherche } from "@/compone
 import { MarqueIllustration } from "@/components/MarqueIllustration";
 import { Cuillere, NoteCuilleres } from "@/components/NoteCuilleres";
 import { PhotoCouverture } from "@/components/PhotoCouverture";
-import { assistantDisponible } from "@/lib/chatbot/agent";
+import { assistantOuvert } from "@/lib/chatbot/agent";
 import { estPhotoReelle, photoCuisine, photoPlat, photoRestaurant } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
 
@@ -612,8 +612,9 @@ export default async function RecherchePage({
         </div>
       </section>
 
-      {/* L'assistant n'apparaît que si une clé API est configurée (voir src/lib/env.ts). */}
-      {assistantDisponible() && <ChatbotAccueil />}
+      {/* L'assistant n'apparaît que si une clé API est configurée (voir src/lib/env.ts)
+          et qu'aucun formateur ne l'a coupé (voir src/lib/fonctionnalites.ts). */}
+      {(await assistantOuvert()) && <ChatbotAccueil />}
     </div>
   );
 }
