@@ -48,9 +48,13 @@ describe("les parcours d'onboarding", () => {
   /** Chaque univers parle de son propre produit : le staff n'envoie pas sur l'espace partenaire. */
   test("les liens d'un parcours restent dans son univers", () => {
     const prefixeAttendu: Record<string, (href: string) => boolean> = {
-      client: (href) => !href.startsWith("/espace-restaurant") && !href.startsWith("/admin"),
+      client: (href) =>
+        !href.startsWith("/espace-restaurant") &&
+        !href.startsWith("/admin") &&
+        !href.startsWith("/formateur"),
       restaurant: (href) => href.startsWith("/espace-restaurant"),
       staff: (href) => href.startsWith("/admin"),
+      formateur: (href) => href.startsWith("/formateur"),
     };
 
     for (const [univers, parcours] of Object.entries(PARCOURS)) {

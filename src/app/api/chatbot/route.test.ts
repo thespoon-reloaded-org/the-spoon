@@ -10,7 +10,7 @@ const agent = vi.hoisted(() => ({ erreur: null as unknown }));
 
 vi.mock("@/lib/env", () => ({ env: { OPENROUTER_API_KEY: "cle-de-test" } }));
 vi.mock("@/lib/chatbot/agent", () => ({
-  assistantDisponible: () => true,
+  assistantOuvert: async () => true,
   lancerAgent: async () => {
     throw agent.erreur;
   },

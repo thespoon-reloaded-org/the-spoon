@@ -1,19 +1,19 @@
 /**
- * Les trois univers de TheSpoon.
+ * Les univers de TheSpoon.
  *
- * Trois populations se connectent (dîneur, contact restaurant, staff), sur
- * trois instances better-auth séparées, vers trois produits qui n'ont rien à
- * voir : une vitrine de réservation, un outil de gestion de salle, une console
- * interne. Jusqu'ici les trois écrans de connexion étaient identiques au pixel
- * près — on ne savait pas où on venait d'atterrir, et un restaurateur tombant
- * sur `/connexion` n'avait aucun moyen de comprendre qu'il n'était pas au bon
- * endroit.
+ * Quatre populations se connectent (dîneur, contact restaurant, staff,
+ * formateur), sur quatre instances better-auth séparées, vers des produits
+ * qui n'ont rien à voir : une vitrine de réservation, un outil de gestion de
+ * salle, une console interne, une console de formation. Jusqu'ici les écrans
+ * de connexion étaient identiques au pixel près — on ne savait pas où on
+ * venait d'atterrir, et un restaurateur tombant sur `/connexion` n'avait
+ * aucun moyen de comprendre qu'il n'était pas au bon endroit.
  *
  * D'où ce fichier : une couleur, une photo et un discours par univers, partagés
  * entre l'écran de connexion et l'espace connecté correspondant.
  */
 
-export type CleUnivers = "client" | "restaurant" | "staff";
+export type CleUnivers = "client" | "restaurant" | "staff" | "formateur";
 
 export type Univers = {
   cle: CleUnivers;
@@ -42,6 +42,11 @@ export type Univers = {
   voile: string;
   /** Classe appliquée au conteneur — pilote l'anneau de focus (cf. globals.css). */
   classeUnivers: string;
+  /**
+   * Univers interne, absent du sélecteur « vous êtes… » : son écran de
+   * connexion porte un badge à la place, et un lien pour ressortir.
+   */
+  interne?: { badge: string; fondBadge: string; texteBadge: string; sortie: string };
 };
 
 export const UNIVERS: Record<CleUnivers, Univers> = {
@@ -51,8 +56,7 @@ export const UNIVERS: Record<CleUnivers, Univers> = {
     onglet: "Je réserve une table",
     espace: "Espace dîneur",
     titre: "Bonjour, on mange où ce soir ?",
-    baseline:
-      "Tes réservations, tes annulations et tes avis en cuillères, au même endroit.",
+    baseline: "Tes réservations, tes annulations et tes avis en cuillères, au même endroit.",
     photo: "/images/univers-client.jpg",
     photoAlt: "Des convives partagent un repas autour d'une table",
     atouts: [
@@ -120,8 +124,46 @@ export const UNIVERS: Record<CleUnivers, Univers> = {
     voile:
       "linear-gradient(180deg, rgb(17 19 39 / 0.2) 0%, rgb(26 29 51 / 0.52) 48%, rgb(13 15 30 / 0.93) 100%)",
     classeUnivers: "univers-staff",
+    interne: {
+      badge: "Accès interne",
+      fondBadge: "var(--color-staff-accent)",
+      texteBadge: "#ffffff",
+      sortie: "Je ne suis pas du staff TheSpoon",
+    },
+  },
+
+  formateur: {
+    cle: "formateur",
+    href: "/connexion-formateur",
+    onglet: "Formateur Hymaia",
+    espace: "Console formateur",
+    titre: "Console formateur.",
+    baseline:
+      "Mettez TheSpoon en mouvement pendant une session : déclenchez ce qui arrive au produit, coupez ce qui doit l'être.",
+    photo: "/images/hero-tablee.jpg",
+    photoAlt: "Une tablée vue du dessus, en plein service",
+    atouts: [
+      "Faites arriver demandes, réservations, avis et contestations",
+      "Coupez et rallumez une fonctionnalité pour tout TheSpoon",
+      "Retrouvez dans le journal qui a déclenché quoi",
+    ],
+    fond: "var(--color-formateur-tint)",
+    encre: "var(--color-formateur)",
+    encreDouce: "#6b5446",
+    accent: "var(--color-formateur)",
+    accentSurvol: "var(--color-formateur-deep)",
+    surAccent: "var(--color-cream)",
+    voile:
+      "linear-gradient(180deg, rgb(42 28 18 / 0.18) 0%, rgb(42 28 18 / 0.5) 48%, rgb(28 18 11 / 0.92) 100%)",
+    classeUnivers: "univers-formateur",
+    interne: {
+      badge: "Formateurs Hymaia",
+      fondBadge: "var(--color-formateur-accent)",
+      texteBadge: "var(--color-formateur)",
+      sortie: "Je ne suis pas formateur",
+    },
   },
 };
 
-/** Les deux portes proposées au visiteur — le staff n'en fait pas partie, il n'est pas public. */
+/** Les deux portes proposées au visiteur — staff et formateurs n'en font pas partie, ils ne sont pas publics. */
 export const UNIVERS_PUBLICS = [UNIVERS.client, UNIVERS.restaurant] as const;

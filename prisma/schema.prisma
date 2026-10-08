@@ -466,6 +466,134 @@ model StaffVerification {
   @@index([identifier])
 }
 
+/// Les formateurs Hymaia qui animent les sessions de formation sur TheSpoon.
+/// Une quatrième population, distincte du staff : le staff fait tourner le
+/// produit, le formateur met en scène ce qui lui arrive — il déclenche des
+/// événements et coupe des fonctionnalités, il n'instruit ni ne facture rien.
+///
+/// Réservée aux adresses @hymaia.com (`estEmailFormateur`,
+/// src/lib/formateurs.ts). Pas d'inscription libre : un compte se crée avec
+/// `pnpm creer-compte`, qui refuse tout autre domaine, et la règle est
+/// revérifiée à chaque connexion et à chaque page.
+model Formateur {
+  id                       String             @id @default(cuid())
+  nom                      String
+  email                    String             @unique
+  emailVerified            Boolean            @default(false)
+  image                    String?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  /// Voir `Staff.onboardingVuLe`.
+  onboardingVuLe           DateTime?
+  sessions                 FormateurSession[]
+  accounts                 FormateurAccount[]
+  journal                  JournalFormateur[]
+  fonctionnalitesModifiees Fonctionnalite[]
+}
+
+// ----------------------------------------------------------------------------
+//  Auth formateur (better-auth, quatrième instance — voir `authFormateur`
+//  dans src/lib/auth.ts). Même mécanique que l'auth staff, tables dédiées à
+//  `Formateur`. Schéma généré par `npx @better-auth/cli generate`, ne pas
+//  modifier à la main.
+// ----------------------------------------------------------------------------
+
+model FormateurSession {
+  id        String    @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      Formateur @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+}
+
+model FormateurAccount {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  Formateur @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model FormateurVerification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+/// Les fonctionnalités qu'un formateur peut couper et rallumer. Une valeur
+/// n'entre ici qu'avec l'interrupteur qui la coupe réellement (voir
+/// src/lib/fonctionnalites.ts) : sinon la console afficherait un bouton qui
+/// ne coupe rien.
+enum CleFonctionnalite {
+  ASSISTANT_RECHERCHE
+}
+
+/// État d'une fonctionnalité. **Global** : la production et les Deploy
+/// Previews partagent la même base, une fonctionnalité coupée l'est pour tout
+/// le monde. Pas de ligne = active : rien n'est coupé tant qu'aucun formateur
+/// n'y a touché.
+model Fonctionnalite {
+  cle           CleFonctionnalite @id
+  active        Boolean
+  modifieeLe    DateTime          @updatedAt
+  modifieeParId String
+  modifieePar   Formateur         @relation(fields: [modifieeParId], references: [id])
+}
+
+/// Ce qu'un formateur peut déclencher depuis sa console (voir
+/// src/lib/evenements-formation.ts).
+enum EvenementFormation {
+  DEMANDES_REFERENCEMENT
+  RESERVATIONS
+  AVIS
+  CONTESTATIONS
+}
+
+/// Journal de la console formateur : chaque fonctionnalité basculée
+/// (`fonctionnalite` + `active`) et chaque événement déclenché (`evenement`
+/// + quantités). En ajout seul, comme les autres journaux du produit.
+model JournalFormateur {
+  id               String              @id @default(cuid())
+  formateurId      String
+  formateur        Formateur           @relation(fields: [formateurId], references: [id])
+  fonctionnalite   CleFonctionnalite?
+  active           Boolean?
+  evenement        EvenementFormation?
+  /// Un événement crée ce que le produit permet, pas plus : moins que demandé
+  /// quand les créneaux sont pleins ou qu'il manque de dîneurs servis.
+  quantiteDemandee Int?
+  quantiteCreee    Int?
+  /// La phrase affichée dans le journal, figée à l'écriture.
+  resume           String
+  createdAt        DateTime            @default(now())
+
+  @@index([createdAt])
+  @@index([formateurId])
+}
+
 /// Statut d'une réservation. HONOREE/NO_SHOW sont posés par le restaurant
 /// (voir `signaleeLe` sur `Booking`) une fois le créneau passé — c'est ce qui
 /// débloque la facturation : sans couvert servi, rien à facturer.

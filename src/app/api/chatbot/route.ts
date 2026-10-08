@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { assistantDisponible, lancerAgent } from "@/lib/chatbot/agent";
+import { assistantOuvert, lancerAgent } from "@/lib/chatbot/agent";
 import { limiteAtteinte } from "@/lib/chatbot/limite";
 
 // Une recherche enchaîne plusieurs appels au modèle et à la base.
@@ -35,7 +35,7 @@ const corps = z.object({
  * recherche de l'accueil — pas de session, mais une limite de débit par IP.
  */
 export async function POST(request: Request) {
-  if (!assistantDisponible()) {
+  if (!(await assistantOuvert())) {
     return NextResponse.json({ erreur: "Assistant indisponible." }, { status: 503 });
   }
 
