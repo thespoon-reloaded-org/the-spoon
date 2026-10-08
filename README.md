@@ -300,17 +300,44 @@ Il ne voit pas la Console staff, et le staff ne voit pas la sienne.
 
 **Qui est formateur.** Une adresse @hymaia.com, et rien d'autre
 (`estEmailFormateur`, `src/lib/formateurs.ts`) — le domaine exact, pas
-« contient hymaia ». Le domaine seul ne prouve rien, puisque n'importe qui
-peut taper une adresse dans un formulaire. La règle ne protège donc que parce
-qu'aucun compte formateur ne se crée soi-même : pas d'inscription,
-`pnpm creer-compte` est la seule porte et refuse tout autre domaine. La
-connexion (`authFormateur`) et chaque page (`exigerSessionFormateur`) la
-revérifient pour un compte glissé en base à la main.
+« contient hymaia ». Le domaine seul ne prouve rien (n'importe qui peut taper
+une adresse dans un formulaire) : il ne vaut que là où l'adresse est prouvée.
+
+- **« Continuer avec Google »**, la porte d'entrée. Google atteste l'adresse
+  et son appartenance au Workspace hymaia.com (claim `hd`, vérifié par
+  better-auth) ; `validateUserInfo` revérifie l'adresse elle-même. Le compte
+  se crée à la première connexion : rien à demander à personne.
+- **Mot de passe**, pour le développement local et en secours : un compte
+  créé à la main avec `pnpm creer-compte`, qui refuse tout autre domaine.
+  Un formateur qui en a un et se connecte ensuite avec Google retrouve le
+  même compte.
+
+La connexion (`authFormateur`) et chaque page (`exigerSessionFormateur`)
+revérifient le domaine pour un compte glissé en base à la main.
+
+**Brancher Google.** Un client OAuth « Application Web » dans la console
+Google Cloud du Workspace Hymaia, écran de consentement **Interne** (seuls
+les comptes hymaia.com le voient), avec ces URI de redirection autorisées :
+
+- `https://the-spoon-bootcamp.netlify.app/api/auth-formateur/callback/google`
+- `http://localhost:3100/api/auth-formateur/callback/google`
+
+Puis `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET` sur Netlify (tous les
+contextes) et dans `.env` en local. Sans eux, le bouton n'apparaît pas et
+seul le mot de passe reste. Google n'accepte que des adresses de retour
+déclarées une à une, et celle d'une Deploy Preview change à chaque PR : le
+plugin `oAuthProxy` fait revenir Google sur la production, qui renvoie la
+session à la preview. Une preview ne se connecte donc avec Google qu'une
+fois ce code en production.
+
+Un compte à mot de passe, contre la base partagée — la chaîne de connexion
+se copie depuis la console Neon (sur Netlify, `DATABASE_URL` est masquée :
+`netlify env:get` n'en rend qu'un masque) :
 
 ```bash
 COMPTE_UNIVERS=formateur COMPTE_EMAIL=prenom.nom@hymaia.com \
 COMPTE_MOT_DE_PASSE='…' COMPTE_NOM='Prénom Nom' \
-DATABASE_URL="$(netlify env:get DATABASE_URL --context production)" \
+DATABASE_URL='postgresql://…' \
 pnpm creer-compte
 ```
 
@@ -486,7 +513,7 @@ saines (local, CI) où elle ne fait rien.
   section factures : l'epic Facturation & commission n'existe pas encore,
   l'afficher aurait été fictif.
 - Console formateur (`/formateur`, `/connexion-formateur`) : réservée aux
-  adresses @hymaia.com. Déclenche des demandes de référencement, des
+  adresses @hymaia.com, connexion avec Google. Déclenche des demandes de référencement, des
   réservations, des avis et des contestations par lots, et coupe ou rallume
   l'assistant de recherche pour tout TheSpoon, avec un journal — voir
   « Console formateur ».
