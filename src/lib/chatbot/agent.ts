@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import { estActive } from "@/lib/fonctionnalites";
 import { aujourdHuiIso, formaterJourLong } from "@/lib/fuseau";
 import { photoRestaurant, type SourcePhoto } from "@/lib/images";
 import { prisma } from "@/lib/prisma";
@@ -99,6 +100,16 @@ const CONSIGNE_CONCLURE =
 /** Un fournisseur utilisable suffit à activer l'assistant. */
 export function assistantDisponible(): boolean {
   return fournisseurs().length > 0;
+}
+
+/**
+ * L'assistant répond : une clé est configurée, et aucun formateur ne l'a
+ * coupé (voir src/lib/fonctionnalites.ts). La seule question que se posent
+ * l'accueil, qui affiche le widget, et la route, qui répond — une réponse
+ * pour les deux, ou l'écran proposerait ce que le serveur refuse.
+ */
+export async function assistantOuvert(): Promise<boolean> {
+  return assistantDisponible() && (await estActive("ASSISTANT_RECHERCHE"));
 }
 
 export type MessageConversation = { role: "user" | "assistant"; content: string };

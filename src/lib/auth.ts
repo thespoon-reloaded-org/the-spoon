@@ -1,8 +1,10 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
+import { oAuthProxy } from "better-auth/plugins";
 
 import { env } from "./env";
+import { DOMAINE_FORMATEURS, estEmailFormateur, refusIdentiteFormateur } from "./formateurs";
 import { prisma } from "./prisma";
 
 // BETTER_AUTH_URL reste l'URL de prod (même valeur partagée par tous les
@@ -86,4 +88,73 @@ export const authAdmin = betterAuth({
   verification: { modelName: "staffVerification" },
   advanced: { cookiePrefix: "admin-auth" },
   plugins: [nextCookies()],
+});
+
+/**
+ * Auth formateur — quatrième instance better-auth, table `Formateur`. Le
+ * formateur n'est pas un membre du staff : il ne voit pas la Console staff,
+ * le staff ne voit pas la sienne.
+ *
+ * On entre par « Se connecter avec Google », limité au Workspace hymaia.com :
+ * le compte se crée à la première connexion. Pas d'inscription par mot de
+ * passe — ces comptes-là se créent avec `pnpm creer-compte`. Et une session
+ * ne s'ouvre que pour une adresse @hymaia.com : un compte d'un autre domaine,
+ * glissé en base à la main, se voit refuser la connexion elle-même, pas
+ * seulement l'accès aux pages (voir src/lib/formateurs.ts).
+ */
+export const googleFormateursDisponible = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+
+export const authFormateur = betterAuth({
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  emailAndPassword: { enabled: true, disableSignUp: true },
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.BETTER_AUTH_URL,
+  basePath: "/api/auth-formateur",
+  trustedOrigins,
+  socialProviders: googleFormateursDisponible
+    ? {
+        google: {
+          clientId: env.GOOGLE_CLIENT_ID!,
+          clientSecret: env.GOOGLE_CLIENT_SECRET!,
+          // Proposé à Google comme indice, et surtout vérifié par better-auth
+          // contre le claim `hd` du jeton : un compte Gmail personnel est
+          // refusé même si son adresse finissait par le bon domaine.
+          hd: DOMAINE_FORMATEURS,
+          prompt: "select_account",
+        },
+      }
+    : undefined,
+  user: {
+    modelName: "formateur",
+    fields: { name: "nom" },
+    // Deuxième verrou, indépendant de Google : l'adresse elle-même.
+    validateUserInfo: ({ user }) => refusIdentiteFormateur(user.email),
+  },
+  session: { modelName: "formateurSession" },
+  // Un formateur créé avec `pnpm creer-compte` qui se connecte ensuite avec
+  // Google retrouve son compte : Google atteste l'adresse.
+  account: {
+    modelName: "formateurAccount",
+    accountLinking: { enabled: true, trustedProviders: ["google"] },
+  },
+  verification: { modelName: "formateurVerification" },
+  advanced: { cookiePrefix: "formateur-auth" },
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const formateur = await prisma.formateur.findUnique({
+            where: { id: session.userId },
+            select: { email: true },
+          });
+          return formateur !== null && estEmailFormateur(formateur.email);
+        },
+      },
+    },
+  },
+  // Google n'accepte que des adresses de retour déclarées une à une, et celle
+  // d'une Deploy Preview change à chaque PR. Le proxy fait revenir Google sur
+  // la production, qui renvoie la session à la preview d'origine : il faut
+  // donc que la production ait déjà ce code pour qu'une preview se connecte.
+  plugins: [oAuthProxy({ productionURL: env.BETTER_AUTH_URL }), nextCookies()],
 });

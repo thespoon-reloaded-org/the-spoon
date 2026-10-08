@@ -1,12 +1,12 @@
 /**
  * Ce qu'on montre à quelqu'un qui arrive — un parcours par univers.
  *
- * Trois populations, trois produits qui n'ont rien à voir : le dîneur ne
- * gagne rien à lire comment on instruit un litige. D'où trois parcours
- * distincts, et pas un seul tronc commun avec des variantes.
+ * Une population, un produit : le dîneur ne gagne rien à lire comment on
+ * instruit un litige. D'où un parcours par univers, et pas un seul tronc
+ * commun avec des variantes.
  *
  * Les clés sont celles de `src/lib/univers.ts` — une seule façon de nommer
- * les trois univers dans tout le produit.
+ * les univers dans tout le produit.
  *
  * Ce module ne porte que du contenu : la coquille qui le déroule est
  * `src/components/Onboarding.tsx`, la trace du passage est en base
@@ -123,6 +123,30 @@ export const PARCOURS: Record<CleUnivers, Parcours> = {
         texte:
           "Sous un certain montant, une contestation est créditée d'office : l'avoir part sans instruction. Ce seuil se règle dans les réglages, et il tranche à votre place tant qu'il est en vigueur.",
         lien: { href: "/admin/contestation", libelle: "Réglages contestation" },
+      },
+    ],
+  },
+
+  formateur: {
+    titre: "Bienvenue dans la console formateur",
+    accroche: "Ce que vous pouvez faire bouger pendant une session, et ce que ça touche.",
+    etapes: [
+      {
+        titre: "Les événements",
+        texte:
+          "Faites arriver des demandes de référencement, des réservations, des avis ou des contestations, par lots. Ils suivent les règles des écrans : créneaux ouverts, capacité, dîneurs réellement servis, délai de contestation. Quand le produit n'en permet pas autant, il en crée moins et le dit.",
+        lien: { href: "/formateur/evenements", libelle: "Les événements" },
+      },
+      {
+        titre: "Les fonctionnalités",
+        texte:
+          "Coupez l'assistant de recherche le temps d'un exercice, rallumez-le après. La base est partagée : une fonctionnalité coupée l'est pour tout TheSpoon, production comprise.",
+        lien: { href: "/formateur/fonctionnalites", libelle: "Les fonctionnalités" },
+      },
+      {
+        titre: "Rien ne s'efface",
+        texte:
+          "Ce que vous déclenchez s'écrit dans la vraie base et y reste, comme si un dîneur ou un restaurateur l'avait fait. Le journal garde la trace de qui a déclenché quoi, et quand.",
       },
     ],
   },

@@ -193,6 +193,23 @@ export function IconeEtincelle(p: ProprietesIcone) {
   );
 }
 
+export function IconeEclair(p: ProprietesIcone) {
+  return (
+    <Svg {...p}>
+      <path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z" />
+    </Svg>
+  );
+}
+
+export function IconeInterrupteur(p: ProprietesIcone) {
+  return (
+    <Svg {...p}>
+      <rect x="3" y="7" width="18" height="10" rx="5" />
+      <circle cx="15.5" cy="12" r="2.5" />
+    </Svg>
+  );
+}
+
 export function IconeUtilisateur(p: ProprietesIcone) {
   return (
     <Svg {...p}>
@@ -286,6 +303,8 @@ export const ICONES = {
   reglages: IconeReglages,
   message: IconeMessage,
   etincelle: IconeEtincelle,
+  eclair: IconeEclair,
+  interrupteur: IconeInterrupteur,
 } as const;
 
 export type CleIcone = keyof typeof ICONES;

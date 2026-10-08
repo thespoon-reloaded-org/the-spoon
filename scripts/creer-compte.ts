@@ -1,6 +1,6 @@
 /**
  * Crée — ou remet à jour — un compte de connexion sur la base pointée par
- * `DATABASE_URL`, pour tout ou partie des trois populations de TheSpoon.
+ * `DATABASE_URL`, pour tout ou partie des populations de TheSpoon.
  *
  * Pourquoi en plus de `seed:dev` : `seed:dev` commence par vider restaurants,
  * contacts et staff, il est fait pour une base de dev jetable. Les
@@ -17,7 +17,10 @@
  * Variables lues :
  * - `COMPTE_EMAIL`, `COMPTE_MOT_DE_PASSE` — requis ;
  * - `COMPTE_NOM` — nom affiché, « Compte de test » par défaut ;
- * - `COMPTE_UNIVERS` — sous-ensemble de `client,restaurant,staff` (tous par défaut) ;
+ * - `COMPTE_UNIVERS` — sous-ensemble de `client,restaurant,staff,formateur`
+ *   (`client,restaurant,staff` par défaut). `formateur` se demande
+ *   explicitement et n'accepte qu'une adresse @hymaia.com — c'est la seule
+ *   porte d'entrée de la console formateur (voir src/lib/formateurs.ts) ;
  * - `COMPTE_RESTAURANT` — nom de l'établissement auquel rattacher le contact.
  *   Absent, un compte neuf prend le premier restaurant par ordre alphabétique
  *   et un compte existant garde son rattachement.
@@ -33,11 +36,14 @@ import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 
 import { FOURNISSEUR_CREDENTIAL, nouveauCompteCredential } from "../src/lib/comptes";
+import { DOMAINE_FORMATEURS, estEmailFormateur } from "../src/lib/formateurs";
 import { prisma } from "../src/lib/prisma";
 
-/** Les trois instances better-auth de `src/lib/auth.ts`, vues côté script. */
-const UNIVERS = ["client", "restaurant", "staff"] as const;
+/** Les instances better-auth de `src/lib/auth.ts`, vues côté script. */
+const UNIVERS = ["client", "restaurant", "staff", "formateur"] as const;
 type Univers = (typeof UNIVERS)[number];
+/** Formateur exclu : réservé à @hymaia.com, il ne se crée pas par mégarde. */
+const UNIVERS_PAR_DEFAUT: readonly Univers[] = ["client", "restaurant", "staff"];
 
 // Normalisé en minuscule : la Console staff fait de même avant de vérifier
 // l'unicité de RestaurantContact.email (index Postgres sensible à la casse),
@@ -57,7 +63,7 @@ function exigerVariable(nom: string): string {
 
 function lireUnivers(): readonly Univers[] {
   const brut = process.env.COMPTE_UNIVERS;
-  if (!brut) return UNIVERS;
+  if (!brut) return UNIVERS_PAR_DEFAUT;
 
   const demandes = brut
     .split(",")
@@ -157,13 +163,45 @@ async function creerStaff(motDePasseHash: string) {
   return "staff : /connexion-admin";
 }
 
+async function creerFormateur(motDePasseHash: string) {
+  const formateur = await prisma.formateur.upsert({
+    where: { email: EMAIL },
+    update: { nom: NOM },
+    create: { nom: NOM, email: EMAIL, emailVerified: true },
+  });
+
+  const compte = await prisma.formateurAccount.findFirst({
+    where: { userId: formateur.id, providerId: FOURNISSEUR_CREDENTIAL },
+  });
+  if (compte) {
+    await prisma.formateurAccount.update({
+      where: { id: compte.id },
+      data: { password: motDePasseHash },
+    });
+  } else {
+    await prisma.formateurAccount.create({
+      data: nouveauCompteCredential(formateur.id, motDePasseHash),
+    });
+  }
+
+  return "formateur : /connexion-formateur";
+}
+
 const CREATEURS: Record<Univers, (motDePasseHash: string) => Promise<string>> = {
   client: creerDineur,
   restaurant: creerContactRestaurant,
   staff: creerStaff,
+  formateur: creerFormateur,
 };
 
 async function run() {
+  // Avant toute écriture : un refus ici ne doit pas laisser derrière lui les
+  // comptes des autres univers demandés dans le même appel.
+  if (UNIVERS_DEMANDES.includes("formateur") && !estEmailFormateur(EMAIL)) {
+    throw new Error(
+      `Un compte formateur est réservé aux adresses @${DOMAINE_FORMATEURS} : ${EMAIL} refusé.`,
+    );
+  }
   const motDePasseHash = await hashPassword(MOT_DE_PASSE);
 
   console.log(`${EMAIL} :`);

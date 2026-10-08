@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 
-import { auth, authAdmin, authRestaurant } from "@/lib/auth";
+import { auth, authAdmin, authFormateur, authRestaurant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { CleUnivers } from "@/lib/univers";
 
@@ -10,7 +10,7 @@ import type { CleUnivers } from "@/lib/univers";
  * Retient qu'une personne est allée au bout de son onboarding, pour qu'il ne
  * se rouvre plus tout seul.
  *
- * Une action pour les trois univers, mais jamais un identifiant venu du
+ * Une action pour tous les univers, mais jamais un identifiant venu du
  * client : chacun résout sa propre session, sur sa propre instance
  * better-auth et sa propre table. Un dîneur ne peut pas marquer l'onboarding
  * d'un membre du staff en changeant un paramètre.
@@ -19,7 +19,7 @@ import type { CleUnivers } from "@/lib/univers";
  * dîneur est ouvert à tous) n'a simplement rien à retenir.
  *
  * Posée à la racine de `app/` et pas à côté d'une route, contrairement aux
- * autres actions du dépôt : celle-ci est appelée depuis les trois univers, et
+ * autres actions du dépôt : celle-ci est appelée depuis tous les univers, et
  * la ranger sous l'un d'eux laisserait croire qu'elle lui appartient.
  */
 export async function marquerOnboardingVu(univers: CleUnivers): Promise<void> {
@@ -38,6 +38,17 @@ export async function marquerOnboardingVu(univers: CleUnivers): Promise<void> {
     const session = await authRestaurant.api.getSession({ headers: enTetes });
     if (session) {
       await prisma.restaurantContact.update({
+        where: { id: session.user.id },
+        data: { onboardingVuLe: vuLe },
+      });
+    }
+    return;
+  }
+
+  if (univers === "formateur") {
+    const session = await authFormateur.api.getSession({ headers: enTetes });
+    if (session) {
+      await prisma.formateur.update({
         where: { id: session.user.id },
         data: { onboardingVuLe: vuLe },
       });

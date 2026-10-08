@@ -512,6 +512,12 @@ const staff = [
 ];
 
 /**
+ * Un formateur de dev — connexion sur /connexion-formateur. Une adresse
+ * @hymaia.com, sinon la console le refuse (voir src/lib/formateurs.ts).
+ */
+const formateur = { nom: "Formateur Hymaia", email: "formateur.dev@hymaia.com" };
+
+/**
  * Les horaires d'un restaurant, écrits comme sur une devanture
  * ("Mar-Sam 12h-14h, 19h-22h30"), traduits en `PlageOuverture`. Le seed
  * garde cette forme parce qu'elle se relit d'un coup d'œil ; la base, elle,
@@ -597,6 +603,18 @@ async function run() {
     });
   }
 
+  // Mis à jour plutôt que recréé : son journal (`JournalFormateur`) le
+  // retient, et une base de dev en garde la trace d'un seed à l'autre.
+  const formateurCree = await prisma.formateur.upsert({
+    where: { email: formateur.email },
+    update: { nom: formateur.nom },
+    create: { ...formateur, emailVerified: true },
+  });
+  await prisma.formateurAccount.deleteMany({ where: { userId: formateurCree.id } });
+  await prisma.formateurAccount.create({
+    data: nouveauCompteCredential(formateurCree.id, motDePasseHash),
+  });
+
   console.log(
     `${restaurants.length} restaurants créés, avec ${nombrePlats} plats à la cuillère au total.`,
   );
@@ -605,6 +623,9 @@ async function run() {
   );
   console.log(
     `${staff.length} membres du staff créés (mot de passe : "${MOT_DE_PASSE_CONTACT_DEV}"), connexion sur /connexion-admin.`,
+  );
+  console.log(
+    `Formateur ${formateur.email} (mot de passe : "${MOT_DE_PASSE_CONTACT_DEV}"), connexion sur /connexion-formateur.`,
   );
 }
 

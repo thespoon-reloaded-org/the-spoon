@@ -32,6 +32,11 @@ const schema = z.object({
   // site n'en dépend pas.
   ANTHROPIC_API_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   OPENROUTER_API_KEY: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  // « Se connecter avec Google » de la console formateur (voir
+  // src/lib/formateurs.ts) : un client OAuth du Workspace Hymaia. Absent, le
+  // bouton n'est pas affiché et la connexion par mot de passe reste seule.
+  GOOGLE_CLIENT_ID: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+  GOOGLE_CLIENT_SECRET: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
 });
 
 function lire() {

@@ -1,7 +1,7 @@
 "use server";
 
 import { schemaDemandeContact } from "@/lib/demande-contact-restaurateur";
-import { prisma } from "@/lib/prisma";
+import { deposerDemandesRestaurateur } from "@/lib/demandes-restaurateur";
 
 export type EtatDemandeContact = { erreur?: string; ok?: boolean };
 
@@ -10,10 +10,7 @@ export type EtatDemandeContact = { erreur?: string; ok?: boolean };
  * de connexion restaurant, pour un établissement pas encore référencé (voir
  * le modèle `DemandeContactRestaurateur`). Formulaire public, sans session :
  * seule la forme des données est vérifiée ici, rien d'autre à autoriser.
- *
- * La demande et son événement `DEPOT` partent dans la même transaction : le
- * journal commence au dépôt, et un dépôt sans première ligne serait un début
- * manquant plutôt qu'une demande sans histoire.
+ * L'écriture, demande et journal, est `deposerDemandesRestaurateur`.
  */
 export async function envoyerDemandeContactRestaurateur(
   _etatPrecedent: EtatDemandeContact,
@@ -35,12 +32,7 @@ export async function envoyerDemandeContactRestaurateur(
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
-      const demande = await tx.demandeContactRestaurateur.create({ data: donnees.data });
-      await tx.evenementDemandeRestaurateur.create({
-        data: { demandeId: demande.id, type: "DEPOT" },
-      });
-    });
+    await deposerDemandesRestaurateur([donnees.data]);
   } catch (erreur) {
     console.error("Échec de l'enregistrement d'une demande de contact restaurateur :", erreur);
     return { erreur: "Impossible d'envoyer votre demande, réessayez." };

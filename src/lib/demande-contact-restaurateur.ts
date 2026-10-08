@@ -81,3 +81,5 @@ export const schemaDemandeContact = z.object({
     .min(1, "Décrivez brièvement votre demande.")
     .max(2000, "Message trop long (2000 caractères max)."),
 });
+
+export type SaisieDemandeContact = z.output<typeof schemaDemandeContact>;

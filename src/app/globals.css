@@ -20,11 +20,12 @@
   --color-line-strong: #e6dad6;
 
   /*
-   * Trois populations se connectent à TheSpoon (dîneur, contact restaurant,
-   * staff) et chacune a son propre univers visuel — c'est ce qui permet de
-   * savoir en un coup d'œil dans quel espace on se trouve, et de choisir sa
-   * porte sur l'écran de connexion. Le dîneur garde la marque (framboise
-   * `--color-accent`) : c'est le produit public. Les deux autres ci-dessous.
+   * Quatre populations se connectent à TheSpoon (dîneur, contact restaurant,
+   * staff, formateur) et chacune a son propre univers visuel — c'est ce qui
+   * permet de savoir en un coup d'œil dans quel espace on se trouve, et de
+   * choisir sa porte sur l'écran de connexion. Le dîneur garde la marque
+   * (framboise `--color-accent`) : c'est le produit public. Les autres
+   * ci-dessous.
    */
 
   /* Espace restaurant — vert profond + jaune : outil de travail, pas vitrine. */
@@ -42,6 +43,13 @@
   --color-staff-line: #2e3252;
   --color-staff-accent: #8b7bff;
   --color-staff-tint: #f0effb;
+
+  /* Console formateur — brun encre + orange : la coulisse, pas le produit. */
+  --color-formateur: #2a1c12;
+  --color-formateur-deep: #1c120b;
+  --color-formateur-line: #45301f;
+  --color-formateur-accent: #ff9a4d;
+  --color-formateur-tint: #fbf2ea;
 
   /* États — jusqu'ici écrits en dur (`text-green-700`, `text-red-600`). */
   --color-success: #0f7a58;
@@ -81,6 +89,9 @@ body {
 }
 .univers-staff :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline-color: var(--color-staff-accent);
+}
+.univers-formateur :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--color-formateur-accent);
 }
 
 /*
