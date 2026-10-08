@@ -2,7 +2,17 @@ import "dotenv/config";
 
 import { randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+
+// L'action tourne hors d'un serveur Next : la session formateur est simulée,
+// le cache de rendu n'existe pas.
+const session = vi.hoisted(() => ({ formateurId: "" }));
+vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+vi.mock("@/lib/garde-formateur", () => ({
+  exigerSessionFormateur: async () => ({ user: { id: session.formateurId } }),
+}));
+
+import { declencherEvenement } from "@/app/formateur/evenements/actions";
 
 import {
   declencherAvis,
@@ -75,6 +85,39 @@ describe("changerFonctionnalite", () => {
       { fonctionnalite: "ASSISTANT_RECHERCHE", active: false },
       { fonctionnalite: "ASSISTANT_RECHERCHE", active: true },
     ]);
+  });
+});
+
+describe("changerFonctionnalite sous accès concurrent", () => {
+  let formateurId: string;
+
+  beforeAll(async () => {
+    const formateur = await prisma.formateur.create({
+      data: { nom: "Formateur concurrent", email: `${prefixe}-concurrent@hymaia.com` },
+    });
+    formateurId = formateur.id;
+  });
+
+  afterAll(async () => {
+    await changerFonctionnalite("ASSISTANT_RECHERCHE", true, formateurId);
+    await prisma.fonctionnalite.deleteMany({
+      where: { cle: "ASSISTANT_RECHERCHE", modifieeParId: formateurId },
+    });
+    await prisma.journalFormateur.deleteMany({ where: { formateurId } });
+    await prisma.formateur.delete({ where: { id: formateurId } });
+  });
+
+  test("deux coupures simultanées : une seule bascule, une seule ligne au journal", async () => {
+    await changerFonctionnalite("ASSISTANT_RECHERCHE", true, formateurId);
+    const avant = await prisma.journalFormateur.count({ where: { formateurId } });
+
+    const resultats = await Promise.all([
+      changerFonctionnalite("ASSISTANT_RECHERCHE", false, formateurId),
+      changerFonctionnalite("ASSISTANT_RECHERCHE", false, formateurId),
+    ]);
+
+    expect(resultats.filter((r) => r.change)).toHaveLength(1);
+    expect(await prisma.journalFormateur.count({ where: { formateurId } })).toBe(avant + 1);
   });
 });
 
@@ -226,5 +269,64 @@ describe("événements de formation", () => {
     expect(dossiers).toHaveLength(1);
     expect(dossiers[0]!.restaurantContact.role).toBe("GERANT");
     expect(dossiers[0]!.lignes.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("declencherEvenement", () => {
+  let restaurantId: string;
+
+  beforeAll(async () => {
+    const formateur = await prisma.formateur.create({
+      data: { nom: "Formateur action", email: `${prefixe}-action@hymaia.com` },
+    });
+    session.formateurId = formateur.id;
+    // Aucun dîneur servi : l'événement ne peut rien créer, seul le journal bouge.
+    const restaurant = await prisma.restaurant.create({
+      data: { nom: `${prefixe} Vide`, ville: "Lyon", cuisine: "Test", adresse: "2 rue du Test" },
+    });
+    restaurantId = restaurant.id;
+  });
+
+  afterAll(async () => {
+    await prisma.journalFormateur.deleteMany({ where: { formateurId: session.formateurId } });
+    await prisma.formateur.delete({ where: { id: session.formateurId } });
+    await prisma.restaurant.delete({ where: { id: restaurantId } });
+  });
+
+  function formulaire(champs: Record<string, string>) {
+    const donnees = new FormData();
+    for (const [cle, valeur] of Object.entries(champs)) donnees.set(cle, valeur);
+    return donnees;
+  }
+
+  const journal = () =>
+    prisma.journalFormateur.findMany({
+      where: { formateurId: session.formateurId },
+      select: { evenement: true, quantiteDemandee: true, quantiteCreee: true, resume: true },
+    });
+
+  test("au-delà du plafond ou pour un restaurant inconnu, rien n'est déclenché ni inscrit", async () => {
+    expect(
+      await declencherEvenement({}, formulaire({ evenement: "AVIS", quantite: "51" })),
+    ).toEqual({ erreur: "Trop d'éléments d'un coup : déclenchez en plusieurs fois." });
+    expect(
+      await declencherEvenement(
+        {},
+        formulaire({ evenement: "AVIS", quantite: "2", restaurantId: "inconnu" }),
+      ),
+    ).toEqual({ erreur: "Restaurant introuvable." });
+    expect(await journal()).toEqual([]);
+  });
+
+  test("le journal garde ce qui a été demandé et ce qui a été créé, même rien", async () => {
+    const etat = await declencherEvenement(
+      {},
+      formulaire({ evenement: "AVIS", quantite: "2", restaurantId, note: "realiste" }),
+    );
+
+    expect(etat.message).toMatch(/^0 avis laissé sur 2 demandés pour /);
+    expect(await journal()).toEqual([
+      { evenement: "AVIS", quantiteDemandee: 2, quantiteCreee: 0, resume: etat.message },
+    ]);
   });
 });

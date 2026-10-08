@@ -60,7 +60,10 @@ export async function lireFonctionnalites() {
  * Coupe ou rallume une fonctionnalité, et l'inscrit au journal dans la même
  * transaction. On envoie l'état voulu, pas « inverser » : un double clic, ou
  * deux formateurs qui coupent en même temps, ne la rallument pas — et une
- * demande sans effet n'écrit rien.
+ * demande sans effet n'écrit rien. Le verrou consultatif sérialise les
+ * bascules d'une même fonctionnalité : sans lui, deux coupures simultanées
+ * liraient toutes deux « active » et laisseraient deux lignes au journal (la
+ * ligne n'existe pas toujours, `FOR UPDATE` n'aurait rien à verrouiller).
  */
 export async function changerFonctionnalite(
   cle: CleFonctionnalite,
@@ -68,6 +71,7 @@ export async function changerFonctionnalite(
   formateurId: string,
 ): Promise<{ change: boolean }> {
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtext(${`fonctionnalite:${cle}`}))`;
     const avant = await tx.fonctionnalite.findUnique({ where: { cle }, select: { active: true } });
     if ((avant?.active ?? true) === active) return { change: false };
 

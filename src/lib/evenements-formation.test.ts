@@ -131,6 +131,50 @@ describe("planifierReservations", () => {
     expect(pris).not.toContain("2026-10-14 19:30");
   });
 
+  test("une table qui ne tient plus se replie sur la plus grande qui tient encore", () => {
+    // Un seul créneau ouvert, où il reste 4 places : une table de 6 tirée
+    // devient une table de 4, pas de 2.
+    const ouvert = restaurant({
+      capacite: 4,
+      plages: [{ jourSemaine: 0, debutMinutes: 19 * 60, finMinutes: 19 * 60 + 30 }],
+    });
+    const toujours6: Tirage = () => 0.999;
+    const { reservations } = planifierReservations({
+      quantite: 1,
+      restaurants: [ouvert],
+      occupation: new Map(),
+      dineurIds: dineurs(1),
+      maintenant: MAINTENANT,
+      tirer: toujours6,
+    });
+
+    expect(reservations.map((r) => r.couverts)).toEqual([4]);
+  });
+
+  test("un restaurant fermé toute la fenêtre n'est pas « complet »", () => {
+    const { reservations, manqueDe } = planifierReservations({
+      quantite: 5,
+      restaurants: [
+        restaurant({
+          exceptions: ["12", "13", "14", "15", "16"].flatMap((jour) =>
+            ["19:00", "19:30"].map((creneau) => ({
+              jour: `2026-10-${jour}`,
+              creneau,
+              ouvert: false,
+            })),
+          ),
+        }),
+      ],
+      occupation: new Map(),
+      dineurIds: dineurs(10),
+      maintenant: MAINTENANT,
+      tirer: tirage(),
+    });
+
+    expect(reservations).toHaveLength(0);
+    expect(manqueDe).toBe("fermeture");
+  });
+
   test("le créneau déjà passé du jour n'est plus proposé", () => {
     const { reservations } = planifierReservations({
       quantite: 50,
