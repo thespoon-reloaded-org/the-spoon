@@ -39,6 +39,7 @@ import {
 import { deposerDemandesRestaurateur } from "@/lib/demandes-restaurateur";
 import { creneauOuvert, type Exception } from "@/lib/disponibilites";
 import { DELAI_CONTESTATION_JOURS } from "@/lib/facturation";
+import { ajouterJours, aujourdHuiIso, debutDeJournee } from "@/lib/fuseau";
 import type { Plage } from "@/lib/horaires";
 import { prisma } from "@/lib/prisma";
 import { capaciteEffective } from "@/lib/reservation";
@@ -147,8 +148,6 @@ async function nomRestaurant(restaurantId: string): Promise<string> {
   });
   return restaurant?.nom ?? "ce restaurant";
 }
-
-const JOUR_MS = 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Demandes de référencement
@@ -317,8 +316,10 @@ const POIDS_MIDI = 0.65;
 /**
  * Qui réserve quoi : un dîneur différent par réservation, sur un créneau
  * ouvert de la fenêtre réservable, sans dépasser ce qui reste de capacité.
- * Une table qui ne tient plus nulle part se replie sur deux couverts, puis
- * un ; s'il ne reste plus rien, on s'arrête là.
+ * Une table qui ne tient plus nulle part se replie sur la plus grande qui
+ * tient encore ; s'il ne reste plus rien, on s'arrête là. `manqueDe` dit
+ * pourquoi on s'est arrêté avant la quantité demandée : plus de dîneurs, plus
+ * de place, ou aucun créneau ouvert du tout (fermeture).
  */
 export function planifierReservations({
   quantite,
@@ -335,7 +336,10 @@ export function planifierReservations({
   dineurIds: string[];
   maintenant: Date;
   tirer: Tirage;
-}): { reservations: SaisieReservation[]; manqueDe: "creneaux" | "dineurs" | null } {
+}): {
+  reservations: SaisieReservation[];
+  manqueDe: "fermeture" | "creneaux" | "dineurs" | null;
+} {
   const jours = genererJoursReservables(maintenant).map((jour) => jour.iso);
   const creneaux = restaurants.flatMap((restaurant) =>
     jours.flatMap((jour) =>
@@ -367,6 +371,7 @@ export function planifierReservations({
     ]),
   );
   const dineurs = melanger(dineurIds, tirer);
+  if (creneaux.length === 0) return { reservations: [], manqueDe: "fermeture" };
 
   const reservations: SaisieReservation[] = [];
   while (reservations.length < quantite) {
@@ -374,7 +379,9 @@ export function planifierReservations({
     if (!dineurId) return { reservations, manqueDe: "dineurs" };
 
     const voulus = pondere(COUVERTS, tirer);
-    const couverts = [voulus, 2, 1].find((n) => creneaux.some((c) => restant.get(c.cle)! >= n));
+    const couverts = Array.from({ length: voulus }, (_, i) => voulus - i).find((n) =>
+      creneaux.some((c) => restant.get(c.cle)! >= n),
+    );
     if (couverts === undefined) return { reservations, manqueDe: "creneaux" };
 
     const possibles = creneaux.filter((c) => restant.get(c.cle)! >= couverts);
@@ -427,7 +434,9 @@ export async function declencherReservations(
     },
   });
   const ids = restaurants.map((r) => r.id);
-  const finFenetre = new Date(maintenant.getTime() + (NB_JOURS_RESERVABLES + 1) * JOUR_MS);
+  const finFenetre = debutDeJournee(
+    ajouterJours(aujourdHuiIso(maintenant), NB_JOURS_RESERVABLES + 1),
+  );
   const [occupes, dineurs] = await Promise.all([
     prisma.booking.groupBy({
       by: ["restaurantId", "date"],
@@ -471,10 +480,11 @@ export async function declencherReservations(
   const ou = restaurantId
     ? `pour ${await nomRestaurant(restaurantId)}`
     : `dans ${pluriel(new Set(reservations.map((r) => r.restaurantId)).size, "restaurant")}`;
-  const raison =
-    manqueDe === "dineurs"
-      ? "pas assez de dîneurs sans réservation à venir"
-      : "plus de place sur les créneaux ouverts";
+  const raison = {
+    dineurs: "pas assez de dîneurs sans réservation à venir",
+    fermeture: `aucun créneau ouvert sur les ${NB_JOURS_RESERVABLES} prochains jours`,
+    creneaux: "plus de place sur les créneaux ouverts",
+  }[manqueDe ?? "creneaux"];
   return {
     creees: reservations.length,
     resume: `${compte(reservations.length, quantite, ["réservation prise", "réservations prises"], "demandées")} ${ou}, pour les ${NB_JOURS_RESERVABLES} prochains jours${raisonSiManque(reservations.length, quantite, raison)}.`,
@@ -587,7 +597,10 @@ export async function declencherAvis(
     where: {
       ...(restaurantId ? { restaurantId } : {}),
       statut: { in: ["HONOREE", "CONFIRMEE"] },
-      date: { lte: maintenant, gte: new Date(maintenant.getTime() - FENETRE_AVIS_JOURS * JOUR_MS) },
+      date: {
+        lte: maintenant,
+        gte: debutDeJournee(ajouterJours(aujourdHuiIso(maintenant), -FENETRE_AVIS_JOURS)),
+      },
     },
     select: { restaurantId: true, userId: true, date: true, user: { select: { email: true } } },
   });
@@ -725,7 +738,11 @@ export async function declencherContestations(
     where: {
       ...(restaurantId ? { restaurantId } : {}),
       // Large d'un jour : `delaiContestationExpire` tranche ensuite au plus juste.
-      genereeLe: { gte: new Date(maintenant.getTime() - (DELAI_CONTESTATION_JOURS + 1) * JOUR_MS) },
+      genereeLe: {
+        gte: debutDeJournee(
+          ajouterJours(aujourdHuiIso(maintenant), -(DELAI_CONTESTATION_JOURS + 1)),
+        ),
+      },
     },
     select: {
       id: true,
@@ -751,10 +768,21 @@ export async function declencherContestations(
 
   // Un dossier à la fois, par la fonction du dépôt depuis l'espace
   // restaurant : délai, lignes, double contestation et seuil y sont jugés.
+  // Chaque dossier a sa propre transaction : une panne en cours de lot laisse
+  // déposés ceux d'avant. On s'arrête là et on rend le compte, pour que le
+  // journal dise ce qui existe vraiment en base.
   const deposes: string[] = [];
   const refus: string[] = [];
+  let panne = false;
   for (const dossier of dossiers) {
-    const resultat = await creerDossierContestation(dossier);
+    let resultat;
+    try {
+      resultat = await creerDossierContestation(dossier);
+    } catch (erreur) {
+      console.error("Contestation de formation en échec :", erreur);
+      panne = true;
+      break;
+    }
     if (resultat.ok) deposes.push(resultat.dossierId);
     else refus.push(resultat.erreur);
   }
@@ -767,9 +795,10 @@ export async function declencherContestations(
     : `sur ${pluriel(deposes.length, "facture")}`;
   const office =
     creditesOffice > 0 ? `, dont ${pluriel(creditesOffice, "créditée", "créditées")} d'office` : "";
-  const raison =
-    refus[0] ??
-    `pas d'autre facture dans son délai de ${DELAI_CONTESTATION_JOURS} jours avec une ligne à contester`;
+  const raison = panne
+    ? "le dépôt s'est interrompu en cours de route, relancez pour compléter"
+    : (refus[0] ??
+      `pas d'autre facture dans son délai de ${DELAI_CONTESTATION_JOURS} jours avec une ligne à contester`);
   return {
     creees: deposes.length,
     resume: `${compte(deposes.length, quantite, ["contestation déposée", "contestations déposées"], "demandées")} ${ou}${office}${raisonSiManque(deposes.length, quantite, raison)}.`,

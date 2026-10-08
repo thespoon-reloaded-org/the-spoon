@@ -35,7 +35,13 @@ const corps = z.object({
  * recherche de l'accueil — pas de session, mais une limite de débit par IP.
  */
 export async function POST(request: Request) {
-  if (!(await assistantOuvert())) {
+  // L'interrupteur se lit en base : si elle ne répond pas, l'assistant est
+  // indisponible, et la réponse reste du JSON comme les autres refus.
+  const ouvert = await assistantOuvert().catch((erreur: unknown) => {
+    console.error("Chatbot : état de l'assistant illisible :", erreur);
+    return false;
+  });
+  if (!ouvert) {
     return NextResponse.json({ erreur: "Assistant indisponible." }, { status: 503 });
   }
 
