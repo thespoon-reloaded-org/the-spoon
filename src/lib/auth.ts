@@ -7,13 +7,16 @@ import { env } from "./env";
 import { DOMAINE_FORMATEURS, estEmailFormateur, refusIdentiteFormateur } from "./formateurs";
 import { prisma } from "./prisma";
 
-// BETTER_AUTH_URL reste l'URL de prod (même valeur partagée par tous les
-// contextes Netlify, cf. README) — sans ça, better-auth rejette les
-// requêtes venant des Deploy Previews et branch deploys ("Invalid origin"),
-// dont l'origine ne correspond jamais à BETTER_AUTH_URL. Partagé par les deux
-// instances ci-dessous : c'est une contrainte d'infra (le domaine Netlify),
-// pas une différence entre dîneurs et restaurants partenaires.
-const trustedOrigins = ["https://*--the-spoon-bootcamp.netlify.app"];
+// BETTER_AUTH_URL reste l'URL de prod (même valeur pour la prod et les
+// prévisualisations) — sans ça, better-auth rejette les requêtes venant des
+// prévisualisations ("Invalid origin"), dont l'origine ne correspond jamais à
+// BETTER_AUTH_URL. Sur Cloud Run, une prévisualisation est une révision
+// taguée : `https://pr-12---spoon-<binome>-<n° projet>.europe-west1.run.app`.
+// Les origines acceptées en plus viennent donc de l'environnement
+// (`AUTH_TRUSTED_ORIGINS`, séparées par des virgules, jokers `*` permis).
+// Partagé par toutes les instances ci-dessous : c'est une contrainte d'infra,
+// pas une différence entre populations.
+const trustedOrigins = env.AUTH_TRUSTED_ORIGINS;
 
 /**
  * Auth dîneur.

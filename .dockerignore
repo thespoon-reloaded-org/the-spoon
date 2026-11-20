@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+.next
+.env
+.env*.local
+.local-blobs
+.jeu-formation
+.netlify
+.claude
+.delta
+coverage
+docs
+*.log
+tsconfig.tsbuildinfo
+src/generated

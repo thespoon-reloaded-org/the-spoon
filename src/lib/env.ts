@@ -15,6 +15,12 @@ const schema = z.object({
     .min(1)
     .describe("Clé de signature des sessions — générer avec `openssl rand -hex 32`"),
   BETTER_AUTH_URL: z.string().min(1).describe("URL de base de l'app, ex. http://localhost:3100"),
+  // Origines acceptées en plus de BETTER_AUTH_URL (prévisualisations), voir
+  // src/lib/auth.ts. Ex. "https://*---spoon-binome-1-123456.europe-west1.run.app".
+  AUTH_TRUSTED_ORIGINS: z
+    .string()
+    .optional()
+    .transform((v) => (v ?? "").split(",").map((o) => o.trim()).filter(Boolean)),
   // API d'administration (`/api/admin`, voir src/lib/api-admin/garde.ts) :
   // absente tant que le jeton n'est pas posé. Lus bruts, sans autre
   // contrainte : une valeur mal formée pour cette fonction optionnelle doit

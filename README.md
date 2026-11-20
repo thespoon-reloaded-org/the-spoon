@@ -364,6 +364,24 @@ Pas de ligne en base = active. Ajouter une fonctionnalité, c'est une valeur de
 `JournalFormateur` — qui, quand, combien demandés, combien créés — affiché
 sous chaque écran de la console.
 
+## Hébergement
+
+Depuis novembre 2026, TheSpoon tourne sur Google Cloud (projet
+`spoon-city-hymaia`, région `europe-west1`), plus sur Netlify — les
+commentaires qui parlent encore de Netlify datent d'avant.
+
+| Brique | Où |
+|---|---|
+| Application | un service Cloud Run `spoon-<environnement>` (image `runner` du `Dockerfile`, Next.js en mode standalone), mis à zéro instance quand personne ne s'en sert |
+| Base | une base `spoon_<environnement>` sur l'instance Cloud SQL partagée `spoon-sql` (PostgreSQL 17), IP privée seule, arrêtée de minuit à 7 h |
+| Photos et pièces jointes | un bucket Cloud Storage par environnement (`PHOTOS_BUCKET`, voir `src/lib/photos.ts`) |
+| Secrets | Secret Manager : `<environnement>-database-url`, `<environnement>-auth-secret` |
+| Déploiement | `.github/workflows/deploy.yml` à chaque commit sur `main`, avec l'identité GitHub du dépôt (fédération d'identité, aucune clé stockée) |
+
+Le workflow lit ses paramètres dans les variables GitHub du dépôt
+(`GCP_PROJET`, `ENVIRONNEMENT`, `URL_PROD`...), posées par le formateur à la
+création de l'environnement.
+
 ## Migrations de base de données
 
 Tout changement de `prisma/schema.prisma` passe par une migration versionnée
@@ -375,15 +393,14 @@ poussé à la main et jamais retrouvé côté base de déploiement.
   `pnpm db:migrate` (= `prisma migrate dev`) génère le fichier SQL de
   migration, l'applique à votre base locale, et régénère le client Prisma.
   Commitez le dossier créé dans `prisma/migrations/`.
-- En déploiement, `pnpm build` lance `prisma migrate deploy` avant `next
-  build` : les migrations en attente s'appliquent automatiquement, et le
-  build échoue si une migration ne passe pas — au lieu de laisser la prod
-  tourner avec un schéma différent de celui attendu par le code. Sur Netlify,
-  ça tourne contre la vraie base Neon partagée (pas une base vierge comme en
-  CI) : `prisma.config.ts` utilise `DATABASE_URL_UNPOOLED` (connexion directe,
-  hors pooler) pour ces commandes, requis par le verrou consultatif de Prisma
-  Migrate — sans ça, `prisma migrate deploy` échoue en prod avec un timeout
-  P1002, même si le code est correct et que la CI est verte.
+- En déploiement, les migrations ne passent plus par `pnpm build` (qui ne
+  fait plus que `next build`) : le workflow `.github/workflows/deploy.yml`
+  lance d'abord un job Cloud Run `spoon-<environnement>-migrations`
+  (`pnpm db:deploy` = `prisma migrate deploy`, image `migrator` du
+  `Dockerfile`), puis déploie le nouveau code seulement si elles sont
+  passées — au lieu de laisser la prod tourner avec un schéma différent de
+  celui attendu par le code. Le job tourne dans le réseau privé du projet
+  GCP : la base n'a pas d'IP publique. Voir « Hébergement » plus bas.
 - `prisma db push` reste légitime pour bricoler vite en local (un schéma
   jetable, une expérimentation), mais ne doit jamais être utilisé contre la
   base de production.
