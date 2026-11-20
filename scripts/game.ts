@@ -3,8 +3,8 @@
  *
  * ```bash
  * pnpm game status                      # the 15 items of case 01
- * pnpm game password S1-01 --rank A     # password for a reviewed item
- * pnpm game password S1-01 --slate      # skipped item: "sur l'ardoise", score 0
+ * pnpm game password S1-1A --rank A     # password for a reviewed item
+ * pnpm game password S1-1A --slate      # skipped item: "sur l'ardoise", score 0
  * pnpm game verify PLUIE-ADDITION-NEON-38
  * ```
  *
@@ -119,7 +119,7 @@ export function main(argv: string[]): void {
 
   if (command === "password") {
     const itemId = rest.find((arg) => !arg.startsWith("--"));
-    if (!itemId) fail("Missing item, e.g. S1-01.", json);
+    if (!itemId) fail("Missing item, e.g. S1-1A.", json);
     const item = findItem(itemId);
     if (!item) fail(`Unknown item: ${itemId}`, json);
 
