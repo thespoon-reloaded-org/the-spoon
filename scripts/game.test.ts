@@ -21,11 +21,11 @@ describe("game passwords", () => {
   test("the format is WORD-WORD-WORD-RC with the documented check digit", () => {
     const [first, second, third] = ITEMS[0]!.words;
     const expectedCheck = checkDigit([first!, second!, third!], 3);
-    expect(encodePassword("s1-01", "A")).toBe(`${first}-${second}-${third}-3${expectedCheck}`);
+    expect(encodePassword("s1-1a", "A")).toBe(`${first}-${second}-${third}-3${expectedCheck}`);
   });
 
   test("a wrong check digit is rejected", () => {
-    const password = encodePassword("S1-06", "B");
+    const password = encodePassword("S1-1B", "B");
     const check = Number(password.at(-1));
     const tampered = `${password.slice(0, -1)}${(check + 1) % 10}`;
     expect(verifyPassword(tampered)).toMatchObject({ valid: false, reason: "wrong check digit" });
@@ -40,6 +40,6 @@ describe("game passwords", () => {
   test("words are unique across items", () => {
     const words = ITEMS.flatMap((item) => item.words);
     expect(new Set(words).size).toBe(words.length);
-    expect(ITEMS.map((item) => item.id)).toEqual(["S1-01", "S1-06"]);
+    expect(ITEMS.map((item) => item.id)).toEqual(["S1-1A", "S1-1B", "S1-2A", "S1-2B", "S1-3A", "S1-3B"]);
   });
 });

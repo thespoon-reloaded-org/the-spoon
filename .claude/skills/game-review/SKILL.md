@@ -1,6 +1,6 @@
 ---
 name: game-review
-description: Review ONE Spoon City training item (case 1 « Les Clés » is one track, « Enquête, puis correctif », with two use cases: S1-01 or S1-06) against its acceptance criteria and hand out its password save. Use when a participant asks to review, check, validate or grade a Spoon City item or "affaire" (e.g. "review S1-01", "on a fini S1-06, tu valides ?", "vérifie notre enquête"), asks for their password or "mot de passe" for an item, or asks to skip an item / put it "sur l'ardoise".
+description: Review ONE Spoon City level (case 1 « Les Clés » has three levels, each in case A or B: S1-1A/S1-1B investigate, S1-2A/S1-2B read Marc's branch in a worktree, S1-3A/S1-3B fix and merge) against its acceptance criteria and hand out its password save. Use when a participant asks to review, check, validate or grade a Spoon City level, item or "affaire" (e.g. "review S1-1A", "niveau 2 fini, tu valides ?", "vérifie mon enquête"), asks for their password or "mot de passe" for an item, or asks to skip an item / put it "sur l'ardoise".
 ---
 
 # Spoon City — item review
@@ -20,21 +20,24 @@ Trust-based game: the password is a light proof, not a secret. Your job is to ma
 
 ## Steps
 
-### 1. Which item
+### 1. Which level
 
-If the message does not name an item (`S1-01`, cas A, or `S1-06`, cas B), ask which one, in one short line, and stop. Run `pnpm game status` if they want the list.
+If the message does not name a level (`S1-1A` … `S1-3B`), ask which one, in one short line, and stop. If they say « niveau 2 » without the case, look at the current branch (`affaire-01/cas-a` → A, `affaire-01/cas-b` → B) and confirm. Run `pnpm game status` if they want the list.
 
-### 2. Load the item
+The HQ page handles the order between levels: do not ask for a previous password. Review the level they name.
 
-Read `game/case-01.json` and take the item: `title`, `useCase`, `context` (the request as the player received it: names and figures in it, such as a restaurant's 28 seats, come from there), `todo`, `acceptanceCriteria` (the investigation: French, from the backlog), `fixCriteria` (the optional fix), `deliverables`, and the case-level `ranking`. Case 1 is one track with two use cases, S1-01 and S1-06; the player picks one. Both follow the same steps: (1) investigate the history and write the report on `affaire-01/<id>`; (2) everyone: open Marc Ottavi's unfinished branch (`prepared.branch`, e.g. `origin/refonte-fiche`) in a second worktree without touching the report, and say in the report what it does and whether it solves the problem; (3) optional, for people who code: fix the bug on `affaire-01/<id>-fix` in a worktree, then bring Marc's branch in (merge or rebase) and resolve the conflict. The criteria are the only bar. Do not add your own.
+### 2. Load the level
+
+Read `game/case-01.json` and take the item: `title`, `level`, `case`, `context` (the request as the player received it: names and figures in it, such as a restaurant's 28 seats, come from there), `todo`, `acceptanceCriteria` (French, from the backlog), `deliverables`, `prepared` (Marc Ottavi's branch for levels 2 and 3). The criteria are the only bar. Do not add your own, and do not judge another level's work.
+
+The case story, for context: level 1, the player investigates the history and writes the « Enquête » section of `docs/affaires/01/cas-<a|b>.md` on `affaire-01/cas-<a|b>`. Level 2, they open Marc's unfinished branch in a second worktree without leaving theirs, and write the « La branche de Marc » section. Level 3, they fix the bug on `affaire-01/cas-<a|b>-fix` in a worktree, merge (or rebase onto) Marc's branch, resolve the conflict, and write the « Correctif » section.
 
 ### 3. Look at their work
 
-- `git branch --show-current`. Expected: `affaire-01/<id>` (or `case-01/<id>`), the report branch, in the main folder. If they run you from the fix worktree (`affaire-01/<id>-fix`), that is fine: read the report with `git show affaire-01/<id>:docs/affaires/01/<ID>.md`. On another branch: say so and ask whether the work is elsewhere. Read files from another branch with `git show <branch>:<path>`, never by switching.
-- Read the report `docs/affaires/01/<ID>.md`. Uncommitted changes count, but mention that they are not committed yet.
-- Look for the fix: `git branch --list 'affaire-01/<id>-fix'`, `git worktree list`. If the branch exists: `git log --oneline main..affaire-01/<id>-fix`, `git diff main...affaire-01/<id>-fix --stat`, and the changed files with `git show affaire-01/<id>-fix:<path>`. No fix branch means no fix: judge the investigation only, and say the fix is what opens rank A.
-- Marc's branch in the fix: `git merge-base --is-ancestor <prepared.branch> affaire-01/<id>-fix` (exit 0 = integrated), `git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' affaire-01/<id>-fix -- src/` (must be empty), and read the resolved files to check both changes are kept.
-- Marc's branch in the report: check the author, date and change it states with `git log -1 --format='%h %ad %an %s' --date=short <prepared.branch>` and `git diff main...<prepared.branch>`.
+- `git branch --show-current`. Expected: `affaire-01/cas-<a|b>` in the main folder, or `affaire-01/cas-<a|b>-fix` in the fix worktree for level 3. Read files from another branch with `git show <branch>:<path>`, never by switching.
+- Read the report `docs/affaires/01/cas-<a|b>.md` and the section for this level. Uncommitted changes count, but mention that they are not committed yet.
+- Level 2: check what they say about Marc's branch with `git log -1 --format='%h %ad %an %s' --date=short <prepared.branch>` and `git diff main...<prepared.branch>`. `git worktree list`, `git stash list`.
+- Level 3: `git log --oneline main..affaire-01/cas-<a|b>-fix`, `git diff main...affaire-01/cas-<a|b>-fix --stat`, the changed files with `git show affaire-01/cas-<a|b>-fix:<path>`. Marc's branch integrated: `git merge-base --is-ancestor <prepared.branch> affaire-01/cas-<a|b>-fix` (exit 0). No markers: `git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' affaire-01/cas-<a|b>-fix -- src/` (must be empty). Read the resolved files to check both changes are kept.
 - If the deliverable is missing, say it, point to the expected path, stop there (no grading).
 
 ### 4. Verify the claims
@@ -54,16 +57,16 @@ Some criteria cannot be checked from here (something seen on screen, CI on GitHu
 
 ### 5. Judge each criterion
 
-For each criterion, investigation first, then the fix if there is one: **tenu** (met), **à moitié** (partly), **pas tenu** (not met), with one-line reason. For anything not fully met, one hint, no answer. For the fix test, check it fails without the fix only by reading the diff (the test must exercise the changed code); never revert anything.
+For each criterion: **tenu** (met), **à moitié** (partly), **pas tenu** (not met), with one-line reason. For anything not fully met, one hint, no answer. For a level 3 test, check it exercises the fix only by reading the diff (the test must exercise the changed code); never revert anything.
 
 ### 6. Rank
 
-The fix is optional, but it is what opens the top ranks:
+Each level is ranked on its own:
 
-- **S** — every investigation and fix criterion met, and the reasoning is sharp: precise sources, clear argument, readable by the intended reader.
-- **A** — every investigation and fix criterion met.
-- **B** — every investigation criterion met; no fix, or a fix with criteria not fully met.
-- **C** — the minimum: the report exists and at least half the investigation criteria are met or partly met, with no false claim left (no wrong hash, date or author).
+- **S** — every criterion met, and the reasoning is sharp: precise sources, clear argument, readable by the intended reader.
+- **A** — every criterion met.
+- **B** — most criteria met (more than half met, the rest partly).
+- **C** — the minimum: the deliverable exists and at least half the criteria are met or partly met, with no false claim left (no wrong hash, date or author).
 - Below C: **no password.** Say what is missing, give the hints, invite them to come back.
 
 When in doubt between two ranks, give the lower one and say what would earn the higher one. They can come back after improving: a new review gives a new password, and the best one counts.
@@ -74,10 +77,11 @@ Run `pnpm game password <ITEM> --rank <S|A|B|C>`. Copy the printed line exactly.
 
 ### Skip request (« sur l'ardoise »)
 
-If they explicitly ask to skip the item (« on passe », « on saute », « mets-le sur l'ardoise », "skip"):
+If they explicitly ask to skip the level (« on passe », « on saute », « mets-le sur l'ardoise », "skip"):
 
 - No review needed. Run `pnpm game password <ITEM> --slate`.
-- Say clearly: the item is **sur l'ardoise**, it is **not** passed, it scores 0, and the debt can be paid later by finishing the item and coming back for a review, which gives a new password.
+- Tell them the slate password still opens the next level on the HQ page.
+- Say clearly: the level is **sur l'ardoise**, it is **not** passed, it scores 0, and the debt can be paid later by finishing the level and coming back for a review, which gives a new password.
 
 Do not suggest skipping yourself. If they hesitate, offer one hint first.
 
@@ -94,18 +98,15 @@ Short. In this order:
 Example (shape only; never reuse this password):
 
 ```
-S1-01 · Pourquoi 100 couverts ?
+S1-1A · Niveau 1 · Pourquoi 100 couverts ?
 
-Enquête
 - Commit cité : tenu. Hash, date et auteur vérifiés.
 - Les 40 couverts : tenu.
 - Réponse à la gérante : à moitié. Encore « commit » et « fiche vide » : elle ne parle pas Git.
 - Recommandation : tenu.
 - Rapport commité, rien sous src/ : tenu.
 
-Correctif : pas de branche affaire-01/s1-01-fix.
-
-Rang B. Pour un A : le correctif, dans un second dossier.
+Rang B. Pour un A : une réponse que la gérante comprend du premier coup.
 
 La pluie lave les trottoirs, pas les historiques. Celui-là parle.
 ```
