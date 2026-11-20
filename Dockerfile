@@ -8,6 +8,7 @@
 #
 #   docker build --target runner   -t thespoon .
 #   docker build --target migrator -t thespoon-migrator .
+#   docker build --target outils   -t thespoon-outils .
 
 ARG NODE_VERSION=24.14.1
 
@@ -33,6 +34,13 @@ RUN DATABASE_URL="postgresql://build@localhost:5432/build" \
     BETTER_AUTH_SECRET="build-only-not-a-secret" \
     BETTER_AUTH_URL="http://localhost:3100" \
     pnpm run build
+
+# --- Outils -----------------------------------------------------------------
+# Code source et dépendances complètes, pour lancer les scripts du dépôt
+# (`pnpm seed:dev`...) contre la base d'un environnement, depuis un job Cloud
+# Run du réseau privé — voir .github/workflows/donnees.yml.
+FROM build AS outils
+CMD ["pnpm", "run", "seed:dev"]
 
 # --- Migrations -------------------------------------------------------------
 # Image à part, réduite au CLI Prisma (même version que package.json) et aux
