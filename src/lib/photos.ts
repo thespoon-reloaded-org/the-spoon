@@ -1,4 +1,4 @@
-import { getStore } from "@netlify/blobs";
+import { Storage } from "@google-cloud/storage";
 import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
 
@@ -29,7 +29,7 @@ export function lirePhoto(formData: FormData): File | null {
 }
 
 /**
- * Envoie une photo sur un store (Netlify Blobs en prod, disque local en dev
+ * Envoie une photo sur un store (Cloud Storage en prod, disque local en dev
  * — voir `creerStorePhotos`). Si l'écriture échoue (disque plein,
  * permissions, panne du store...), ne bloque pas l'enregistrement de
  * l'entité pour autant — retourne un message à afficher à l'utilisateur au
@@ -52,7 +52,11 @@ export async function sauvegarderPhotoEntite(
 
 type ResultatPhoto = { data: Blob; metadata: { contentType?: string } } | null;
 
-/** Le sous-ensemble de l'API Netlify Blobs dont ce projet a besoin. */
+/**
+ * Le sous-ensemble d'API de stockage dont ce projet a besoin. Hérité de
+ * Netlify Blobs (hébergement d'origine) ; Cloud Storage et le disque local
+ * l'implémentent à l'identique.
+ */
 export interface StorePhotos {
   set(key: string, valeur: Blob, options: { metadata: { contentType: string } }): Promise<unknown>;
   getWithMetadata(key: string, options: { type: "blob" }): Promise<ResultatPhoto>;
@@ -60,30 +64,30 @@ export interface StorePhotos {
 }
 
 /**
- * Store de secours pour le développement local : Netlify Blobs a besoin de
- * `netlify dev` (il n'est configuré ni par `NETLIFY_BLOBS_CONTEXT`, ni par un
- * siteID/token manuel) pour émuler un store en local — trop de friction pour
- * un simple `pnpm dev`. On écrit donc les photos sur disque, dans un dossier
- * ignoré par git (`.local-blobs/<bucket>/`). Même interface que le vrai
- * store, donc le reste du code (actions, route de lecture) ne sait pas
+ * Store de secours pour le développement local : pas de bucket Cloud Storage
+ * pour un simple `pnpm dev`. On écrit donc les photos sur disque, dans un
+ * dossier ignoré par git (`.local-blobs/<bucket>/`). Même interface que le
+ * vrai store, donc le reste du code (actions, route de lecture) ne sait pas
  * lequel il utilise.
  */
+/**
+ * `key` (id de plat, de restaurant ou de pièce jointe) vient in fine d'un
+ * paramètre d'URL public — jamais utilisé tel quel dans un chemin de fichier
+ * ou un nom d'objet sans passer par ici. Un `key` contenant `/` ou `..`
+ * permettrait de sortir du dossier (ou du préfixe) prévu et de lire/écraser
+ * un autre fichier.
+ */
+function verifierCle(key: string) {
+  if (!/^[a-z0-9]+$/i.test(key)) {
+    throw new Error(`Clé de photo invalide : ${key}`);
+  }
+  return key;
+}
+
 function creerStoreLocal(bucket: string): StorePhotos {
   const dossier = path.join(process.cwd(), ".local-blobs", bucket);
 
-  /**
-   * `key` (id de plat ou de restaurant) vient in fine d'un paramètre d'URL
-   * public — jamais utilisé tel quel dans un chemin de fichier sans passer
-   * par ici. Un `key` contenant `/` ou `..` permettrait de sortir de
-   * `dossier` (path.join ne fait aucun sandboxing) et de lire/écraser un
-   * fichier arbitraire sur le disque en dev.
-   */
-  function cheminSecurise(key: string) {
-    if (!/^[a-z0-9]+$/i.test(key)) {
-      throw new Error(`Clé de photo invalide : ${key}`);
-    }
-    return path.join(dossier, key);
-  }
+  const cheminSecurise = (key: string) => path.join(dossier, verifierCle(key));
   const cheminMetadonnees = (key: string) => `${cheminSecurise(key)}.json`;
 
   return {
@@ -114,23 +118,58 @@ function creerStoreLocal(bucket: string): StorePhotos {
   };
 }
 
+/**
+ * Store Cloud Storage : un bucket GCS par environnement (`PHOTOS_BUCKET`),
+ * un préfixe par « bucket » logique (`plats-photos/<id>`,
+ * `restaurants-photos/<id>`...). Le type de contenu est porté par l'objet
+ * lui-même. Les identifiants viennent du compte de service du service Cloud
+ * Run — aucune clé dans l'environnement.
+ */
+function creerStoreCloudStorage(bucketGcs: string, prefixe: string): StorePhotos {
+  const bucket = new Storage().bucket(bucketGcs);
+  const objet = (key: string) => bucket.file(`${prefixe}/${verifierCle(key)}`);
+
+  return {
+    async set(key, valeur, { metadata }) {
+      const octets = Buffer.from(await valeur.arrayBuffer());
+      await objet(key).save(octets, { contentType: metadata.contentType, resumable: false });
+    },
+    async getWithMetadata(key) {
+      // Clé invalide : même réponse que le store local (introuvable), pas une erreur.
+      if (!/^[a-z0-9]+$/i.test(key)) return null;
+      const fichier = objet(key);
+      try {
+        const [[octets], [meta]] = await Promise.all([fichier.download(), fichier.getMetadata()]);
+        return {
+          data: new Blob([new Uint8Array(octets)], { type: meta.contentType }),
+          metadata: { contentType: meta.contentType },
+        };
+      } catch (erreur) {
+        if ((erreur as { code?: number }).code === 404) return null;
+        throw erreur;
+      }
+    },
+    async delete(key) {
+      await objet(key).delete({ ignoreNotFound: true });
+    },
+  };
+}
+
 const storesParBucket = new Map<string, StorePhotos>();
 
 /**
  * Store de photos pour un « bucket » donné (un par type d'entité — plats,
  * restaurants...), mémorisé — un seul store construit par bucket et par
- * instance serveur, pas un par requête (`getStore`/le store disque local
- * refont sans ça du travail — décodage du contexte Netlify, fermetures — à
- * chaque appel). Sur Netlify (build/déploiement), `NETLIFY_BLOBS_CONTEXT` est
- * toujours présent et Netlify Blobs prend le relais automatiquement ; sinon
- * (`next dev` en local), on retombe sur un store disque — voir
- * `creerStoreLocal`.
+ * instance serveur, pas un par requête. Avec `PHOTOS_BUCKET` (Cloud Run :
+ * prod et prévisualisations), les photos vont dans ce bucket Cloud Storage ;
+ * sinon (`pnpm dev` en local), sur disque — voir `creerStoreLocal`.
  */
 export function creerStorePhotos(bucket: string): StorePhotos {
   const existant = storesParBucket.get(bucket);
   if (existant) return existant;
 
-  const store = process.env.NETLIFY_BLOBS_CONTEXT ? getStore(bucket) : creerStoreLocal(bucket);
+  const bucketGcs = process.env.PHOTOS_BUCKET;
+  const store = bucketGcs ? creerStoreCloudStorage(bucketGcs, bucket) : creerStoreLocal(bucket);
   storesParBucket.set(bucket, store);
   return store;
 }
