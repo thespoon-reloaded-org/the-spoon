@@ -111,6 +111,12 @@ simple sur ce chemin.
 
 ## Démarrer en local
 
+Sur Mac, sans Docker : `./scripts/installer-poste.sh` installe Node.js 24,
+pnpm, PostgreSQL 17 (service Homebrew) et le CLI GitHub, crée la base
+locale, écrit `.env`, applique les migrations et remplit la base. Dans Claude
+Code, la skill `installer-poste` le lance et sait corriger les échecs
+courants. À la main, ou hors macOS :
+
 ```bash
 nvm use
 pnpm install
