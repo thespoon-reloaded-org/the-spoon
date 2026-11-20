@@ -19,7 +19,7 @@
  */
 import { pathToFileURL } from "node:url";
 
-import caseData from "../game/case-01.json";
+import caseData from "../game/case-01.json" with { type: "json" };
 
 export type Rank = "S" | "A" | "B" | "C" | "SLATE";
 
