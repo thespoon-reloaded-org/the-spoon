@@ -1,6 +1,6 @@
 # Spoon City — how to play
 
-Spoon City is the noir game wrapped around the Product Building training. Session 1 is **« Affaire N° 1 · Les Clés »**: Git and code review on this repository. Case 1 is **one track, « Enquête, puis correctif », with two use cases; pick the one you prefer**: `S1-01` « Pourquoi 100 couverts ? » (a restaurant gets too many guests) or `S1-06` « L'année qui retarde » (the footer shows the wrong year on 1 January). Same steps for both: dig through the history, write a report, then, if you code, fix the bug in a second worktree. The report alone gives rank B at best; the fix opens A and S. **The backlog and your progress live on the HQ page: https://artifacts.hymalab.com/hymaia-product-builders/spoon-city-hq/** (sign in with your hymaia.com address). The acceptance criteria are also in [`case-01.json`](case-01.json), and `pnpm game status` lists the items.
+Spoon City is the noir game wrapped around the Product Building training. Session 1 is **« Affaire N° 1 · Les Clés »**: Git and code review on this repository. Case 1 is **one track, « Enquête, puis correctif », with two use cases; pick the one you prefer**: `S1-01` « Pourquoi 100 couverts ? » (a restaurant gets too many guests) or `S1-06` « L'année qui retarde » (the footer shows the wrong year on 1 January). Same steps for both: dig through the history and write a report; open Marc Ottavi's unfinished branch in a second worktree without touching your report; then, if you code, fix the bug in a worktree and merge Marc's branch into your fix, conflict included. The first two steps give rank B at best; the fix opens A and S. **The backlog and your progress live on the HQ page: https://artifacts.hymalab.com/hymaia-product-builders/spoon-city-hq/** (sign in with your hymaia.com address). The acceptance criteria are also in [`case-01.json`](case-01.json), and `pnpm game status` lists the items.
 
 ## Play an item
 
@@ -12,16 +12,22 @@ Spoon City is the noir game wrapped around the Product Building training. Sessio
    git switch -c affaire-01/s1-01
    ```
    Use `git log -S`, `git blame` and `git show` to find who changed what, when and why. Start the report in `docs/affaires/01/<ID>.md`. Don't commit it yet.
-3. **Fix (optional, for people who code).** Leave the report as it is and open a second working folder on `main`:
+3. **Open a second folder (everyone).** Marc Ottavi, the ex-CPO, left an unfinished branch (`origin/refonte-fiche` or `origin/refonte-pied-de-page`). Read it without touching your report:
+   ```bash
+   git worktree add ../the-spoon-marc origin/refonte-fiche
+   cd ../the-spoon-marc && git log -1 && git diff main...HEAD
+   ```
+   Back in `../the-spoon`, write what it does and whether it solves the problem, add `git worktree list`, then `git worktree remove ../the-spoon-marc` and commit the report.
+4. **Fix (optional, for people who code).** A worktree on `main`:
    ```bash
    git worktree add ../the-spoon-fix -b affaire-01/s1-01-fix main
    cd ../the-spoon-fix
    pnpm install && pnpm prisma generate && cp ../the-spoon/.env .
    ```
-   Fix the bug, add its test, run it, `pnpm typecheck`, `pnpm lint`, commit.
-4. **Finish the report** back in `../the-spoon`: add the fix branch and commit, and the output of `git worktree list`. Commit it.
-5. **Ask for a review** in Claude Code: `review S1-01`. The `game-review` skill (`.claude/skills/game-review/`) checks the report and the fix against their criteria, verifies the hashes, dates and authors you cite, tells you what is missing and gives hints. It never edits your files.
-6. **Get your password.** You get a rank (S, A, B or C) and a password save. **Note it down**, and enter it on the HQ page under « Continuer ». Then `git worktree remove ../the-spoon-fix`.
+   Fix the bug, add its test, run it, `pnpm typecheck`, `pnpm lint`, commit. Then `git merge origin/refonte-fiche` (or rebase): resolve the conflict keeping both changes, rerun the test, commit.
+5. **Finish the report** back in `../the-spoon`: the fix branch and commit, merge or rebase and why. Commit it.
+6. **Ask for a review** in Claude Code: `review S1-01`. The `game-review` skill (`.claude/skills/game-review/`) checks the report and the fix against their criteria, verifies the hashes, dates and authors you cite, tells you what is missing and gives hints. It never edits your files.
+7. **Get your password.** You get a rank (S, A, B or C) and a password save. **Note it down**, and enter it on the HQ page under « Continuer ». Then `git worktree remove ../the-spoon-fix`.
 
 One item per review. Come back after improving: a new review gives a new password, and the best one counts.
 
