@@ -1,0 +1,44 @@
+{
+  "case": "01",
+  "title": "Affaire N° 1 · Les Clés",
+  "branchPattern": ["affaire-01/<id>-<binome>", "case-01/<id>-<binome>"],
+  "items": [
+    {
+      "id": "S1-01",
+      "title": "Pourquoi 100 couverts ?",
+      "type": "enquête",
+      "acceptanceCriteria": [
+        "Le fichier `docs/affaires/01/S1-01.md` cite le commit qui a introduit la constante (hash court, date, auteur) et la raison donnée dans le commentaire (31 % des fiches sans capacité).",
+        "Il explique en une phrase pourquoi 40 couverts sont passés (capacité vide sur la fiche, donc plafond de 100 par créneau, compté sur l'instant exact du créneau).",
+        "Il contient la réponse à la gérante, en mots simples, sans jargon Git.",
+        "Il contient une recommandation argumentée, sans modifier le code."
+      ],
+      "deliverables": ["docs/affaires/01/S1-01.md"],
+      "words": ["PLUIE", "ADDITION", "NEON"],
+      "track": "Piste 1 · L'enquête (pour tout le monde, sans code)",
+      "context": "« Ma salle fait 28 places. Samedi, TheSpoon m'a envoyé 40 couverts sur le même créneau de 20 h. Qui a décidé de ce chiffre ? »",
+      "todo": "retrouver dans l'historique d'où vient la capacité utilisée quand un restaurant n'a pas renseigné la sienne. Partir de `CAPACITE_PAR_DEFAUT` dans `src/lib/reservation.ts`, puis `git log -S \"CAPACITE_PAR_DEFAUT\" --oneline main` et `git blame -L 5,16 src/lib/reservation.ts`. Lire le message du commit trouvé. Rédiger une réponse courte à la gérante (ce qui s'est passé, ce qu'elle doit faire sur sa fiche) et une recommandation pour l'équipe (garder 100, le baisser, ou bloquer la réservation tant que la capacité n'est pas renseignée)."
+    },
+    {
+      "id": "S1-06",
+      "title": "Hotfix du 1er janvier, sans lâcher sa branche",
+      "type": "bug",
+      "acceptanceCriteria": [
+        "`git worktree list` a montré deux dossiers pendant le travail (capture ou copie dans la PR).",
+        "Le nouveau test passe avec `TZ=UTC pnpm vitest run src/lib/fuseau.test.ts` et vérifie qu'à `2026-12-31T23:30:00Z` l'année rendue est 2027.",
+        "`pnpm typecheck` et `pnpm lint` passent.",
+        "La PR décrit le problème, la correction, et la réponse à la question « page rendue au build ou à chaque requête ».",
+        "Le travail en cours sur l'autre branche n'a été ni commité ni remisé (`git stash list` vide)."
+      ],
+      "deliverables": [
+        "branch state: affaire-01/s1-06-<binome> (src/lib/fuseau.ts, src/lib/fuseau.test.ts, src/components/SiteFooter.tsx)",
+        "pull request"
+      ],
+      "words": ["COUTEAU", "ESCALIER", "LAMPE"],
+      "track": "Piste 2 · Le hotfix (pour qui code)",
+      "context": "« Le pied de page affiche `© {new Date().getFullYear()}`. En production on tourne en UTC : le 1er janvier entre minuit et 1 h, la page dira encore 2026. On est le 22 janvier pour le contrat, ça peut attendre une heure, pas un mois. »",
+      "todo": "sans toucher à la branche sur laquelle tu travailles déjà (par exemple celle de la piste 1, avec des fichiers modifiés non commités dessus ; sinon, crée-en une et modifie un fichier sans le commiter), créer un second dossier de travail : `git worktree add ../the-spoon-hotfix -b affaire-01/s1-06 main`, puis, dans ce nouveau dossier, `pnpm install` et `pnpm prisma generate` (un worktree n'a ni `node_modules` ni client Prisma généré). Dans ce dossier : ajouter dans `src/lib/fuseau.ts` une fonction qui rend l'année à Paris (en s'appuyant sur `composantesLocales`), son test dans `src/lib/fuseau.test.ts`, et l'utiliser dans `src/components/SiteFooter.tsx`. Vérifier aussi, avec la sortie de `pnpm build`, si la page d'accueil est rendue une fois au build (dans ce cas l'année serait figée au jour du déploiement) et le noter dans la PR. Ouvrir la PR, revenir dans le dossier principal, retrouver son travail intact, puis `git worktree remove ../the-spoon-hotfix`."
+    }
+  ],
+  "note": "Two tracks for case 1: the player picks one (S1-01 or S1-06). Each player works in their own fork."
+}
