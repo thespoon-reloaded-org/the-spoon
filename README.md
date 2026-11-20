@@ -291,6 +291,11 @@ soir même ou dans les jours qui suivent, et la note de chaque restaurant
 suit. Hors d'atteinte de l'API, donc absents du jeu : les fermetures
 exceptionnelles (congés d'août) et les pièces jointes des dossiers.
 
+## Spoon City (Git training game)
+
+How to play, review an item with Claude Code and get its password: see
+[`game/README.md`](game/README.md).
+
 ## Console formateur
 
 `/formateur` sert aux formateurs Hymaia à mettre TheSpoon en mouvement
