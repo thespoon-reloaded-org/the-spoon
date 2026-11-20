@@ -4,9 +4,9 @@ Spoon City is the noir game wrapped around the Product Building training. Sessio
 
 ## Play an item
 
-0. **Fork this repo once** and clone your fork.
+0. **Clone your own repo**, generated for you from this template: `gh repo clone thespoon-reloaded-org/the-spoon-<first-name>`. For track 2, open Claude Code inside it and run `/installer-poste` (Node, pnpm, Postgres, demo data), then `nvm use`. Track 1 only needs git.
 1. **Pick a track** on the HQ page: `S1-01` or `S1-06`.
-2. **Branch** from an up-to-date `main` in your fork:
+2. **Branch** from an up-to-date `main` in your repo:
    ```bash
    git switch main && git pull
    git switch -c affaire-01/s1-01             # case-01/s1-01 works too
