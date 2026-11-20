@@ -2,7 +2,8 @@
 # Prépare un Mac pour travailler sur TheSpoon, sans Docker :
 #   ./scripts/installer-poste.sh
 #
-# Installe (via Homebrew) Node.js 24, pnpm, PostgreSQL 17 et le CLI GitHub,
+# Installe (via Homebrew) Node.js de .nvmrc (nvm s'il est là, sinon fnm),
+# pnpm, PostgreSQL 17 et le CLI GitHub,
 # démarre PostgreSQL en service de fond, crée la base locale, écrit `.env`,
 # installe les dépendances, applique les migrations et remplit la base.
 # Relançable sans risque : chaque étape vérifie d'abord ce qui existe déjà.
@@ -32,18 +33,31 @@ puis relancer ce script."
 ok "$(brew --version | head -1)"
 
 etape "3. Outils"
-for f in node@24 "$PG" gh; do
+# Node : la version de .nvmrc, seulement pour ce projet. Avec nvm déjà sur le
+# poste, on s'en sert (deux gestionnaires de versions se marchent dessus) ;
+# sinon fnm, qui bascule tout seul en entrant dans le dossier.
+NVM_SH="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
+[ -s "$NVM_SH" ] || NVM_SH="$(brew --prefix)/opt/nvm/nvm.sh"
+OUTILS=("$PG" gh); [ -s "$NVM_SH" ] || OUTILS=(fnm "${OUTILS[@]}")
+for f in "${OUTILS[@]}"; do
   if brew list --formula "$f" >/dev/null 2>&1; then ok "$f déjà installé"
   else brew install "$f" >/dev/null && ok "$f installé"; fi
 done
 PREFIXE=$(brew --prefix)
-export PATH="$PREFIXE/opt/node@24/bin:$PREFIXE/opt/$PG/bin:$PATH"
-# Rendre ces chemins permanents pour les prochains terminaux.
 PROFIL="$HOME/.zshrc"
-LIGNE="export PATH=\"$PREFIXE/opt/node@24/bin:$PREFIXE/opt/$PG/bin:\$PATH\" # TheSpoon"
-grep -qF "# TheSpoon" "$PROFIL" 2>/dev/null || echo "$LIGNE" >> "$PROFIL"
-ok "node $(node --version)"
-corepack enable >/dev/null 2>&1 || npm install -g corepack >/dev/null
+grep -qF "# TheSpoon : psql" "$PROFIL" 2>/dev/null || \
+  echo "export PATH=\"$PREFIXE/opt/$PG/bin:\$PATH\" # TheSpoon : psql, createdb" >> "$PROFIL"
+export PATH="$PREFIXE/opt/$PG/bin:$PATH"
+if [ -s "$NVM_SH" ]; then
+  set +u; source "$NVM_SH"; nvm install >/dev/null; nvm use >/dev/null; set -u
+  ok "node $(node --version) (nvm, selon .nvmrc — tapez « nvm use » dans ce dossier)"
+else
+  grep -qF "# TheSpoon : Node" "$PROFIL" 2>/dev/null || \
+    echo 'eval "$(fnm env --use-on-cd --shell zsh)" # TheSpoon : Node selon .nvmrc' >> "$PROFIL"
+  eval "$(fnm env --shell bash)"
+  fnm install "$(cat .nvmrc)" >/dev/null && fnm use "$(cat .nvmrc)" >/dev/null
+  ok "node $(node --version) (fnm, bascule automatique dans ce dossier)"
+fi
 corepack enable
 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >/dev/null
 ok "pnpm $(COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version)"
