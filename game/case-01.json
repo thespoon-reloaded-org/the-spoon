@@ -14,58 +14,10 @@
         "Il contient une recommandation argumentée, sans modifier le code."
       ],
       "deliverables": ["docs/affaires/01/S1-01.md"],
-      "words": ["PLUIE", "ADDITION", "NEON"]
-    },
-    {
-      "id": "S1-02",
-      "title": "Le fuseau qu'on a débranché",
-      "type": "enquête",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-02.md` nomme les deux commits (ajout et retrait), avec leur date.",
-        "Il explique en 5 lignes maximum pourquoi le réglage global ne protégeait pas la production (le poste de dev est déjà à Paris, Netlify tourne en UTC), en citant le commentaire d'en-tête de `src/lib/fuseau.ts`.",
-        "Il conclut par oui ou non, avec la règle à suivre à la place (les deux règles de la section « L'heure, c'est l'heure de Paris » du `README.md`)."
-      ],
-      "deliverables": ["docs/affaires/01/S1-02.md"],
-      "words": ["BRUME", "HORLOGE", "MINUIT"]
-    },
-    {
-      "id": "S1-03",
-      "title": "Un commentaire qui date",
-      "type": "enquête",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-03.md` cite le commit d'origine de `referenceAvoir` (hash, date) et celui qui a introduit `src/lib/fuseau.ts`, et montre que le premier est antérieur.",
-        "Le ticket contient : le symptôme attendu, un exemple daté précis, la règle du `README.md` qui n'est pas respectée, et les fonctions de `src/lib/fuseau.ts` à utiliser.",
-        "Aucun fichier de `src/` n'est modifié."
-      ],
-      "deliverables": ["docs/affaires/01/S1-03.md", "ticket (GitHub issue or file)"],
-      "words": ["ENCRE", "AVOIR", "CENDRE"]
-    },
-    {
-      "id": "S1-04",
-      "title": "Ce qu'on a livré aux restaurants depuis la rentrée",
-      "type": "chore",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-04.md` contient au plus 10 points, chacun relié à au moins un hash de commit.",
-        "Chaque point dit ce que le restaurateur peut faire maintenant (exemples attendus : disponibilités et exceptions datées, politique d'annulation, signalement honoré / no-show, allergènes, factures et contestation).",
-        "Aucun point ne décrit une fonction absente de `main` (vérifier dans le code, pas seulement dans le message de commit).",
-        "La note explique en une ligne pourquoi `--first-parent` a été utilisé."
-      ],
-      "deliverables": ["docs/affaires/01/S1-04.md"],
-      "words": ["TELEPHONE", "CARNET", "FUMEE"]
-    },
-    {
-      "id": "S1-05",
-      "title": "Relire « fix: mv files »",
-      "type": "enquête",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-05.md` dit que le commit `feat:` n'ajoute que des specs (aucun code) et que `fix: mv files` déplace deux specs de `00-backlog/` vers `01-ready-to-implement/`.",
-        "Il explique, en citant `AGENTS.md`, que ce déplacement lance une exécution automatique et demande une validation humaine, et dit si la PR #51 montre une telle validation.",
-        "Il donne l'état actuel des deux specs (012 dans `03-done/`, 013 encore dans `02-implementing/`) et se demande si 013 est réellement en cours ou oubliée.",
-        "Il propose deux messages de commit réécrits qui disent vraiment ce qui a été fait.",
-        "Il donne un verdict de relecture (`approve` ou `changes_requested`) avec la raison."
-      ],
-      "deliverables": ["docs/affaires/01/S1-05.md"],
-      "words": ["VALISE", "DOSSIER", "TEMOIN"]
+      "words": ["PLUIE", "ADDITION", "NEON"],
+      "track": "Piste 1 · L'enquête (pour tout le monde, sans code)",
+      "context": "« Ma salle fait 28 places. Samedi, TheSpoon m'a envoyé 40 couverts sur le même créneau de 20 h. Qui a décidé de ce chiffre ? »",
+      "todo": "retrouver dans l'historique d'où vient la capacité utilisée quand un restaurant n'a pas renseigné la sienne. Partir de `CAPACITE_PAR_DEFAUT` dans `src/lib/reservation.ts`, puis `git log -S \"CAPACITE_PAR_DEFAUT\" --oneline main` et `git blame -L 5,16 src/lib/reservation.ts`. Lire le message du commit trouvé. Rédiger une réponse courte à la gérante (ce qui s'est passé, ce qu'elle doit faire sur sa fiche) et une recommandation pour l'équipe (garder 100, le baisser, ou bloquer la réservation tant que la capacité n'est pas renseignée)."
     },
     {
       "id": "S1-06",
@@ -82,133 +34,11 @@
         "branch state: affaire-01/s1-06-<binome> (src/lib/fuseau.ts, src/lib/fuseau.test.ts, src/components/SiteFooter.tsx)",
         "pull request"
       ],
-      "words": ["COUTEAU", "ESCALIER", "LAMPE"]
-    },
-    {
-      "id": "S1-07",
-      "title": "Rattraper `main` : merge ou rebase ?",
-      "type": "chore",
-      "acceptanceCriteria": [
-        "Les deux branches compilent (`pnpm typecheck`) et `pnpm vitest run src/lib/retour.test.ts` passe sur les deux.",
-        "`git diff` entre les deux branches est vide (même code, histoires différentes).",
-        "`docs/affaires/01/S1-07.md` montre les deux graphes et explique en mots simples la différence (un commit de fusion d'un côté, un commit réécrit avec un nouveau hash de l'autre), et pourquoi on ne rebase pas une branche que d'autres ont déjà récupérée.",
-        "Aucune des deux branches n'est poussée sur `claude/reservation-login-flow-cb96d3` (c'est S1-14 qui la reprend)."
-      ],
-      "deliverables": [
-        "branch state: affaire-01/s1-07-merge-<binome> and affaire-01/s1-07-rebase-<binome>",
-        "docs/affaires/01/S1-07.md"
-      ],
-      "words": ["CARREFOUR", "MIROIR", "PISTE"]
-    },
-    {
-      "id": "S1-08",
-      "title": "Lire l'historique de `main` et fixer une règle de merge",
-      "type": "enquête",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-08.md` donne les trois comptes (avec la commande qui les produit).",
-        "Il explique le résultat des deux `git cherry` en mots simples.",
-        "Il recommande une règle et dit ce qu'elle rend facile (relire, annuler une PR avec `git revert`, `git bisect`) et ce qu'elle fait perdre.",
-        "La recommandation tient en 5 lignes, lisible par un non-développeur."
-      ],
-      "deliverables": ["docs/affaires/01/S1-08.md"],
-      "words": ["REGISTRE", "VERDICT", "SERMENT"]
-    },
-    {
-      "id": "S1-09",
-      "title": "Le créneau de 22 h a disparu",
-      "type": "bug",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-09.md` donne le hash du commit fautif, le nombre d'étapes de bisect, et la sortie de `git bisect log`.",
-        "Le correctif rétablit `22:00` dans la liste du soir de `src/components/BookingCard.tsx` (vérifié à l'écran sur une fiche ouverte jusqu'à 23 h).",
-        "La note propose le test qui aurait attrapé le problème (en mots simples suffit).",
-        "`git bisect reset` a été fait (on est revenu sur sa branche)."
-      ],
-      "deliverables": [
-        "docs/affaires/01/S1-09.md",
-        "branch state: fix in src/components/BookingCard.tsx"
-      ],
-      "words": ["TRAQUE", "ALIBI", "LANTERNE"]
-    },
-    {
-      "id": "S1-10",
-      "title": "L'annulation qui ne tient plus parole",
-      "type": "bug",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-10.md` contient la commande `git bisect run` utilisée et le hash trouvé.",
-        "Le correctif est un `git revert` (un commit « Revert … » qui cite le hash fautif), pas une réécriture à la main.",
-        "`pnpm vitest run src/lib/annulation.test.ts` passe après le revert.",
-        "La note explique en deux lignes pourquoi la CI n'a rien dit."
-      ],
-      "deliverables": [
-        "docs/affaires/01/S1-10.md",
-        "branch state: revert commit on the pair's branch"
-      ],
-      "words": ["REVOLVER", "PROMESSE", "VELOURS"]
-    },
-    {
-      "id": "S1-11",
-      "title": "Relire la PR « La réservation survit au passage par la connexion »",
-      "type": "enquête",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-11.md` contient les 5 notes, les trouvailles classées blocker / major / minor, et un verdict `approve` ou `changes_requested` conforme à la règle de `REVIEW.md`.",
-        "Au moins une trouvaille porte sur la sécurité de la redirection, appuyée par un essai réel (valeur testée, résultat observé).",
-        "Une section « humain contre agent » liste ce que chacun a trouvé que l'autre a manqué.",
-        "Le dossier de relecture a été retiré (`git worktree remove`)."
-      ],
-      "deliverables": ["docs/affaires/01/S1-11.md"],
-      "words": ["CLEF", "SERRURE", "MASQUE"]
-    },
-    {
-      "id": "S1-12",
-      "title": "Relire un diff écrit par un agent",
-      "type": "enquête",
-      "acceptanceCriteria": [
-        "Les commentaires sont posés sur la PR GitHub (ou dans `docs/affaires/01/S1-12.md`), un par problème.",
-        "Les cinq défauts plantés sont trouvés, ou ceux qui manquent sont nommés après comparaison avec la relecture de l'agent.",
-        "Le verdict est `changes_requested`, avec au moins un blocker justifié par une règle écrite (`README.md`, `REVIEW.md` ou `AGENTS.md`).",
-        "Une ligne dit quel défaut l'agent relecteur a manqué, s'il en a manqué un."
-      ],
-      "deliverables": ["docs/affaires/01/S1-12.md or comments on the GitHub PR"],
-      "words": ["ESPION", "INDICE", "CHAPEAU"]
-    },
-    {
-      "id": "S1-13",
-      "title": "Un modèle de pull request qui suit `REVIEW.md`",
-      "type": "chore",
-      "acceptanceCriteria": [
-        "Le fichier fait moins de 40 lignes et se lit sans connaître Git.",
-        "La PR de cet item est remplie avec ce modèle (GitHub le propose automatiquement une fois sur la branche par défaut ; en attendant, le copier à la main).",
-        "Un autre binôme relit la PR et confirme qu'il a pu l'essayer avec la seule rubrique « comment l'essayer »."
-      ],
-      "deliverables": [".github/pull_request_template.md", "pull request"],
-      "words": ["CONTRAT", "CACHET", "TROTTOIR"]
-    },
-    {
-      "id": "S1-14",
-      "title": "Mener la branche « retour après connexion » jusqu'au merge",
-      "type": "feature",
-      "acceptanceCriteria": [
-        "`src/lib/retour.test.ts` couvre au moins les valeurs piégées relevées en S1-11 (tabulation ou retour à la ligne après la première barre, `/%2F` en tête), et `cheminRetour` refuse celles qui mèneraient hors du site.",
-        "`BookingCard` n'a qu'un seul chemin de pré-remplissage (`souhait`), utilisé à la fois par l'assistant et par le retour après connexion ; le pré-remplissage par l'assistant marche toujours.",
-        "Scénario vérifié à l'écran : déconnecté, choisir 4 convives, un jour et 20:00 sur une fiche, se connecter, revenir sur la fiche avec la sélection pré-remplie, confirmer, voir la réservation dans `/mes-reservations`.",
-        "`pnpm typecheck`, `pnpm lint`, `pnpm test` passent, et la CI de la PR est verte.",
-        "La PR a au moins une relecture approuvée d'un autre binôme, et l'historique final respecte la règle de merge choisie."
-      ],
-      "deliverables": ["branch state: affaire-01/s1-14-retour-connexion", "pull request"],
-      "words": ["RETOUR", "PORTIER", "NUIT"]
-    },
-    {
-      "id": "S1-15",
-      "title": "Inventaire des 53 branches laissées sur le dépôt",
-      "type": "enquête",
-      "acceptanceCriteria": [
-        "`docs/affaires/01/S1-15.md` contient un tableau : branche, dernier commit (date), commits d'avance / de retard, état, action proposée (supprimer, garder, reprendre).",
-        "Chaque branche « à reprendre » a une phrase qui dit ce qu'elle apporte.",
-        "Le tableau signale les branches qui dépendent les unes des autres (une branche fusionnée dans une autre avant d'arriver sur `main`, par exemple `claude/admin-propositions-assistant` qui a intégré `claude/chatbot-correction-biais`).",
-        "Aucune branche distante n'a été supprimée."
-      ],
-      "deliverables": ["docs/affaires/01/S1-15.md"],
-      "words": ["HANGAR", "QUAI", "SILENCE"]
+      "words": ["COUTEAU", "ESCALIER", "LAMPE"],
+      "track": "Piste 2 · Le hotfix (pour qui code)",
+      "context": "« Le pied de page affiche `© {new Date().getFullYear()}`. En production on tourne en UTC : le 1er janvier entre minuit et 1 h, la page dira encore 2026. On est le 22 janvier pour le contrat, ça peut attendre une heure, pas un mois. »",
+      "todo": "sans toucher à la branche sur laquelle tu travailles déjà (par exemple celle de la piste 1, avec des fichiers modifiés non commités dessus ; sinon, crée-en une et modifie un fichier sans le commiter), créer un second dossier de travail : `git worktree add ../the-spoon-hotfix -b affaire-01/s1-06 main`, puis, dans ce nouveau dossier, `pnpm install` et `pnpm prisma generate` (un worktree n'a ni `node_modules` ni client Prisma généré). Dans ce dossier : ajouter dans `src/lib/fuseau.ts` une fonction qui rend l'année à Paris (en s'appuyant sur `composantesLocales`), son test dans `src/lib/fuseau.test.ts`, et l'utiliser dans `src/components/SiteFooter.tsx`. Vérifier aussi, avec la sortie de `pnpm build`, si la page d'accueil est rendue une fois au build (dans ce cas l'année serait figée au jour du déploiement) et le noter dans la PR. Ouvrir la PR, revenir dans le dossier principal, retrouver son travail intact, puis `git worktree remove ../the-spoon-hotfix`."
     }
-  ]
+  ],
+  "note": "Two tracks for case 1: the player picks one (S1-01 or S1-06). Each player works in their own fork."
 }

@@ -25,7 +25,7 @@ describe("game passwords", () => {
   });
 
   test("a wrong check digit is rejected", () => {
-    const password = encodePassword("S1-05", "B");
+    const password = encodePassword("S1-06", "B");
     const check = Number(password.at(-1));
     const tampered = `${password.slice(0, -1)}${(check + 1) % 10}`;
     expect(verifyPassword(tampered)).toMatchObject({ valid: false, reason: "wrong check digit" });
@@ -40,6 +40,6 @@ describe("game passwords", () => {
   test("words are unique across items", () => {
     const words = ITEMS.flatMap((item) => item.words);
     expect(new Set(words).size).toBe(words.length);
-    expect(ITEMS).toHaveLength(15);
+    expect(ITEMS.map((item) => item.id)).toEqual(["S1-01", "S1-06"]);
   });
 });

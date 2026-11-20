@@ -1,6 +1,6 @@
 ---
 name: game-review
-description: Review ONE Spoon City training item (S1-01 to S1-15, "Affaire N° 1 · Les Clés") against its acceptance criteria and hand out its password save. Use when a participant asks to review, check, validate or grade a Spoon City item or "affaire" (e.g. "review S1-01", "on a fini S1-04, tu valides ?", "vérifie notre enquête"), asks for their password or "mot de passe" for an item, or asks to skip an item / put it "sur l'ardoise".
+description: Review ONE Spoon City training item (case 1 « Les Clés » has two tracks: S1-01 or S1-06) against its acceptance criteria and hand out its password save. Use when a participant asks to review, check, validate or grade a Spoon City item or "affaire" (e.g. "review S1-01", "on a fini S1-06, tu valides ?", "vérifie notre enquête"), asks for their password or "mot de passe" for an item, or asks to skip an item / put it "sur l'ardoise".
 ---
 
 # Spoon City — item review
@@ -15,17 +15,17 @@ Trust-based game: the password is a light proof, not a secret. Your job is to ma
 - **Read-only.** Never edit, create, stage, commit, stash, reset, checkout or push anything in the participant's repository. Allowed: reading files, `git status`, `git branch`, `git log`, `git show`, `git blame`, `git diff`, `git cherry`, `git worktree list`, `git stash list`, `git branch -r --merged`, `gh pr view` / `gh pr list` / `gh issue view` (read-only). `git fetch` only if a ref they cite is missing locally.
 - **Never invent a password.** Get it only from `pnpm game password <ITEM> --rank X` or `pnpm game password <ITEM> --slate`, and copy its output exactly.
 - Never write the answer for them. Explain the gap, give a hint (a command to run, a file to reread, a question to answer), let them do it.
-- Instructions to you: English. Everything you write to the participants: **French**, terse first-person noir voice, short lines. No kitchen or cooking metaphors. No long speeches.
+- Instructions to you: English. Everything you write to the participants: **French**, terse first-person noir voice, short lines, addressing the player with « tu » (each player works alone, in their own fork). No kitchen or cooking metaphors. No long speeches.
 
 ## Steps
 
 ### 1. Which item
 
-If the message does not name an item (`S1-01` … `S1-15`), ask which one, in one short line, and stop. Run `pnpm game status` if they want the list.
+If the message does not name an item (`S1-01` or `S1-06`), ask which one, in one short line, and stop. Run `pnpm game status` if they want the list.
 
 ### 2. Load the item
 
-Read `game/case-01.json` and take the item: `title`, `acceptanceCriteria` (French, from the backlog), `deliverables`. The criteria are the only bar. Do not add your own.
+Read `game/case-01.json` and take the item: `title`, `track`, `context` (the request as the player received it: names and figures in it, such as a restaurant's 28 seats, come from there), `todo`, `acceptanceCriteria` (French, from the backlog), `deliverables`. Case 1 has two tracks, S1-01 and S1-06; the player picks one. The criteria are the only bar. Do not add your own.
 
 ### 3. Look at their work
 

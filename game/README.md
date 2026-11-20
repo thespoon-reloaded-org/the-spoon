@@ -1,11 +1,11 @@
 # Spoon City — how to play
 
-Spoon City is the noir game wrapped around the Product Building training. Session 1 is **« Affaire N° 1 · Les Clés »**: Git and code review on this repository. The items are `S1-01` to `S1-15`. **The backlog and your progress live on the HQ page: https://artifacts.hymalab.com/hymaia-product-builders/spoon-city-hq/** (sign in with your hymaia.com address). The acceptance criteria are also in [`case-01.json`](case-01.json), and `pnpm game status` lists the items.
+Spoon City is the noir game wrapped around the Product Building training. Session 1 is **« Affaire N° 1 · Les Clés »**: Git and code review on this repository. Case 1 has **two tracks; pick the one you prefer**: `S1-01` « L'enquête » (no code, for everyone) or `S1-06` « Le hotfix » (for people who code). **The backlog and your progress live on the HQ page: https://artifacts.hymalab.com/hymaia-product-builders/spoon-city-hq/** (sign in with your hymaia.com address). The acceptance criteria are also in [`case-01.json`](case-01.json), and `pnpm game status` lists the items.
 
 ## Play an item
 
-0. **Fork this repo once**, unticking « Copy the main branch only » (some items need the old branches), and clone your fork.
-1. **Pick an item** on the HQ page, e.g. `S1-01`.
+0. **Fork this repo once** and clone your fork.
+1. **Pick a track** on the HQ page: `S1-01` or `S1-06`.
 2. **Branch** from an up-to-date `main` in your fork:
    ```bash
    git switch main && git pull
