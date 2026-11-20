@@ -9,9 +9,11 @@ const bricolage = Bricolage_Grotesque({
   variable: "--font-display",
 });
 
+// Pas de `weight` : la version variable (200–800) couvre 400–700. Avec une
+// liste de graisses, Google renvoie des URLs `/l/font?kit=…&skey=…` que
+// Turbopack (Next 16.3) ne sait pas résoudre → Build Error en dev.
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   variable: "--font-body",
 });
 
