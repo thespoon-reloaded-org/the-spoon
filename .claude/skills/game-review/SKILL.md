@@ -29,7 +29,7 @@ Read `game/case-01.json` and take the item: `title`, `acceptanceCriteria` (Frenc
 
 ### 3. Look at their work
 
-- `git branch --show-current`. Expected: `affaire-01/<id>-<binome>` or `case-01/<id>-<binome>` (S1-07 has two branches, `…-merge-…` and `…-rebase-…`; S1-14 is `affaire-01/s1-14-retour-connexion`). On another branch: say so and ask whether the work is elsewhere. Read files from another branch with `git show <branch>:<path>`, never by switching.
+- `git branch --show-current`. Expected: `affaire-01/<id>` (optionally with a `-<name>` suffix) or `case-01/<id>`; each player works in their own fork of `thespoon-reloaded-org/the-spoon` (S1-07 has two branches, `…-merge-…` and `…-rebase-…`; S1-14 is `affaire-01/s1-14-retour-connexion`). On another branch: say so and ask whether the work is elsewhere. Read files from another branch with `git show <branch>:<path>`, never by switching.
 - Read the deliverable(s) listed in the item: the write-up `docs/affaires/01/<ID>.md`, and for code items the branch state (`git log --oneline main..HEAD`, `git diff main...HEAD --stat`, the changed files). Uncommitted changes count, but mention that they are not committed yet.
 - If the deliverable is missing, say it, point to the expected path, stop there (no grading).
 
