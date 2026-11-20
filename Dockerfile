@@ -14,7 +14,10 @@ ARG NODE_VERSION=24.14.1
 
 FROM node:${NODE_VERSION}-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH NEXT_TELEMETRY_DISABLED=1
-RUN corepack enable
+# OpenSSL : le moteur de migration de Prisma en a besoin (sinon avertissement
+# et détection de version au hasard).
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/* && corepack enable
 WORKDIR /app
 
 # --- Dépendances (cache tant que le lockfile ne change pas) -----------------
