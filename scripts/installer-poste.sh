@@ -26,9 +26,12 @@ ok "macOS $(sw_vers -productVersion), $(uname -m)"
 etape "2. Homebrew"
 if ! command -v brew >/dev/null; then
   for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)"; done
+  # Installé mais absent du PATH : le rendre disponible dans les prochains terminaux.
+  command -v brew >/dev/null && { grep -qF 'brew shellenv' "$HOME/.zprofile" 2>/dev/null || \
+    echo "eval \"\$($(command -v brew) shellenv)\" # Homebrew" >> "$HOME/.zprofile"; }
 fi
-command -v brew >/dev/null || stop "Homebrew absent. L'installer (mot de passe du Mac demandé) :
-  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"
+command -v brew >/dev/null || stop "Homebrew absent. L'installer dans une fenêtre Terminal (mot de passe du Mac demandé) :
+  open -a Terminal scripts/installer-homebrew.sh
 puis relancer ce script."
 ok "$(brew --version | head -1)"
 
