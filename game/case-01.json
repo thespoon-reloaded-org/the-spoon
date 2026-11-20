@@ -18,7 +18,7 @@
       "context": "« Ma salle fait 28 places. Samedi, TheSpoon m'a envoyé 40 couverts sur le même créneau de 20 h. Qui a décidé de ce chiffre ? »",
       "todo": "Sur la branche `affaire-01/cas-a`, partir de `CAPACITE_PAR_DEFAUT` dans `src/lib/reservation.ts`, retrouver le commit qui l'a introduite avec `git log -S \"CAPACITE_PAR_DEFAUT\" --oneline main -- src/`, confirmer avec `git blame -L 5,16 src/lib/reservation.ts`, lire le message avec `git show <hash>`. Écrire la section « Enquête » de `docs/affaires/01/cas-a.md` (commit, raison, pourquoi 40 couverts, réponse à la gérante, recommandation) et la commiter.",
       "acceptanceCriteria": [
-        "Le fichier `docs/affaires/01/S1-01.md` cite le commit qui a introduit la constante (hash court, date, auteur) et la raison donnée dans le commentaire (31 % des fiches sans capacité).",
+        "Le fichier `docs/affaires/01/cas-a.md` cite le commit qui a introduit la constante (hash court, date, auteur) et la raison donnée dans le commentaire (31 % des fiches sans capacité).",
         "Il explique en une phrase pourquoi 40 couverts sont passés (capacité vide sur la fiche, donc plafond de 100 par créneau).",
         "Il contient la réponse à la gérante, en mots simples, sans jargon Git.",
         "Il contient une recommandation argumentée pour l'équipe.",
@@ -43,7 +43,7 @@
       "context": "« Le pied de page affiche `© {new Date().getFullYear()}`. En production on tourne en UTC : le 1er janvier entre minuit et 1 h, la page dira encore 2026. On a fait le ménage des fuseaux en septembre. Comment cette ligne a-t-elle survécu ? »",
       "todo": "Sur la branche `affaire-01/cas-b`, trouver la ligne avec `grep -n getFullYear src/components/SiteFooter.tsx`, retrouver qui l'a écrite et quand avec `git blame -L <n>,<n> src/components/SiteFooter.tsx`, retrouver le ménage des fuseaux avec `git log --diff-filter=A --oneline -- src/lib/fuseau.ts`, lire son message avec `git show --no-patch <hash>`. Écrire la section « Enquête » de `docs/affaires/01/cas-b.md` (les deux commits, pourquoi la ligne a échappé au ménage, le risque réel pour l'ex-CTO, recommandation) et la commiter.",
       "acceptanceCriteria": [
-        "Le fichier `docs/affaires/01/S1-06.md` cite le commit qui a écrit la ligne du pied de page (hash court, date, auteur) et celui qui a créé `src/lib/fuseau.ts` (hash court, date).",
+        "Le fichier `docs/affaires/01/cas-b.md` cite le commit qui a écrit la ligne du pied de page (hash court, date, auteur) et celui qui a créé `src/lib/fuseau.ts` (hash court, date).",
         "Il explique en une phrase pourquoi la ligne a échappé au ménage (le message du commit des fuseaux vise `toLocaleDateString` sans `timeZone`, pas `getFullYear`).",
         "Il dit le risque réel à l'ex-CTO, en mots simples : quand, combien de temps, ce que voit un visiteur.",
         "Il contient une recommandation argumentée pour l'équipe.",
