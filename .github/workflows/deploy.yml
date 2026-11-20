@@ -75,6 +75,8 @@ jobs:
             --max-retries=0 --task-timeout=300s \
             --execute-now --wait
 
+      # Qui peut appeler le service (public) se règle à la création de
+      # l'environnement, pas ici : le compte de déploiement n'a pas ce droit.
       - name: Mise en production
         run: |
           gcloud run deploy "$SERVICE" \
@@ -84,7 +86,6 @@ jobs:
             --network=spoon-vpc --subnet=spoon-run --vpc-egress=private-ranges-only \
             --set-secrets="DATABASE_URL=${{ vars.ENVIRONNEMENT }}-database-url:latest,BETTER_AUTH_SECRET=${{ vars.ENVIRONNEMENT }}-auth-secret:latest" \
             --set-env-vars="BETTER_AUTH_URL=${{ vars.URL_PROD }},PHOTOS_BUCKET=${{ vars.GCP_PROJET }}-photos-${{ vars.ENVIRONNEMENT }}" \
-            --allow-unauthenticated \
             --min-instances=0 --max-instances=2 \
             --cpu=1 --memory=512Mi --concurrency=40 \
             --labels="environnement=${{ vars.ENVIRONNEMENT }},commit=${{ github.sha }}"
