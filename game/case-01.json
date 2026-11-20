@@ -1,44 +1,83 @@
 {
   "case": "01",
   "title": "Affaire N° 1 · Les Clés",
-  "branchPattern": ["affaire-01/<id>-<binome>", "case-01/<id>-<binome>"],
+  "branchPattern": [
+    "affaire-01/<id>",
+    "affaire-01/<id>-fix",
+    "case-01/<id>"
+  ],
   "items": [
     {
       "id": "S1-01",
       "title": "Pourquoi 100 couverts ?",
-      "type": "enquête",
+      "type": "enquête + correctif",
       "acceptanceCriteria": [
         "Le fichier `docs/affaires/01/S1-01.md` cite le commit qui a introduit la constante (hash court, date, auteur) et la raison donnée dans le commentaire (31 % des fiches sans capacité).",
-        "Il explique en une phrase pourquoi 40 couverts sont passés (capacité vide sur la fiche, donc plafond de 100 par créneau, compté sur l'instant exact du créneau).",
+        "Il explique en une phrase pourquoi 40 couverts sont passés (capacité vide sur la fiche, donc plafond de 100 par créneau).",
         "Il contient la réponse à la gérante, en mots simples, sans jargon Git.",
-        "Il contient une recommandation argumentée, sans modifier le code."
+        "Il contient une recommandation argumentée pour l'équipe.",
+        "Le rapport est commité sur `affaire-01/s1-01` et ne modifie rien sous `src/`."
       ],
-      "deliverables": ["docs/affaires/01/S1-01.md"],
-      "words": ["PLUIE", "ADDITION", "NEON"],
-      "track": "Piste 1 · L'enquête (pour tout le monde, sans code)",
+      "deliverables": [
+        "docs/affaires/01/S1-01.md (branche affaire-01/s1-01)",
+        "optionnel : branche affaire-01/s1-01-fix (actions.ts, FicheEtablissementForm.tsx, actions.test.ts)"
+      ],
+      "words": [
+        "PLUIE",
+        "ADDITION",
+        "NEON"
+      ],
+      "track": "Les Clés · Enquête, puis correctif",
       "context": "« Ma salle fait 28 places. Samedi, TheSpoon m'a envoyé 40 couverts sur le même créneau de 20 h. Qui a décidé de ce chiffre ? »",
-      "todo": "retrouver dans l'historique d'où vient la capacité utilisée quand un restaurant n'a pas renseigné la sienne. Partir de `CAPACITE_PAR_DEFAUT` dans `src/lib/reservation.ts`, puis `git log -S \"CAPACITE_PAR_DEFAUT\" --oneline main` et `git blame -L 5,16 src/lib/reservation.ts`. Lire le message du commit trouvé. Rédiger une réponse courte à la gérante (ce qui s'est passé, ce qu'elle doit faire sur sa fiche) et une recommandation pour l'équipe (garder 100, le baisser, ou bloquer la réservation tant que la capacité n'est pas renseignée)."
+      "todo": "Enquête : sur la branche `affaire-01/s1-01`, partir de `CAPACITE_PAR_DEFAUT` dans `src/lib/reservation.ts`, retrouver le commit qui l'a introduite avec `git log -S \"CAPACITE_PAR_DEFAUT\" --oneline main -- src/`, confirmer avec `git blame -L 5,16 src/lib/reservation.ts`, lire le message avec `git show <hash>`. Commencer `docs/affaires/01/S1-01.md` (commit, raison, pourquoi 40 couverts, réponse à la gérante, recommandation) sans le commiter. Correctif (optionnel, pour qui code) : laisse ton rapport en cours, non commité, et ouvre un second dossier de travail sur `main` : `git worktree add ../the-spoon-fix -b affaire-01/s1-01-fix main`, puis dans `../the-spoon-fix` : `pnpm install`, `pnpm prisma generate` et `cp ../the-spoon/.env .` (un worktree n'a ni `node_modules`, ni client Prisma, ni `.env`). Dans ce dossier : rendre la capacité obligatoire dans la fiche établissement (`src/app/espace-restaurant/fiche/actions.ts`, message « Indique la capacité de ta salle. », et `required` sur le champ dans `src/components/FicheEtablissementForm.tsx`), écrire `src/app/espace-restaurant/fiche/actions.test.ts` (modèle : `src/lib/avis.test.ts`, qui simule la session), lancer ce test, `pnpm typecheck` et `pnpm lint`, commiter. Revenir dans `../the-spoon`, compléter le rapport (branche et commit du correctif, sortie de `git worktree list`), le commiter, demander la relecture, puis `git worktree remove ../the-spoon-fix`.",
+      "useCase": "Cas A · La salle trop pleine",
+      "fixCriteria": [
+        "Le correctif est sur sa propre branche `affaire-01/s1-01-fix`, partie de `main`, faite dans un second dossier : le rapport cite la sortie de `git worktree list` avec deux dossiers, et `git stash list` est vide.",
+        "Une fiche envoyée sans capacité est refusée avec « Indique la capacité de ta salle. », et le champ est marqué `required`.",
+        "`src/app/espace-restaurant/fiche/actions.test.ts` vérifie ce refus et passe ; il échoue si on retire le correctif.",
+        "`pnpm typecheck` et `pnpm lint` passent sur la branche du correctif.",
+        "Le rapport nomme la branche et le commit du correctif."
+      ]
     },
     {
       "id": "S1-06",
-      "title": "Hotfix du 1er janvier, sans lâcher sa branche",
-      "type": "bug",
+      "title": "L'année qui retarde",
+      "type": "enquête + correctif",
       "acceptanceCriteria": [
-        "`git worktree list` a montré deux dossiers pendant le travail (capture ou copie dans la PR).",
-        "Le nouveau test passe avec `TZ=UTC pnpm vitest run src/lib/fuseau.test.ts` et vérifie qu'à `2026-12-31T23:30:00Z` l'année rendue est 2027.",
-        "`pnpm typecheck` et `pnpm lint` passent.",
-        "La PR décrit le problème, la correction, et la réponse à la question « page rendue au build ou à chaque requête ».",
-        "Le travail en cours sur l'autre branche n'a été ni commité ni remisé (`git stash list` vide)."
+        "Le fichier `docs/affaires/01/S1-06.md` cite le commit qui a écrit la ligne du pied de page (hash court, date, auteur) et celui qui a créé `src/lib/fuseau.ts` (hash court, date).",
+        "Il explique en une phrase pourquoi la ligne a échappé au ménage (le message du commit des fuseaux vise `toLocaleDateString` sans `timeZone`, pas `getFullYear`).",
+        "Il dit le risque réel à l'ex-CTO, en mots simples : quand, combien de temps, ce que voit un visiteur.",
+        "Il contient une recommandation argumentée pour l'équipe.",
+        "Le rapport est commité sur `affaire-01/s1-06` et ne modifie rien sous `src/`."
       ],
       "deliverables": [
-        "branch state: affaire-01/s1-06-<binome> (src/lib/fuseau.ts, src/lib/fuseau.test.ts, src/components/SiteFooter.tsx)",
-        "pull request"
+        "docs/affaires/01/S1-06.md (branche affaire-01/s1-06)",
+        "optionnel : branche affaire-01/s1-06-fix (fuseau.ts, fuseau.test.ts, SiteFooter.tsx)"
       ],
-      "words": ["COUTEAU", "ESCALIER", "LAMPE"],
-      "track": "Piste 2 · Le hotfix (pour qui code)",
-      "context": "« Le pied de page affiche `© {new Date().getFullYear()}`. En production on tourne en UTC : le 1er janvier entre minuit et 1 h, la page dira encore 2026. On est le 22 janvier pour le contrat, ça peut attendre une heure, pas un mois. »",
-      "todo": "sans toucher à la branche sur laquelle tu travailles déjà (par exemple celle de la piste 1, avec des fichiers modifiés non commités dessus ; sinon, crée-en une et modifie un fichier sans le commiter), créer un second dossier de travail : `git worktree add ../the-spoon-hotfix -b affaire-01/s1-06 main`, puis, dans ce nouveau dossier, `pnpm install` et `pnpm prisma generate` (un worktree n'a ni `node_modules` ni client Prisma généré). Dans ce dossier : ajouter dans `src/lib/fuseau.ts` une fonction qui rend l'année à Paris (en s'appuyant sur `composantesLocales`), son test dans `src/lib/fuseau.test.ts`, et l'utiliser dans `src/components/SiteFooter.tsx`. Vérifier aussi, avec la sortie de `pnpm build`, si la page d'accueil est rendue une fois au build (dans ce cas l'année serait figée au jour du déploiement) et le noter dans la PR. Ouvrir la PR, revenir dans le dossier principal, retrouver son travail intact, puis `git worktree remove ../the-spoon-hotfix`."
+      "words": [
+        "COUTEAU",
+        "ESCALIER",
+        "LAMPE"
+      ],
+      "track": "Les Clés · Enquête, puis correctif",
+      "context": "« Le pied de page affiche `© {new Date().getFullYear()}`. En production on tourne en UTC : le 1er janvier entre minuit et 1 h, la page dira encore 2026. On a fait le ménage des fuseaux en septembre. Comment cette ligne a-t-elle survécu ? »",
+      "todo": "Enquête : sur la branche `affaire-01/s1-06`, trouver la ligne avec `grep -n getFullYear src/components/SiteFooter.tsx`, retrouver qui l'a écrite et quand avec `git blame -L <n>,<n> src/components/SiteFooter.tsx`, retrouver le ménage des fuseaux avec `git log --diff-filter=A --oneline -- src/lib/fuseau.ts`, lire son message avec `git show --no-patch <hash>`. Commencer `docs/affaires/01/S1-06.md` (les deux commits, pourquoi la ligne a échappé au ménage, le risque réel pour l'ex-CTO) sans le commiter. Correctif (optionnel, pour qui code) : laisse ton rapport en cours, non commité, et ouvre un second dossier de travail sur `main` : `git worktree add ../the-spoon-fix -b affaire-01/s1-06-fix main`, puis dans `../the-spoon-fix` : `pnpm install`, `pnpm prisma generate` et `cp ../the-spoon/.env .` (un worktree n'a ni `node_modules`, ni client Prisma, ni `.env`). Dans ce dossier : ajouter dans `src/lib/fuseau.ts` une fonction qui rend l'année à Paris (en s'appuyant sur `composantesLocales`), son test dans `src/lib/fuseau.test.ts` (à `2026-12-31T23:30:00Z`, l'année est 2027), l'utiliser dans `src/components/SiteFooter.tsx`, lancer `TZ=UTC pnpm vitest run src/lib/fuseau.test.ts`, `pnpm typecheck` et `pnpm lint`, commiter. Revenir dans `../the-spoon`, compléter le rapport (branche et commit du correctif, sortie de `git worktree list`), le commiter, demander la relecture, puis `git worktree remove ../the-spoon-fix`.",
+      "useCase": "Cas B · Le 1er janvier",
+      "fixCriteria": [
+        "Le correctif est sur sa propre branche `affaire-01/s1-06-fix`, partie de `main`, faite dans un second dossier : le rapport cite la sortie de `git worktree list` avec deux dossiers, et `git stash list` est vide.",
+        "`src/lib/fuseau.ts` rend l'année à Paris et `src/components/SiteFooter.tsx` l'utilise à la place de `new Date().getFullYear()`.",
+        "Le nouveau test passe avec `TZ=UTC pnpm vitest run src/lib/fuseau.test.ts` et vérifie qu'à `2026-12-31T23:30:00Z` l'année rendue est 2027.",
+        "`pnpm typecheck` et `pnpm lint` passent sur la branche du correctif.",
+        "Le rapport nomme la branche et le commit du correctif."
+      ]
     }
   ],
-  "note": "Two tracks for case 1: the player picks one (S1-01 or S1-06). Each player works in their own fork."
+  "note": "One track for case 1, « Enquête, puis correctif », with two use cases: the player picks S1-01 or S1-06. Same steps for both: investigate the history, write the report, then (optional) fix the bug in a worktree. Investigation criteria alone cap the rank at B; the fix criteria open A and S.",
+  "track": "Les Clés · Enquête, puis correctif",
+  "ranking": {
+    "S": "all investigation and fix criteria met, sharp reasoning",
+    "A": "all investigation and fix criteria met",
+    "B": "all investigation criteria met (no fix, or fix partly met)",
+    "C": "report exists, at least half the investigation criteria met or partly met, no false claim"
+  }
 }
