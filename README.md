@@ -112,16 +112,20 @@ simple sur ce chemin.
 ## Démarrer en local
 
 Chaque participant a son propre dépôt, `thespoon-reloaded-org/the-spoon-<prénom>`,
-avec sa CI et sa production. Le cloner (`gh repo clone
-thespoon-reloaded-org/the-spoon-<prénom>`), ou transformer un clone du dépôt
-commun avec `./scripts/configurer-mon-depot.sh` (skill `configurer-mon-depot`),
-qui lance aussi l'installation ci-dessous.
+avec sa CI et sa production : `gh repo clone thespoon-reloaded-org/the-spoon-<prénom>`.
 
 Sur Mac, sans Docker : `./scripts/installer-poste.sh` installe Node.js 24,
-pnpm, PostgreSQL 17 (service Homebrew) et le CLI GitHub, crée la base
+pnpm, PostgreSQL 17 (Homebrew) et le CLI GitHub, crée la base
 locale, écrit `.env`, applique les migrations et remplit la base. Dans Claude
 Code, la skill `installer-poste` le lance et sait corriger les échecs
-courants. À la main, ou hors macOS :
+courants.
+
+PostgreSQL ne tourne que pendant qu'on code : une session Claude Code le
+démarre et l'arrête en se fermant (hooks de `.claude/settings.json`), `pnpm dev`
+et `pnpm test` le démarrent au besoin, et `pnpm db:start` / `pnpm db:stop` le
+pilotent à la main (`scripts/postgres-local.sh`).
+
+À la main, ou hors macOS :
 
 ```bash
 nvm use

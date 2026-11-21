@@ -4,7 +4,7 @@ Spoon City is the noir game wrapped around the Product Building training. Sessio
 
 ## Play a level
 
-0. **Clone your own repo**, generated for you from this template: `gh repo clone thespoon-reloaded-org/the-spoon-<first-name>`. To do the fix, open Claude Code inside it and run `/installer-poste` (Node, pnpm, Postgres, demo data), then `nvm use`. The investigation only needs git. Already have a clone of the shared `the-spoon` repo from session 1? Run `/configurer-mon-depot` in it instead: it switches that clone to your own repo, keeps your work, and sets `gh` to your repo.
+0. **Clone your own repo**, generated for you from this template: `gh repo clone thespoon-reloaded-org/the-spoon-<first-name>`. To do the fix, open Claude Code inside it and run `/installer-poste` (Node, pnpm, Postgres, demo data), then `nvm use`. The investigation only needs git. Your session-1 clone of the shared `the-spoon` repo is no longer needed: work in your own.
 1. **Pick a case** on the HQ page: A or B. You keep it for the three levels.
 2. **Level 1 · Investigate** on `affaire-01/cas-a` (or `cas-b`) with `git log -S`, `git blame`, `git show` (cas B: `git log --author`, `--first-parent`, and `.github/workflows/ci.yml`). Write the « Enquête » section of `docs/affaires/01/cas-a.md` and commit it. Review: `review S1-1A`.
 3. **Level 2 · Marc's branch.** Start the « La branche de Marc » section, don't commit it, and read Marc's branch in a second folder:

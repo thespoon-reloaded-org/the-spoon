@@ -4,7 +4,7 @@
 #
 # Installe (via Homebrew) Node.js de .nvmrc (nvm s'il est là, sinon fnm),
 # pnpm, PostgreSQL 17 et le CLI GitHub,
-# démarre PostgreSQL en service de fond, crée la base locale, écrit `.env`,
+# démarre PostgreSQL pour la session (pas au démarrage du Mac), crée la base locale, écrit `.env`,
 # installe les dépendances, applique les migrations et remplit la base.
 # Relançable sans risque : chaque étape vérifie d'abord ce qui existe déjà.
 # Ne touche jamais à une base distante ni à un `.env` existant.
@@ -63,13 +63,10 @@ COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >/dev/null
 ok "pnpm $(COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version)"
 
 etape "4. PostgreSQL"
-if lsof -nP -iTCP:5432 -sTCP:LISTEN >/dev/null 2>&1 && ! brew services list | grep -q "^$PG *started"; then
-  stop "Le port 5432 est déjà pris par un autre PostgreSQL (Postgres.app, Docker ?). Arrêtez-le, puis relancez."
-fi
-brew services list | grep -q "^$PG *started" || brew services start "$PG" >/dev/null
-for _ in $(seq 1 20); do pg_isready -q -h localhost && break; sleep 1; done
-pg_isready -q -h localhost || stop "PostgreSQL ne répond pas. Voir : brew services info $PG"
-ok "PostgreSQL $(postgres --version | awk '{print $3}') démarré"
+# Pas de `brew services start` : PostgreSQL ne tourne que pendant les
+# sessions (hooks Claude Code, pnpm dev, pnpm db:start), voir postgres-local.sh.
+./scripts/postgres-local.sh start >/dev/null || stop "PostgreSQL n'a pas démarré (message ci-dessus). Port 5432 pris : lsof -nP -iTCP:5432 -sTCP:LISTEN"
+ok "PostgreSQL $(postgres --version | awk '{print $3}') démarré pour cette session, pas au démarrage du Mac"
 if psql -h localhost -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$BASE'" | grep -q 1; then ok "base $BASE déjà là"
 else createdb -h localhost "$BASE" && ok "base $BASE créée"; fi
 
@@ -91,9 +88,20 @@ if [ "$(psql -h localhost -d "$BASE" -tAc 'SELECT count(*) FROM "Restaurant"')" 
 else ok "base déjà remplie, rien touché"; fi
 
 etape "7. GitHub"
-if gh auth status >/dev/null 2>&1; then ok "connecté à GitHub ($(gh api user --jq .login))"
+if gh auth status >/dev/null 2>&1; then
+  ok "connecté à GitHub ($(gh api user --jq .login))"
+  DEPOT=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)
+  if [ "$DEPOT" = thespoon-reloaded-org/the-spoon ]; then
+    echo "  → ce dossier est un clone du dépôt commun. Travaillez dans le vôtre :"
+    echo "      gh repo clone thespoon-reloaded-org/the-spoon-<prénom>   puis relancez ce script dedans"
+  elif [ -n "$DEPOT" ]; then
+    ok "dépôt : $DEPOT"
+    URL_PROD=$(gh variable get URL_PROD -R "$DEPOT" 2>/dev/null || true)
+    [ -z "$URL_PROD" ] || ok "votre production : $URL_PROD"
+  fi
 else echo "  → lancer : gh auth login   (puis relancer ce script pour vérifier)"; fi
 
 printf '\n\033[32mPrêt.\033[0m Lancer :  pnpm dev   puis ouvrir http://localhost:3100\n'
 printf 'Comptes de démo : mot de passe password123 (voir README, « Démarrer en local »).\n'
 printf 'Ouvrez un nouveau terminal pour que node et psql soient trouvés partout.\n'
+printf 'PostgreSQL démarre avec une session Claude Code (ou pnpm dev) et s'"'"'arrête avec elle. À la main : pnpm db:start / pnpm db:stop.\n'
