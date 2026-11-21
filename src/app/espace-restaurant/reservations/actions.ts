@@ -7,6 +7,8 @@ import { z } from "zod";
 
 import { authRestaurant } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { capaciteEffective } from "@/lib/reservation";
+import { couvertsServisAcceptes, couvertsServisMaximum } from "@/lib/signalement-bornes";
 
 const schemaSignalement = z
   .object({
@@ -53,6 +55,7 @@ export async function marquerReservation(
 
   const reservation = await prisma.booking.findFirst({
     where: { id: donnees.data.bookingId, restaurantId: session.user.restaurantId },
+    include: { restaurant: { select: { capacite: true } } },
   });
   if (!reservation) {
     return { erreur: "Réservation introuvable." };
@@ -62,6 +65,20 @@ export async function marquerReservation(
   }
   if (reservation.date.getTime() > Date.now()) {
     return { erreur: "Ce créneau n'est pas encore passé." };
+  }
+
+  // La borne elle-même vit dans `src/lib/signalement-bornes.ts`.
+  const couvertsServis = donnees.data.couvertsServis;
+  if (donnees.data.statut === "HONOREE" && couvertsServis !== undefined) {
+    const bornes = {
+      couvertsReserves: reservation.couverts,
+      capacite: capaciteEffective(reservation.restaurant.capacite),
+    };
+    if (!couvertsServisAcceptes(couvertsServis, bornes)) {
+      return {
+        erreur: `${couvertsServis} couverts servis, c'est trop : ${couvertsServisMaximum(bornes)} au plus pour cette réservation. Vérifie la saisie.`,
+      };
+    }
   }
 
   let resultat: { count: number };
