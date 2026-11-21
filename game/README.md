@@ -6,10 +6,10 @@ Spoon City is the noir game wrapped around the Product Building training. Sessio
 
 0. **Clone your own repo**, generated for you from this template: `gh repo clone thespoon-reloaded-org/the-spoon-<first-name>`. To do the fix, open Claude Code inside it and run `/installer-poste` (Node, pnpm, Postgres, demo data), then `nvm use`. The investigation only needs git.
 1. **Pick a case** on the HQ page: A or B. You keep it for the three levels.
-2. **Level 1 · Investigate** on `affaire-01/cas-a` (or `cas-b`) with `git log -S`, `git blame`, `git show`. Write the « Enquête » section of `docs/affaires/01/cas-a.md` and commit it. Review: `review S1-1A`.
+2. **Level 1 · Investigate** on `affaire-01/cas-a` (or `cas-b`) with `git log -S`, `git blame`, `git show` (cas B: `git log --author`, `--first-parent`, and `.github/workflows/ci.yml`). Write the « Enquête » section of `docs/affaires/01/cas-a.md` and commit it. Review: `review S1-1A`.
 3. **Level 2 · Marc's branch.** Start the « La branche de Marc » section, don't commit it, and read Marc's branch in a second folder:
    ```bash
-   git worktree add ../the-spoon-marc origin/refonte-fiche     # cas B: origin/refonte-pied-de-page
+   git worktree add ../the-spoon-marc origin/refonte-fiche     # cas B: origin/refonte-annulation
    cd ../the-spoon-marc && git log -1 && git diff main...HEAD
    ```
    Back in `../the-spoon`, finish the section, `git worktree remove ../the-spoon-marc`, commit. Review: `review S1-2A`.
@@ -19,7 +19,7 @@ Spoon City is the noir game wrapped around the Product Building training. Sessio
    cd ../the-spoon-fix
    pnpm install && pnpm prisma generate && cp ../the-spoon/.env .
    ```
-   Fix the bug, add its test, run it, `pnpm typecheck`, `pnpm lint`, commit. Then `git merge origin/refonte-fiche` (or rebase): resolve the conflict keeping both changes, rerun the test, commit. Add the « Correctif » section to the report. Review: `review S1-3A`.
+   Fix the bug, add its test, run it, `pnpm typecheck`, `pnpm lint`, commit. Then `git merge origin/refonte-fiche` (or rebase): resolve the conflict keeping both changes, rerun the test, commit. Cas B: find the bad commit with `git bisect run pnpm vitest run src/lib/annulation.test.ts`, undo it with `git revert`, then merge `origin/refonte-annulation`. Add the « Correctif » section to the report. Review: `review S1-3A`.
 5. **After each review**, you get a rank (S, A, B or C) and a password. **Note it down** and enter it on the HQ page under « Continuer »: it unlocks the next level.
 
 One level per review. Come back after improving: a new review gives a new password, and the best one counts.
