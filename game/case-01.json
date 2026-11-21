@@ -37,16 +37,17 @@
       "id": "S1-1B",
       "level": 1,
       "case": "B",
-      "title": "L'année qui retarde",
-      "useCase": "Cas B · Le 1er janvier",
+      "title": "L'annulation à 24 h",
+      "useCase": "Cas B · L'annulation à 24 h",
       "type": "enquête",
-      "context": "« Le pied de page affiche `© {new Date().getFullYear()}`. En production on tourne en UTC : le 1er janvier entre minuit et 1 h, la page dira encore 2026. On a fait le ménage des fuseaux en septembre. Comment cette ligne a-t-elle survécu ? »",
-      "todo": "Sur la branche `affaire-01/cas-b`, trouver la ligne avec `grep -n getFullYear src/components/SiteFooter.tsx`, retrouver qui l'a écrite et quand avec `git blame -L <n>,<n> src/components/SiteFooter.tsx`, retrouver le ménage des fuseaux avec `git log --diff-filter=A --oneline -- src/lib/fuseau.ts`, lire son message avec `git show --no-patch <hash>`. Écrire la section « Enquête » de `docs/affaires/01/cas-b.md` (les deux commits, pourquoi la ligne a échappé au ménage, le risque réel pour l'ex-CTO, recommandation) et la commiter.",
+      "context": "« Ma politique dit annulation gratuite jusqu'à 24 h avant. Hier soir, une table de 6 a annulé à 18 h pour 20 h. Votre site l'a laissé faire. » (gérant d'un restaurant partenaire)",
+      "todo": "Sur la branche `affaire-01/cas-b`, lire la règle dans `src/lib/annulation.ts` (`limiteAnnulation`). Lister les commits de Marc Ottavi sur `main` avec `git log --oneline --author=\"Marc Ottavi\" main` et `git log --first-parent --format='%h %ad %an %s' --date=iso main | head -20` : une série poussée le même soir, sans pull request. Lire `.github/workflows/ci.yml` (quand la CI tourne-t-elle ?). Trouver le dernier commit sain avant la série : le parent du premier commit de Marc (`git log --author=\"Marc Ottavi\" --reverse --format=%h main | head -1`, puis `git rev-parse --short <hash>^`). Repérer les commits de la série qui touchent la règle : `git log --oneline --author=\"Marc Ottavi\" main -- src/lib/annulation.ts`. Écrire la section « Enquête » de `docs/affaires/01/cas-b.md` (la série, pourquoi la CI n'a rien vu, le point de départ sain, les suspects, réponse au gérant, recommandation) et la commiter.",
       "acceptanceCriteria": [
-        "Le fichier `docs/affaires/01/cas-b.md` cite le commit qui a écrit la ligne du pied de page (hash court, date, auteur) et celui qui a créé `src/lib/fuseau.ts` (hash court, date).",
-        "Il explique en une phrase pourquoi la ligne a échappé au ménage (le message du commit des fuseaux vise `toLocaleDateString` sans `timeZone`, pas `getFullYear`).",
-        "Il dit le risque réel à l'ex-CTO, en mots simples : quand, combien de temps, ce que voit un visiteur.",
-        "Il contient une recommandation argumentée pour l'équipe.",
+        "Le fichier `docs/affaires/01/cas-b.md` dit qui a poussé la série, quand et combien de commits (15 commits de Marc Ottavi, le 29 septembre 2026, entre 17 h et 19 h 30).",
+        "Il explique pourquoi la CI n'a rien vu : les commits ont été poussés directement sur `main`, sans pull request, et `.github/workflows/ci.yml` ne tourne que sur `pull_request`.",
+        "Il donne le hash court du dernier commit sain avant la série (le parent du premier commit de Marc), qui servira de point de départ au niveau 3.",
+        "Il liste les commits de la série qui touchent `src/lib/annulation.ts` (trois) et dit lequel est le plus suspect, avec la raison.",
+        "Il contient la réponse au gérant, en mots simples, sans jargon Git, et une recommandation argumentée pour l'équipe.",
         "Le rapport est commité sur `affaire-01/cas-b` et ne modifie rien sous `src/`."
       ],
       "deliverables": [
@@ -93,11 +94,11 @@
       "title": "La branche de Marc",
       "useCase": "Cas B",
       "type": "enquête",
-      "context": "Marc Ottavi, l'ex-CPO, a laissé une branche inachevée : `origin/refonte-pied-de-page`. Elle touche au même endroit que ton enquête. Lis-la sans quitter ta branche.",
-      "todo": "Sur `affaire-01/cas-b`, commencer la section « La branche de Marc » de `docs/affaires/01/cas-b.md`, sans la commiter. Ouvrir la branche dans un second dossier : `git worktree add ../the-spoon-marc origin/refonte-pied-de-page`, puis dans ce dossier `git log -1` et `git diff main...HEAD`. Revenir dans `../the-spoon`, compléter la section (auteur, date, ce que fait la branche, si elle règle le problème et pourquoi, sortie de `git worktree list`). Puis `git worktree remove ../the-spoon-marc` et commiter.",
+      "context": "Marc Ottavi, l'ex-CPO, a laissé une branche inachevée : `origin/refonte-annulation`. Elle touche au même endroit que ton enquête. Lis-la sans quitter ta branche.",
+      "todo": "Sur `affaire-01/cas-b`, commencer la section « La branche de Marc » de `docs/affaires/01/cas-b.md`, sans la commiter. Ouvrir la branche dans un second dossier : `git worktree add ../the-spoon-marc origin/refonte-annulation`, puis dans ce dossier `git log -1` et `git diff main...HEAD`. Revenir dans `../the-spoon`, compléter la section (auteur, date, ce que fait la branche, si elle règle le problème et pourquoi, sortie de `git worktree list`). Puis `git worktree remove ../the-spoon-marc` et commiter.",
       "acceptanceCriteria": [
-        "La section « La branche de Marc » dit l'auteur, la date et ce que fait `origin/refonte-pied-de-page` (elle change l'accroche du pied de page).",
-        "Elle dit si la branche règle le problème, avec la raison (elle garde `new Date().getFullYear()`).",
+        "La section « La branche de Marc » dit l'auteur, la date et ce que fait `origin/refonte-annulation` (elle range la durée d'une heure dans une constante `MS_PAR_HEURE` et prépare des délais en minutes, laissés en TODO).",
+        "Elle dit si la branche règle le problème, avec la raison (non : `MS_PAR_HEURE` vaut `60 * 1000`, une minute ; le bug est toujours là, caché sous un nom qui a l'air juste).",
         "Elle cite la sortie de `git worktree list` avec deux dossiers, et `git stash list` est vide : la branche a été lue sans quitter la sienne ni remiser son travail.",
         "La section est commitée sur `affaire-01/cas-b` et rien n'est modifié sous `src/`."
       ],
@@ -105,7 +106,7 @@
         "docs/affaires/01/cas-b.md, section « La branche de Marc »"
       ],
       "prepared": {
-        "branch": "origin/refonte-pied-de-page",
+        "branch": "origin/refonte-annulation",
         "author": "Marc Ottavi (ex-CPO)"
       },
       "words": [
@@ -153,21 +154,21 @@
       "useCase": "Cas B",
       "type": "bug",
       "context": "L'enquête est bouclée, la branche de Marc ne suffit pas. Il faut corriger, et ne pas jeter son travail.",
-      "todo": "Prérequis : `/installer-poste` dans Claude Code, puis `nvm use`. Ouvrir un dossier sur `main` : `git worktree add ../the-spoon-fix -b affaire-01/cas-b-fix main`, puis dans `../the-spoon-fix` : `pnpm install`, `pnpm prisma generate` et `cp ../the-spoon/.env .` (un worktree n'a ni `node_modules`, ni client Prisma, ni `.env`). Ajouter dans `src/lib/fuseau.ts` une fonction qui rend l'année à Paris (en s'appuyant sur `composantesLocales`), son test dans `src/lib/fuseau.test.ts` (à `2026-12-31T23:30:00Z`, l'année est 2027), l'utiliser dans `src/components/SiteFooter.tsx`, lancer `TZ=UTC pnpm vitest run src/lib/fuseau.test.ts`, `pnpm typecheck` et `pnpm lint`, commiter. Puis intégrer la branche de Marc : `git merge origin/refonte-pied-de-page` (ou `git rebase origin/refonte-pied-de-page`) : conflit. Le résoudre en gardant l'année à Paris et la nouvelle accroche de Marc, relancer le test, commiter. Revenir dans `../the-spoon`, ajouter la section « Correctif » au rapport (branche, commit, merge ou rebase et pourquoi), commiter, demander la relecture, puis `git worktree remove ../the-spoon-fix`.",
+      "todo": "Prérequis : `/installer-poste` dans Claude Code, puis `nvm use`. Ouvrir un dossier sur `main` : `git worktree add ../the-spoon-fix -b affaire-01/cas-b-fix main`, puis dans `../the-spoon-fix` : `pnpm install`, `pnpm prisma generate` et `cp ../the-spoon/.env .` (un worktree n'a ni `node_modules`, ni client Prisma, ni `.env`). Constater que `pnpm vitest run src/lib/annulation.test.ts` échoue. Laisser Git trouver le commit fautif : `git bisect start HEAD <hash sain du niveau 1>`, puis `git bisect run pnpm vitest run src/lib/annulation.test.ts`. Noter le premier commit fautif et garder la sortie de `git bisect log`, puis `git bisect reset`. Annuler ce seul commit avec `git revert <hash>` (pas de réécriture à la main), relancer le test, `pnpm typecheck` et `pnpm lint`. Puis intégrer la branche de Marc : `git merge origin/refonte-annulation` (ou `git rebase origin/refonte-annulation`) : conflit. Le résoudre en gardant la constante `MS_PAR_HEURE` de Marc, mais avec la bonne valeur, relancer le test, commiter. Revenir dans `../the-spoon`, ajouter la section « Correctif » au rapport (bisect, revert, merge ou rebase et pourquoi), commiter, demander la relecture, puis `git worktree remove ../the-spoon-fix`.",
       "acceptanceCriteria": [
         "Le correctif est sur sa propre branche `affaire-01/cas-b-fix`, partie de `main`, faite dans un second dossier.",
-        "`src/lib/fuseau.ts` rend l'année à Paris et `src/components/SiteFooter.tsx` l'utilise à la place de `new Date().getFullYear()`.",
-        "Le nouveau test passe avec `TZ=UTC pnpm vitest run src/lib/fuseau.test.ts` et vérifie qu'à `2026-12-31T23:30:00Z` l'année rendue est 2027.",
-        "La branche de Marc est intégrée : `origin/refonte-pied-de-page` est un ancêtre de `affaire-01/cas-b-fix` (merge ou rebase), aucun marqueur de conflit ne reste, et le résultat garde l'année à Paris et la nouvelle accroche de Marc.",
-        "Après l'intégration, le test, `pnpm typecheck` et `pnpm lint` passent.",
+        "Le rapport cite la commande `git bisect run` utilisée, le premier commit fautif qu'elle a trouvé (« Relecture : simplifie le calcul de la limite ») et la sortie de `git bisect log` ; `git bisect reset` a été fait.",
+        "La correction est un `git revert` de ce seul commit (un commit « Revert … » qui cite son hash), pas une réécriture à la main.",
+        "La branche de Marc est intégrée : `origin/refonte-annulation` est un ancêtre de `affaire-01/cas-b-fix` (merge ou rebase), aucun marqueur de conflit ne reste, et le résultat garde `MS_PAR_HEURE` avec la valeur d'une heure (`60 * 60 * 1000`).",
+        "Après l'intégration, `pnpm vitest run src/lib/annulation.test.ts`, `pnpm typecheck` et `pnpm lint` passent.",
         "Le rapport nomme la branche et le commit du correctif, et dit merge ou rebase, avec la raison."
       ],
       "deliverables": [
-        "branche affaire-01/cas-b-fix, avec origin/refonte-pied-de-page intégrée",
+        "branche affaire-01/cas-b-fix, avec origin/refonte-annulation intégrée",
         "docs/affaires/01/cas-b.md, section « Correctif »"
       ],
       "prepared": {
-        "branch": "origin/refonte-pied-de-page",
+        "branch": "origin/refonte-annulation",
         "author": "Marc Ottavi (ex-CPO)"
       },
       "words": [
