@@ -111,6 +111,12 @@ simple sur ce chemin.
 
 ## Démarrer en local
 
+Chaque participant a son propre dépôt, `thespoon-reloaded-org/the-spoon-<prénom>`,
+avec sa CI et sa production. Le cloner (`gh repo clone
+thespoon-reloaded-org/the-spoon-<prénom>`), ou transformer un clone du dépôt
+commun avec `./scripts/configurer-mon-depot.sh` (skill `configurer-mon-depot`),
+qui lance aussi l'installation ci-dessous.
+
 Sur Mac, sans Docker : `./scripts/installer-poste.sh` installe Node.js 24,
 pnpm, PostgreSQL 17 (service Homebrew) et le CLI GitHub, crée la base
 locale, écrit `.env`, applique les migrations et remplit la base. Dans Claude
