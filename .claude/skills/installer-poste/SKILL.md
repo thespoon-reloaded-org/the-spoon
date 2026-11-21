@@ -21,7 +21,7 @@ PostgreSQL n'est pas inscrit au démarrage du Mac. `scripts/postgres-local.sh` l
 - `pnpm dev` et `pnpm test` le démarrent s'il est arrêté ;
 - à la main : `pnpm db:start`, `pnpm db:stop` (`FORCER=1 pnpm db:stop` pour passer outre), `pnpm db:status`.
 
-Le script d'installation retire du démarrage du Mac tout PostgreSQL Homebrew qui y est inscrit (installation de la session 1 faite avec `brew services start`, ou autre version) : il l'affiche à l'étape 4. Une autre version sert peut-être à un autre projet : le participant la lance à la demande avec `brew services run <formule>`. Postgres.app a son propre réglage « démarrer à l'ouverture de session », que le script ne touche pas : s'il prend le port 5432, voir le tableau ci-dessous.
+Le script d'installation retire `postgresql@17` du démarrage du Mac s'il y est inscrit (installation de la session 1, faite avec `brew services start`) et l'affiche à l'étape 4. Il ne touche à aucune autre version de PostgreSQL ni à Postgres.app : si l'une d'elles prend le port 5432, voir le tableau ci-dessous.
 
 ## Échecs connus
 

@@ -65,16 +65,12 @@ ok "pnpm $(COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version)"
 etape "4. PostgreSQL"
 # Pas de `brew services start` : PostgreSQL ne tourne que pendant les
 # sessions (hooks Claude Code, pnpm dev, pnpm db:start), voir postgres-local.sh.
-# Tout PostgreSQL Homebrew inscrit au démarrage du Mac (ancienne installation
-# avec `brew services start`, ou autre version) en est retiré. Une autre
-# version y prendrait le port 5432 à chaque démarrage.
-for f in $(brew list --formula | grep -E '^postgresql(@[0-9]+)?$' || true); do
-  if brew services info "$f" --json | grep -q '"registered": *true'; then
-    brew services stop "$f" >/dev/null 2>&1 || true
-    if [ "$f" = "$PG" ]; then ok "$f retiré du démarrage du Mac"
-    else ok "$f retiré du démarrage du Mac (pour un autre projet, à la demande : brew services run $f)"; fi
-  fi
-done
+# Installation de la session 1 (`brew services start`) : PostgreSQL 17
+# démarrait avec le Mac. On l'en retire.
+if brew services info "$PG" --json | grep -q '"registered": *true'; then
+  brew services stop "$PG" >/dev/null 2>&1 || true
+  ok "$PG retiré du démarrage du Mac"
+fi
 ./scripts/postgres-local.sh start >/dev/null || stop "PostgreSQL n'a pas démarré (message ci-dessus). Port 5432 pris : lsof -nP -iTCP:5432 -sTCP:LISTEN"
 ok "PostgreSQL $(postgres --version | awk '{print $3}') démarré pour cette session, pas au démarrage du Mac"
 if psql -h localhost -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$BASE'" | grep -q 1; then ok "base $BASE déjà là"
