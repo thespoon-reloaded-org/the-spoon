@@ -2,8 +2,9 @@
  * Spoon City — retro "password saves" for the training game. See game/README.md.
  *
  * ```bash
- * pnpm game status                      # the 15 items of case 01
+ * pnpm game status                      # every item of every case
  * pnpm game password S1-1A --rank A     # password for a reviewed item
+ * pnpm game password S2-1 --rank A
  * pnpm game password S1-1A --slate      # skipped item: "sur l'ardoise", score 0
  * pnpm game verify PLUIE-ADDITION-NEON-38
  * ```
@@ -11,15 +12,15 @@
  * Every command accepts `--json`.
  *
  * Format: `WORD1-WORD2-WORD3-RC`. The three words identify the item
- * (game/case-01.json), R is the rank digit (S=4, A=3, B=2, C=1, slate=0) and
+ * (game/case-NN.json, every case file is loaded), R is the rank digit (S=4, A=3, B=2, C=1, slate=0) and
  * C is a check digit: (sum of the char codes of the three words + R) mod 10.
  *
  * Not a secret, not a security mechanism: a light, trust-based proof that
  * the pair went through the review. Anyone reading this file can forge one.
  */
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
-
-import caseData from "../game/case-01.json" with { type: "json" };
 
 export type Rank = "S" | "A" | "B" | "C" | "SLATE";
 
@@ -32,7 +33,21 @@ export type Item = {
   words: string[];
 };
 
-export const ITEMS: Item[] = caseData.items;
+export type Case = {
+  case: string;
+  title: string;
+  items: Item[];
+};
+
+const GAME_DIR = path.join(import.meta.dirname, "..", "game");
+
+/** Every `game/case-NN.json`, in case order. */
+export const CASES: Case[] = readdirSync(GAME_DIR)
+  .filter((file) => /^case-\d+\.json$/.test(file))
+  .sort()
+  .map((file) => JSON.parse(readFileSync(path.join(GAME_DIR, file), "utf8")) as Case);
+
+export const ITEMS: Item[] = CASES.flatMap((gameCase) => gameCase.items);
 
 const RANK_DIGITS: Record<Rank, number> = { SLATE: 0, C: 1, B: 2, A: 3, S: 4 };
 
@@ -107,12 +122,18 @@ export function main(argv: string[]): void {
   const [command, ...rest] = args;
 
   if (command === "status") {
-    const items = ITEMS.map(({ id, title, type }) => ({ id, title, type }));
-    if (json)
-      console.log(JSON.stringify({ case: caseData.case, title: caseData.title, items }, null, 2));
+    const cases = CASES.map((gameCase) => ({
+      case: gameCase.case,
+      title: gameCase.title,
+      items: gameCase.items.map(({ id, title, type }) => ({ id, title, type })),
+    }));
+    if (json) console.log(JSON.stringify({ cases }, null, 2));
     else {
-      console.log(caseData.title);
-      for (const item of items) console.log(`  ${item.id}  ${item.title}  (${item.type})`);
+      for (const gameCase of cases) {
+        console.log(gameCase.title);
+        for (const item of gameCase.items)
+          console.log(`  ${item.id}  ${item.title}  (${item.type})`);
+      }
     }
     return;
   }
