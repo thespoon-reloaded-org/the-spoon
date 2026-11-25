@@ -2,7 +2,7 @@
 
 Spoon City is the noir game wrapped around the Product Building training. Session 1 is **« Affaire N° 1 · Les Clés »**: Git and code review on this repository. Case 1 has **three levels, each with its own password**: level 1, investigate the history; level 2, read Marc Ottavi's unfinished branch in a second worktree; level 3, fix the bug and merge Marc's branch, conflict included. At level 1 you **pick a case and keep it**: A « Pourquoi 100 couverts ? » (`S1-1A`, `S1-2A`, `S1-3A`) or B « L'année qui retarde » (`S1-1B`, `S1-2B`, `S1-3B`). The HQ page unlocks the next level once you enter the previous level's password. **The backlog and your progress live on the HQ page: https://artifacts.hymalab.com/hymaia-product-builders/spoon-city-hq/** (sign in with your hymaia.com address). The acceptance criteria are also in [`case-01.json`](case-01.json) and [`case-02.json`](case-02.json), and `pnpm game status` lists the items of every case.
 
-Session 2 is **« Affaire N° 2 · Faux Témoins »**: testing. Three levels, no A/B choice: `S2-1` « La visite des tests » (read the test suite), `S2-2` « Les faux témoins » (sabotage `src/lib/allergenes.ts` five times and see which tests notice), `S2-3` « 38 couverts sur une table de 3 » (choose a bound, test first, then the fix, on the prepared branch `affaire-02/couverts`).
+Session 2 is **« Affaire N° 2 · Faux Témoins »**: testing. Three levels, no A/B choice: `S2-1` « La visite des tests » (read one test and make a prediction), `S2-2` « Les faux témoins » (sabotage `src/lib/allergenes.ts` five times and see which tests notice), `S2-3` « 38 couverts sur une table de 3 » (choose a bound, test first, then the fix, on the prepared branch `affaire-02/couverts`).
 
 ## Play a level · case 1
 
@@ -28,10 +28,10 @@ One level per review. Come back after improving: a new review gives a new passwo
 
 ## Play a level · case 2
 
-Reports go on one branch, `affaire-02/rapport`, in your main folder (`../the-spoon`): `git switch main && git pull && git switch -c affaire-02/rapport`. Levels 1 and 2 need `/installer-poste` (Node, pnpm, Postgres).
+At the start, update `main` and switch to `affaire-02/rapport`, creating it if needed. Use that branch for the level 2 and 3 reports.
 
-1. **Level 1 · The test tour.** Run `pnpm test`, note the figures, read `src/lib/allergenes.test.ts`, find which of four README rules has no test. Write `docs/affaires/02/S2-1.md`, commit. Review: `review S2-1`.
-2. **Level 2 · The false witnesses.** Five imposed sabotages in `src/lib/allergenes.ts`, one at a time: predict, apply, `pnpm vitest run src/lib/allergenes.test.ts`, note, `git restore src/lib/allergenes.ts`. Write `docs/affaires/02/S2-2.md`, commit. `src/` must end identical to `main`. Review: `review S2-2`.
+1. **Level 1 · The test tour.** Choose one test in `src/lib/allergenes.test.ts`. Send your two sentences as arguments to `/game-review S2-1` in Claude Code. Name the test and explain what it checks, then propose a concrete change in `src/lib/allergenes.ts` that could leave it green.
+2. **Level 2 · The false witnesses.** If you made a prediction in level 1, try it, run `pnpm vitest run src/lib/allergenes.test.ts` and restore the file. Then repeat for the five assigned changes in `src/lib/allergenes.ts`, one at a time: predict, apply, run the tests, record what happened, restore. Write and commit `docs/affaires/02/S2-2.md`. Review: `review S2-2`.
 3. **Level 3 · 38 covers.** The prepared branch in a second folder:
    ```bash
    git fetch origin
