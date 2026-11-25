@@ -28,7 +28,7 @@ One level per review. Come back after improving: a new review gives a new passwo
 
 ## Play a level · case 2
 
-Fetch the exercise branches and switch to `affaire-02/retard` in your checkout. You can keep notes on `affaire-02/rapport`.
+Fetch the exercise branches, switch to `affaire-02/retard` in your checkout and run `pnpm install`.
 
 1. **Level 1 · The test tour.** Run `TZ=UTC pnpm vitest run reservation-retard`. Read the green test in `src/lib/reservation-retard.test.ts` and send two sentences with `/game-review S2-1`. Explain what the test checks and what it misses about the booking delay.
 2. **Level 2 · The false witnesses.** Add the missing timing assertion and verify that it fails with the prepared source. Fix the source, run the same test file again and send `/game-review S2-2` from `affaire-02/retard`.
