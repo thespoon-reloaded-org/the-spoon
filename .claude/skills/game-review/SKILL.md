@@ -1,6 +1,6 @@
 ---
 name: game-review
-description: Review ONE Spoon City level against its acceptance criteria and hand out its password save. Case 1 « Les Clés » has three levels, each in case A or B (S1-1A/S1-1B investigate, S1-2A/S1-2B read Marc's branch in a worktree, S1-3A/S1-3B fix and merge); case 2 « Faux Témoins » has three levels with no A/B (S2-1 the test tour, S2-2 the five sabotages, S2-3 the covers bound, test first). Use when a participant asks to review, check, validate or grade a Spoon City level, item or "affaire" (e.g. "review S1-1A", "review S2-2", "niveau 2 fini, tu valides ?", "vérifie mon enquête"), asks for their password or "mot de passe" for an item, or asks to skip an item / put it "sur l'ardoise".
+description: Review ONE Spoon City level against its acceptance criteria and hand out its password save. Case 1 « Les Clés » has three levels, each in case A or B (S1-1A/S1-1B investigate, S1-2A/S1-2B read Marc's branch in a worktree, S1-3A/S1-3B fix and merge); case 2 « Faux Témoins » has three levels with no A/B (S2-1 the test tour, S2-2 check a prediction, S2-3 the covers bound, test first). Use when a participant asks to review, check, validate or grade a Spoon City level, item or "affaire" (e.g. "review S1-1A", "review S2-2", "niveau 2 fini, tu valides ?", "vérifie mon enquête"), asks for their password or "mot de passe" for an item, or asks to skip an item / put it "sur l'ardoise".
 ---
 
 # Spoon City — item review
@@ -32,7 +32,7 @@ Read the case file of the item (`S1-…` → `game/case-01.json`, `S2-…` → `
 
 Case 1 story, for context: level 1, the player investigates the history and writes the « Enquête » section of `docs/affaires/01/cas-<a|b>.md` on `affaire-01/cas-<a|b>`. Level 2, they open Marc's unfinished branch in a second worktree without leaving theirs, and write the « La branche de Marc » section. Level 3, they fix the bug on `affaire-01/cas-<a|b>-fix` in a worktree, merge (or rebase onto) Marc's branch, resolve the conflict, and write the « Correctif » section.
 
-Case 2 story: the player creates `affaire-02/rapport` at the start for the level 2 and 3 reports. Level 1, they read one test and send two sentences in chat. Level 2, they try their level 1 prediction, restore the file, then apply the five assigned changes to `src/lib/allergenes.ts` one at a time and note which tests notice. Level 3, in a second folder on the prepared branch `affaire-02/couverts`, they choose a bound for the covers served, get the agent to write the test only (red), then the fix (green), and check the agent did not touch the test. For case 2, also read « Case 2: reference answers » at the end of this file before judging.
+Case 2 story: the player creates `affaire-02/rapport` at the start. In S2-1 they make a prediction in chat. In S2-2 they try one change, keep the diff and test output in chat, and restore the source. In S2-3 they choose a rule, record their reason on the report branch, and commit the test and fix on `affaire-02/couverts`.
 
 ### 3. Look at their work
 
@@ -46,16 +46,13 @@ Case 1:
 Case 2:
 
 - S2-1: use the participant's two sentences in the current conversation as the deliverable. If either sentence is missing, ask for it and stop. Open the named test in `src/lib/allergenes.test.ts` and check what its inputs and assertion actually cover. Read `src/lib/allergenes.ts` to check that the predicted change is concrete, would change behavior, and could leave this specific test green. Other tests may catch it. Judge by reading only. Continue at step 5 and skip all report, branch, commit and test-run checks for this level.
-- S2-2 and S2-3: read the reports in `docs/affaires/02/` on `affaire-02/rapport`, using `git show` if on another branch. Check that `git diff --stat main...affaire-02/rapport -- src/` is empty. For S2-2 also check `git status --short -- src/` and `git diff main -- src/` to confirm the file was restored.
-- S2-2: read the table and compare it, row by row, with the reference table below. Check that `pnpm vitest run src/lib/allergenes.test.ts` is green on their unmodified tree (it proves the file was restored).
-- S2-3: from the main folder, the branch is visible as `affaire-02/couverts`.
-  - Commits: `git log --format='%h %ad %s' --date=short origin/affaire-02/couverts..affaire-02/couverts` (fall back to `main..affaire-02/couverts` if the remote ref is missing). Expected: a test commit, then a fix commit (more is fine).
-  - The test commit: `git log affaire-02/couverts --diff-filter=A --format='%h %s' -- src/lib/signalement-bornes.test.ts`. Call it `<test>`. `git show --stat <test>`: it adds the test and does not touch `src/lib/signalement-bornes.ts`; `git diff origin/affaire-02/couverts <test> -- src/lib/signalement-bornes.ts` is empty (the test was written against the stub).
-  - Test unchanged since: `git diff <test> affaire-02/couverts -- src/lib/signalement-bornes.test.ts` must be empty. Also check the fix worktree has no uncommitted change to it: `git -C ../the-spoon-couverts status --short`.
-  - Fix scope: `git diff --stat <test> affaire-02/couverts`. Option 1 or 2: only `src/lib/signalement-bornes.ts`. Option 3: plus `src/components/SignalerReservationBoutons.tsx` and `src/app/espace-restaurant/reservations/actions.ts`.
-  - Read the test and the fix with `git show affaire-02/couverts:<path>`.
-  - Checks: in `../the-spoon-couverts`, if it still exists and is on `affaire-02/couverts` with a clean tree, run `pnpm vitest run src/lib/signalement-bornes.test.ts`, `pnpm typecheck`, `pnpm lint` (lint passes with warnings; only errors fail). If the worktree is gone, ask for the output and mark « déclaratif ».
-- If the deliverable is missing, say it, point to the expected path, stop there (no grading).
+- S2-2: read the two sentences, the temporary diff and the test output in the current conversation. Ask for a missing piece and stop before grading. Check that the diff changes one behavior in `src/lib/allergenes.ts` and matches the participant's prediction or starting exercise. Check that the named test ran, and that the reported result and explanation match the output, the change and the assertion. A run that skips the selected test or fails to load it does not count. Check `git diff HEAD -- src/lib/allergenes.ts src/lib/allergenes.test.ts` and `git status --short -- src/lib/allergenes.ts src/lib/allergenes.test.ts`. If the diff includes the original blob ID, verify that it matches the restored file. If the output and the code disagree, reproduce the change in a temporary copy when possible. Continue at step 5.
+- S2-3:
+  - Read the rule and reason in `docs/affaires/02/S2-3.md` on `affaire-02/rapport`. An uncommitted note in that worktree counts.
+  - Locate the test commit and subsequent fix on `affaire-02/couverts`. Check the changed paths in the test commit and inspect its parent to confirm that the implementation had the prepared behavior. The test commit adds only `src/lib/signalement-bornes.test.ts`. Confirm that the fix descends from it and that the test content is identical at both revisions. Use the committed trees for the review.
+  - Check the assertion at the limit and just above it. Read the fix and check that it enforces the stated rule, including the form and action if the rule requires confirmation.
+  - Replay the selected test on both revisions in temporary copies. For this pure unit test, extract each tree with `git archive`, use compatible installed dependencies from the participant's checkout or install them in the temporary copy, then run `pnpm vitest run src/lib/signalement-bornes.test.ts` from the extracted project. Read the test and config before running. Use local test configuration and keep the participant's worktrees untouched. An assertion must fail at the test commit, and the same test must pass at the fix. A compile error, missing dependency, empty run or runner failure provides no red evidence.
+  - If replay is blocked, ask for both outputs and the revisions they came from. Mark evidence from supplied output « déclaratif ». If any proof is missing, report it as missing and give one next step.
 
 ### 4. Verify the claims
 
@@ -142,36 +139,12 @@ Review the two sentences against the actual test and implementation. The first s
 
 ### S2-2 · Les faux témoins
 
-Real outcomes, run on the template's `main` (22 November 2026, `pnpm vitest run src/lib/allergenes.test.ts`, 13 tests):
-
-| # | Sabotage | Detected | By which test(s) |
-|---|---|---|---|
-| 1 | line 50, `[...new Set(allergenes)]` → `[...allergenes]` | yes | « dédoublonne » |
-| 2 | line 70, `if (!plat.allergenesDeclaresLe)` → `if (plat.allergenesDeclaresLe)` | yes | 4 tests: « liste vide sans date : non renseigné, surtout pas « sans allergène » », « liste vide datée : le restaurant affirme qu'il n'y en a aucun », « liste remplie : les allergènes, dans l'ordre de l'annexe », « des allergènes en base sans date restent non renseignés » |
-| 3 | line 89, `allergenesDeclaresLe: maintenant` → `null` | yes | « « aucun allergène » coché date une déclaration vide », « « aucun allergène » l'emporte sur des cases restées cochées » |
-| 4 | lines 21-22, `CELERI` and `MOUTARDE` swapped | **no** | none: 13 passed |
-| 5 | line 72, `length === 0` → `length <= 0` | **no** | none: 13 passed |
-
-- Detected yes / no must match this table. For « par quel test », one correct test name is enough when several fail; a name that does not fail for that sabotage is wrong.
-- Before trusting the table, check their `src/lib/allergenes.ts` and `src/lib/allergenes.test.ts` match the template: `git diff origin/main -- src/lib/allergenes.ts src/lib/allergenes.test.ts` (fall back to `main`). If they differ, outcomes may differ: say so and judge on what they report.
-- Predictions are not graded on being right: a prediction must be there for each row. A wrong prediction honestly noted is the point of the level.
-- Question on sabotage 5: it is a **change with no effect** (an « equivalent mutant »): a list length is never negative, so `<= 0` and `=== 0` always give the same answer. No test can see it, and none should. It is not a false witness.
-- The real false witness is sabotage 4: the order of the 14 allergens is the order of annex II, the only display order, but the tests only check the count, the first (gluten) and the last (mollusques). Swap two in the middle and every test stays green while a diner sees them in the wrong order. The missing test checks the whole list in annex order. Accept any wording that says this.
+Allow a prediction that turned out wrong. Judge the link between the temporary change, the named assertion and the observed result. A green test can miss a behavior change. It can also stay green because the proposed edit has the same behavior, so check which situation the diff shows. For the starting exercise, removing deduplication makes the test « dédoublonne » fail. Keep that answer out of prompts to the participant.
 
 ### S2-3 · 38 couverts sur une table de 3
 
-The prepared stub, `src/lib/signalement-bornes.ts` on `origin/affaire-02/couverts`:
+The prepared implementation accepts any number of served covers. Check the rule the participant chose.
 
-```ts
-export type ReservationSignalee = { couvertsReserves: number; capacite: number };
-export function couvertsServisMaximum(reservation: ReservationSignalee): number; // stub: Number.POSITIVE_INFINITY
-export function couvertsServisAcceptes(couvertsServis: number, reservation: ReservationSignalee): boolean; // couvertsServis <= maximum
-```
-
-`capacite` is already `capaciteEffective(restaurant.capacite)` (100 if the fiche is empty). `marquerReservation` already calls it and answers « N couverts servis, c'est trop : M au plus pour cette réservation. Vérifie la saisie. »
-
-- Expected bounds. Option 1: `capacite` accepted, `capacite + 1` refused (fix: `return reservation.capacite`). Option 2: `couvertsReserves + 2` accepted, `+ 3` refused (fix: `return reservation.couvertsReserves + 2`). Option 3: `couvertsReserves` accepted without confirmation, `+ 1` refused without and accepted with (a `confirme` parameter, the form and the action change). The values in the test must match the option named in the report; a mismatch is « pas tenu » for the bound criterion.
-- Fails on the stub: the stub's maximum is infinite, so a test that asserts a refusal (`toBe(false)`) fails on it, and one that only asserts acceptances passes: that is not a red test. Check by reading the test at `<test>` that it asserts both the exact bound (accepted) and bound + 1 (refused), and that the report quotes the red output. Both hold: « tenu ». Option 3: the red run may be a type error; accept it if the report shows it.
-- Test not modified: the `git diff <test> affaire-02/couverts -- src/lib/signalement-bornes.test.ts` check above. Any change, even « harmless », is « pas tenu »: the point of the level is that the agent fixed the code, not the test.
-- Justification: three lines, one per point (fair for whom, what still passes, what it wrongly blocks). Do not supply the trade-offs; ask the question back if one is missing. Typical holes: option 1 still bills 28 covers for a table of 3 in a 28-seat room, and up to 100 when the fiche has no capacity; option 2 blocks a table that honestly grew by three on the night; option 3 costs a click and trusts the restaurant.
-- Hashes in the report: `git show --no-patch --format='%h %s' <hash>` for each, and they must be the test commit and the fix commit.
+- **Capacity.** Accept the effective room capacity and reject one more. The action already supplies an effective capacity of 100 when the venue has no capacity set.
+- **Booked count plus two.** Accept the booked count plus two and reject one more. A count of 38 must be refused for a booking of 3.
+- **Confirmation.** Accept the booked count without confirmation. Reject one more without confirmation and accept it with confirmation. Inspect the form-to-action wiring and the action's guard before the booking update. A helper with a boolean parameter is insufficient if the action fails to enforce it.
