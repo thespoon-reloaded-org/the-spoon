@@ -31,7 +31,7 @@ One level per review. Come back after improving: a new review gives a new passwo
 At the start, update `main` and switch to `affaire-02/rapport`, creating it if needed. Use that branch for the level 3 decision.
 
 1. **Level 1 · The test tour.** Choose one test in `src/lib/allergenes.test.ts`. Send your two sentences as arguments to `/game-review S2-1` in Claude Code. Name the test and explain what it checks, then propose a concrete change in `src/lib/allergenes.ts` that could leave it green.
-2. **Level 2 · The false witnesses.** Apply the change you predicted and run the selected test. Keep the diff and test output in Claude Code, then restore the file. Send two sentences with `/game-review S2-2` explaining the result. If you skipped level 1, the HQ gives you a change to try.
+2. **Level 2 · The false witnesses.** Apply the change you predicted and run the selected test. Keep the diff and test output in Claude Code, then restore the file. Send two sentences with `/game-review S2-2` explaining the result. If you skipped level 1, pick a test and predict a behavior change that could leave it green before running it.
 3. **Level 3 · 38 covers.** Open the prepared branch in a separate worktree and install its dependencies. Record the rule you chose and your reason in `docs/affaires/02/S2-3.md` on `affaire-02/rapport`. Commit the boundary test after it fails on the prepared code, then commit the fix after the same test passes. Run `/game-review S2-3` from your main checkout while the worktree is still available. The review checks both commits and the behavior.
 
 ## Passwords

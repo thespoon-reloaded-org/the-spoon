@@ -32,9 +32,9 @@
       "title": "Les faux témoins",
       "type": "atelier",
       "context": "« Plus de 200 tests verts. Ça ne nous a pas empêchés d'envoyer des réservations avec deux heures de retard pendant six jours. » (l'ex-QA de TheSpoon)",
-      "todo": "Applique le changement prédit au niveau 1 dans src/lib/allergenes.ts. Si tu as sauté le niveau 1, remplace [...new Set(allergenes)] par [...allergenes] dans trierAllergenes et choisis le test « dédoublonne ». Relance le test choisi avec pnpm vitest run src/lib/allergenes.test.ts -t \"nom du test\". Garde le diff et la sortie du test dans la conversation, puis rétablis le fichier. Envoie deux phrases avec /game-review S2-2 : nom et résultat du test, puis raison.",
+      "todo": "Applique le changement prédit au niveau 1 dans src/lib/allergenes.ts. Si tu as sauté le niveau 1, choisis un test dans src/lib/allergenes.test.ts et imagine une modification du code qui pourrait laisser ce test vert. Essaie cette modification. Relance le test choisi avec pnpm vitest run src/lib/allergenes.test.ts -t \"nom du test\". Garde le diff et la sortie du test dans la conversation, puis rétablis le fichier. Envoie deux phrases avec /game-review S2-2 : nom et résultat du test, puis raison.",
       "acceptanceCriteria": [
-        "Le diff montre un seul changement dans src/lib/allergenes.ts qui correspond à la prédiction, ou au changement de départ.",
+        "Le diff montre un seul changement dans src/lib/allergenes.ts qui correspond à la prédiction faite avant de lancer le test.",
         "La sortie montre que le test nommé a tourné et confirme le résultat annoncé. L’explication correspond au code et à ce que le test vérifie.",
         "Le fichier source et son test sont rétablis dans le dépôt du participant."
       ],
