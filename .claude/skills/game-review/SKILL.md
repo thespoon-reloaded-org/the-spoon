@@ -1,6 +1,6 @@
 ---
 name: game-review
-description: Review ONE Spoon City level against its acceptance criteria and hand out its password save. Case 1 « Les Clés » has three levels, each in case A or B (S1-1A/S1-1B investigate, S1-2A/S1-2B read Marc's branch in a worktree, S1-3A/S1-3B fix and merge); case 2 « Faux Témoins » has three levels with no A/B (S2-1 the test tour, S2-2 check a prediction, S2-3 the covers bound, test first). Use when a participant asks to review, check, validate or grade a Spoon City level, item or "affaire" (e.g. "review S1-1A", "review S2-2", "niveau 2 fini, tu valides ?", "vérifie mon enquête"), asks for their password or "mot de passe" for an item, or asks to skip an item / put it "sur l'ardoise".
+description: Review ONE Spoon City level against its acceptance criteria and hand out its password save. Case 1 « Les Clés » has three levels, each in case A or B (S1-1A/S1-1B investigate, S1-2A/S1-2B read Marc's branch in a worktree, S1-3A/S1-3B fix and merge); case 2 « Faux Témoins » has three levels with no A/B (S2-1 the test tour, S2-2 reproduce and fix the booking delay, S2-3 the covers bound, test first). Use when a participant asks to review, check, validate or grade a Spoon City level, item or "affaire" (e.g. "review S1-1A", "review S2-2", "niveau 2 fini, tu valides ?", "vérifie mon enquête"), asks for their password or "mot de passe" for an item, or asks to skip an item / put it "sur l'ardoise".
 ---
 
 # Spoon City — item review
@@ -32,7 +32,7 @@ Read the case file of the item (`S1-…` → `game/case-01.json`, `S2-…` → `
 
 Case 1 story, for context: level 1, the player investigates the history and writes the « Enquête » section of `docs/affaires/01/cas-<a|b>.md` on `affaire-01/cas-<a|b>`. Level 2, they open Marc's unfinished branch in a second worktree without leaving theirs, and write the « La branche de Marc » section. Level 3, they fix the bug on `affaire-01/cas-<a|b>-fix` in a worktree, merge (or rebase onto) Marc's branch, resolve the conflict, and write the « Correctif » section.
 
-Case 2 story: the player creates `affaire-02/rapport` at the start. In S2-1 they make a prediction in chat. In S2-2 they try one change, keep the diff and test output in chat, and restore the source. In S2-3 they choose a rule, record their reason on the report branch, and commit the test and fix on `affaire-02/couverts`.
+Case 2 story: S2-1 and S2-2 use the `affaire-02/retard` worktree, where the booking action sends a September 19:00 Paris booking two hours late on a UTC server. In S2-1 the player reads the test that still passes. In S2-2 they add the missing assertion and fix the source. In S2-3 they record their chosen rule on `affaire-02/rapport` and commit the test and fix on `affaire-02/couverts`.
 
 ### 3. Look at their work
 
@@ -45,8 +45,8 @@ Case 1:
 
 Case 2:
 
-- S2-1: use the participant's two sentences in the current conversation as the deliverable. If either sentence is missing, ask for it and stop. Open the named test in `src/lib/allergenes.test.ts` and check what its inputs and assertion actually cover. Read `src/lib/allergenes.ts` to check that the predicted change is concrete, would change behavior, and could leave this specific test green. Other tests may catch it. Judge by reading only. Continue at step 5 and skip all report, branch, commit and test-run checks for this level.
-- S2-2: read the two sentences, the temporary diff and the test output in the current conversation. Ask for a missing piece and stop before grading. Check that the diff changes one behavior in `src/lib/allergenes.ts` and matches the participant's prediction, whether they made it in S2-1 or at the start of S2-2. Check that the named test ran, and that the reported result and explanation match the output, the change and the assertion. A run that skips the selected test or fails to load it does not count. Check `git diff HEAD -- src/lib/allergenes.ts src/lib/allergenes.test.ts` and `git status --short -- src/lib/allergenes.ts src/lib/allergenes.test.ts`. If the diff includes the original blob ID, verify that it matches the restored file. If the output and the code disagree, reproduce the change in a temporary copy when possible. Continue at step 5.
+- S2-1: use the two sentences in the conversation. Open `src/lib/reservation-retard.test.ts` in the delay worktree. Verify that the learner describes what the green test checks and identifies the missing check on the timestamp passed to `reserverCreneau`. Ask for either sentence if missing. Continue at step 5.
+- S2-2: review from `the-spoon-retard`, which may contain uncommitted work. Read the regression test and the booking action in `src/app/(site)/restaurants/[id]/actions.ts`. Confirm the test exercises the action and asserts the timestamp sent to `reserverCreneau` for the given September booking. Check that the fix preserves the Paris booking time on a server in any timezone. Run `TZ=UTC pnpm vitest run reservation-retard` to verify that both the original and regression tests pass. For independent red evidence, extract the prepared revision into a temporary copy, install or use compatible dependencies there, copy over only the reviewed test file, and run the same command with the prepared source. Use the commit that introduced `src/lib/reservation-retard.test.ts` as the prepared revision. Verify an assertion fails on the timestamp. If replay is unavailable, ask for the red output and mark it « déclaratif ». Keep the participant's source, test and Git state untouched. Continue at step 5.
 - S2-3:
   - Read the rule and reason in `docs/affaires/02/S2-3.md` on `affaire-02/rapport`. An uncommitted note in that worktree counts.
   - Locate the test commit and subsequent fix on `affaire-02/couverts`. Check the changed paths in the test commit and inspect its parent to confirm that the implementation had the prepared behavior. The test commit adds only `src/lib/signalement-bornes.test.ts`. Confirm that the fix descends from it and that the test content is identical at both revisions. Use the committed trees for the review.
@@ -135,11 +135,11 @@ For the reviewer only. Never paste these to the player: use them to judge, and g
 
 ### S2-1 · La visite des tests
 
-Review the two sentences against the actual test and implementation. The first sentence names a test and describes the behavior its assertion checks. The second proposes a specific behavior change outside that test's coverage. For example, the test « dédoublonne » checks that duplicate allergens appear once. Changing how an undated declaration is interpreted could change application behavior while leaving that sorting test green. Use this example to calibrate the review and ask for a more specific prediction if needed.
+The starter test checks that the action returns success and calls the booking function. It does not check the date passed in that call. Give a hint about the assertion if the explanation is incomplete.
 
 ### S2-2 · Les faux témoins
 
-Allow a prediction that turned out wrong. Judge the link between the temporary change, the named assertion and the observed result. A green test can miss a behavior change. It can also stay green because the proposed edit has the same behavior, so check which situation the diff shows.
+On September 22, 2026, 19:00 in Paris is 17:00 UTC. The prepared action sends 19:00 UTC when the server uses UTC. A test that checks only a successful response, call count or date validity stays green. A regression test should compare the actual instant passed to the booking function with the intended instant. Check for a timezone-aware conversion. Subtracting a fixed two hours fails in winter. Use these details to judge the participant's work.
 
 ### S2-3 · 38 couverts sur une table de 3
 

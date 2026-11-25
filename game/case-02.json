@@ -12,10 +12,10 @@
       "title": "La visite des tests",
       "type": "enquête",
       "context": "« On avait 31 fichiers de tests. Personne ne savait ce qu'ils protégeaient. » (l'ex-QA de TheSpoon)",
-      "todo": "Mets main à jour et ouvre affaire-02/rapport. Choisis un test dans src/lib/allergenes.test.ts. Écris dans Claude Code deux phrases : « Le test [nom] vérifie que… » puis « Je pense qu’il passerait encore si on changeait… ». Décris un changement concret dans src/lib/allergenes.ts. Envoie les deux phrases avec /game-review S2-1.",
+      "todo": "Dans le dossier the-spoon-retard, lance TZ=UTC pnpm vitest run reservation-retard et lis src/lib/reservation-retard.test.ts. Envoie deux phrases avec /game-review S2-1 : ce que vérifie le test et ce qu’il devrait vérifier pour détecter le retard.",
       "acceptanceCriteria": [
-        "Le participant nomme un test qui existe dans src/lib/allergenes.test.ts et décrit correctement ce qu’il vérifie.",
-        "Il propose un changement concret dans src/lib/allergenes.ts que le test choisi pourrait laisser passer et qui changerait le comportement du code."
+        "Le participant nomme le test existant et explique ce qu’il vérifie.",
+        "Il indique quelle vérification manque pour détecter les deux heures de retard."
       ],
       "deliverables": [
         "Deux phrases dans le message de relecture Claude Code."
@@ -32,14 +32,14 @@
       "title": "Les faux témoins",
       "type": "atelier",
       "context": "« Plus de 200 tests verts. Ça ne nous a pas empêchés d'envoyer des réservations avec deux heures de retard pendant six jours. » (l'ex-QA de TheSpoon)",
-      "todo": "Applique le changement prédit au niveau 1 dans src/lib/allergenes.ts. Si tu as sauté le niveau 1, choisis un test dans src/lib/allergenes.test.ts et imagine une modification du code qui pourrait laisser ce test vert. Essaie cette modification. Relance le test choisi avec pnpm vitest run src/lib/allergenes.test.ts -t \"nom du test\". Garde le diff et la sortie du test dans la conversation, puis rétablis le fichier. Envoie deux phrases avec /game-review S2-2 : nom et résultat du test, puis raison.",
+      "todo": "Dans the-spoon-retard, ajoute dans src/lib/reservation-retard.test.ts un cas qui vérifie l’heure de la réservation transmise à reserverCreneau. L’heure choisie à Paris doit être conservée. Lance TZ=UTC pnpm vitest run reservation-retard et garde la sortie de l’assertion en échec. Demande à Claude de corriger le code source en gardant le test tel quel. Relance la même commande, puis /game-review S2-2.",
       "acceptanceCriteria": [
-        "Le diff montre un seul changement dans src/lib/allergenes.ts qui correspond à la prédiction faite avant de lancer le test.",
-        "La sortie montre que le test nommé a tourné et confirme le résultat annoncé. L’explication correspond au code et à ce que le test vérifie.",
-        "Le fichier source et son test sont rétablis dans le dépôt du participant."
+        "Le nouveau cas vérifie l’instant transmis à reserverCreneau pour une réservation à 19 h à Paris en septembre.",
+        "Le nouveau cas échoue sur le code préparé à cause de l’heure et passe sur le code corrigé. Le test d’origine passe également.",
+        "Le correctif conserve l’heure choisie à Paris quel que soit le fuseau du serveur."
       ],
       "deliverables": [
-        "Deux phrases, le diff temporaire et la sortie du test dans la conversation Claude Code."
+        "Le test de régression et le correctif dans le dossier the-spoon-retard."
       ],
       "words": [
         "ALIBI",
