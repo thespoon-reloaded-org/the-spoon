@@ -28,11 +28,11 @@ One level per review. Come back after improving: a new review gives a new passwo
 
 ## Play a level · case 2
 
-Fetch `affaire-02/retard`, open it in the `the-spoon-retard` worktree and install its dependencies. Use `affaire-02/rapport` for the level 3 decision.
+Fetch the exercise branches and switch to `affaire-02/retard` in your checkout. You can keep notes on `affaire-02/rapport`.
 
 1. **Level 1 · The test tour.** Run `TZ=UTC pnpm vitest run reservation-retard`. Read the green test in `src/lib/reservation-retard.test.ts` and send two sentences with `/game-review S2-1`. Explain what the test checks and what it misses about the booking delay.
-2. **Level 2 · The false witnesses.** Add the missing timing assertion and verify that it fails with the prepared source. Fix the source, run the same test file again and send `/game-review S2-2` from the delay worktree.
-3. **Level 3 · 38 covers.** Open the prepared branch in a separate worktree and install its dependencies. Record the rule you chose and your reason in `docs/affaires/02/S2-3.md` on `affaire-02/rapport`. Commit the boundary test after it fails on the prepared code, then commit the fix after the same test passes. Run `/game-review S2-3` from your main checkout while the worktree is still available. The review checks both commits and the behavior.
+2. **Level 2 · The false witnesses.** Add the missing timing assertion and verify that it fails with the prepared source. Fix the source, run the same test file again and send `/game-review S2-2` from `affaire-02/retard`.
+3. **Level 3 · 38 covers.** Save any work on the delay branch and switch to `affaire-02/couverts` in the same checkout. Prepare a sentence giving your chosen rule and reason. Commit the boundary test after it fails on the prepared code, then commit the fix after the same test passes. Run `/game-review S2-3` with your sentence on the covers branch. The review checks both commits and the behavior.
 
 ## Passwords
 
