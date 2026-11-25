@@ -68,7 +68,7 @@ export async function creerReservation(
     await reserverCreneau({
       restaurantId,
       userId: session.user.id,
-      date,
+      date: new Date(`${donnees.data.jourIso}T${donnees.data.creneau}:00`),
       couverts: donnees.data.couverts,
     });
   } catch (erreur) {
