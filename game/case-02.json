@@ -1,0 +1,79 @@
+{
+  "case": "02",
+  "title": "Affaire N° 2 · Faux Témoins",
+  "branchPattern": [
+    "affaire-02/retard",
+    "affaire-02/couverts"
+  ],
+  "items": [
+    {
+      "id": "S2-1",
+      "level": 1,
+      "title": "La visite des tests",
+      "type": "enquête",
+      "context": "« On avait 31 fichiers de tests. Personne ne savait ce qu'ils protégeaient. » (l'ex-QA de TheSpoon)",
+      "todo": "Sur la branche affaire-02/retard, installe les dépendances avec pnpm install, puis lance TZ=UTC pnpm vitest run reservation-retard et lis src/lib/reservation-retard.test.ts. Envoie deux phrases avec /game-review S2-1 : ce que vérifie le test et ce qu’il devrait vérifier pour détecter le retard.",
+      "acceptanceCriteria": [
+        "Le participant nomme le test existant et explique ce qu’il vérifie.",
+        "Il indique quelle vérification manque pour détecter les deux heures de retard."
+      ],
+      "deliverables": [
+        "Deux phrases dans le message de relecture Claude Code."
+      ],
+      "words": [
+        "CHAPEAU",
+        "VITRINE",
+        "PERSIENNE"
+      ]
+    },
+    {
+      "id": "S2-2",
+      "level": 2,
+      "title": "Les faux témoins",
+      "type": "atelier",
+      "context": "« Plus de 200 tests verts. Ça ne nous a pas empêchés d'envoyer des réservations avec deux heures de retard pendant six jours. » (l'ex-QA de TheSpoon)",
+      "todo": "Sur la branche affaire-02/retard, ajoute dans src/lib/reservation-retard.test.ts un cas qui vérifie l’heure de la réservation transmise à reserverCreneau. L’heure choisie à Paris doit être conservée. Lance TZ=UTC pnpm vitest run reservation-retard et garde la sortie de l’assertion en échec. Demande à Claude de corriger le code source en gardant le test tel quel. Relance la même commande, puis /game-review S2-2.",
+      "acceptanceCriteria": [
+        "Le nouveau cas vérifie l’instant transmis à reserverCreneau pour une réservation à 19 h à Paris en septembre.",
+        "Le nouveau cas échoue sur le code préparé à cause de l’heure et passe sur le code corrigé. Le test d’origine passe également.",
+        "Le correctif conserve l’heure choisie à Paris quel que soit le fuseau du serveur."
+      ],
+      "deliverables": [
+        "Le test de régression et le correctif sur la branche affaire-02/retard."
+      ],
+      "words": [
+        "ALIBI",
+        "MIROIR",
+        "TABAC"
+      ]
+    },
+    {
+      "id": "S2-3",
+      "level": 3,
+      "title": "38 couverts sur une table de 3",
+      "type": "bug",
+      "context": "« Ma facture d'octobre compte 38 couverts pour une table de 3. Mon serveur a tapé 38 au lieu de 3, et votre site l'a accepté. Je paie 2,50 € par couvert. » (gérant d'un restaurant partenaire)",
+      "todo": "Passe sur affaire-02/couverts dans ton dépôt et choisis une borne : capacité de salle, réservés + 2, ou confirmation au-delà des réservés. Prépare une phrase qui indique la règle choisie et sa raison. Écris le test de borne et vois son assertion échouer. Commite le test seul. Corrige le code, relance le même test et commite le correctif quand il passe. Envoie /game-review S2-3 suivi de ta phrase depuis affaire-02/couverts.",
+      "acceptanceCriteria": [
+        "Le message de relecture indique la règle choisie et sa raison.",
+        "Le premier commit ajoute le test seul. Le test couvre les deux côtés de la borne et, si cette option est choisie, les cas avec et sans confirmation.",
+        "Le même test échoue sur une assertion avant le correctif et passe après. Le fichier de test reste identique entre les deux commits.",
+        "Le correctif applique la règle choisie. Si elle demande confirmation, l’action l’exige et le formulaire la transmet."
+      ],
+      "deliverables": [
+        "Branche affaire-02/couverts avec un commit de test puis un commit de correctif.",
+        "Une phrase de décision dans la conversation de relecture Claude Code."
+      ],
+      "prepared": {
+        "branch": "origin/affaire-02/couverts",
+        "stub": "src/lib/signalement-bornes.ts (couvertsServisMaximum renvoie l'infini, déjà branché dans marquerReservation)"
+      },
+      "words": [
+        "LIASSE",
+        "REVERBERE",
+        "GABARDINE"
+      ]
+    }
+  ],
+  "note": "Case 2 has three levels, each with its own password, and no A/B variant: 1 read the green booking test on affaire-02/retard, 2 add the missing timing assertion and fix the booking delay on the same branch, 3 bound the covers served, test first then fix, on the prepared branch affaire-02/couverts. The HQ page unlocks level N+1 once a password for level N is entered (a slate password counts). Each level is reviewed and ranked on its own."
+}

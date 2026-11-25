@@ -1,8 +1,10 @@
 # Spoon City — how to play
 
-Spoon City is the noir game wrapped around the Product Building training. Session 1 is **« Affaire N° 1 · Les Clés »**: Git and code review on this repository. Case 1 has **three levels, each with its own password**: level 1, investigate the history; level 2, read Marc Ottavi's unfinished branch in a second worktree; level 3, fix the bug and merge Marc's branch, conflict included. At level 1 you **pick a case and keep it**: A « Pourquoi 100 couverts ? » (`S1-1A`, `S1-2A`, `S1-3A`) or B « L'année qui retarde » (`S1-1B`, `S1-2B`, `S1-3B`). The HQ page unlocks the next level once you enter the previous level's password. **The backlog and your progress live on the HQ page: https://artifacts.hymalab.com/hymaia-product-builders/spoon-city-hq/** (sign in with your hymaia.com address). The acceptance criteria are also in [`case-01.json`](case-01.json), and `pnpm game status` lists the items.
+Spoon City is the noir game wrapped around the Product Building training. Session 1 is **« Affaire N° 1 · Les Clés »**: Git and code review on this repository. Case 1 has **three levels, each with its own password**: level 1, investigate the history; level 2, read Marc Ottavi's unfinished branch in a second worktree; level 3, fix the bug and merge Marc's branch, conflict included. At level 1 you **pick a case and keep it**: A « Pourquoi 100 couverts ? » (`S1-1A`, `S1-2A`, `S1-3A`) or B « L'année qui retarde » (`S1-1B`, `S1-2B`, `S1-3B`). The HQ page unlocks the next level once you enter the previous level's password. **The backlog and your progress live on the HQ page: https://artifacts.hymalab.com/hymaia-product-builders/spoon-city-hq/** (sign in with your hymaia.com address). The acceptance criteria are also in [`case-01.json`](case-01.json) and [`case-02.json`](case-02.json), and `pnpm game status` lists the items of every case.
 
-## Play a level
+Session 2 is **« Affaire N° 2 · Faux Témoins »**: testing. Three levels, no A/B choice: `S2-1` « La visite des tests » (read the green booking test), `S2-2` « Les faux témoins » (reproduce and fix the two-hour booking delay), `S2-3` « 38 couverts sur une table de 3 » (choose a bound, test first, then the fix, on the prepared branch `affaire-02/couverts`).
+
+## Play a level · case 1
 
 0. **Clone your own repo**, generated for you from this template: `gh repo clone thespoon-reloaded-org/the-spoon-<first-name>`. To do the fix, open Claude Code inside it and run `/installer-poste` (Node, pnpm, Postgres, demo data), then `nvm use`. The investigation only needs git. Your session-1 clone of the shared `the-spoon` repo is no longer needed: work in your own.
 1. **Pick a case** on the HQ page: A or B. You keep it for the three levels.
@@ -24,12 +26,21 @@ Spoon City is the noir game wrapped around the Product Building training. Sessio
 
 One level per review. Come back after improving: a new review gives a new password, and the best one counts.
 
+## Play a level · case 2
+
+Fetch the exercise branches, switch to `affaire-02/retard` in your checkout and run `pnpm install`.
+
+1. **Level 1 · The test tour.** Run `TZ=UTC pnpm vitest run reservation-retard`. Read the green test in `src/lib/reservation-retard.test.ts` and send two sentences with `/game-review S2-1`. Explain what the test checks and what it misses about the booking delay.
+2. **Level 2 · The false witnesses.** Add the missing timing assertion and verify that it fails with the prepared source. Fix the source, run the same test file again and send `/game-review S2-2` from `affaire-02/retard`.
+3. **Level 3 · 38 covers.** Save any work on the delay branch and switch to `affaire-02/couverts` in the same checkout. Prepare a sentence giving your chosen rule and reason. Commit the boundary test after it fails on the prepared code, then commit the fix after the same test passes. Run `/game-review S2-3` with your sentence on the covers branch. The review checks both commits and the behavior.
+
 ## Passwords
 
 Format `WORD1-WORD2-WORD3-RC`: three noir words that identify the item, the rank digit `R` (S=4, A=3, B=2, C=1, slate=0) and a check digit `C`.
 
 ```bash
 pnpm game password S1-1A --rank A    # what the skill runs for you
+pnpm game password S2-1 --rank A
 pnpm game verify PLUIE-ADDITION-NEON-38
 pnpm game status --json              # --json works on every command
 ```
